@@ -1,0 +1,208 @@
+.submit-page {
+  padding: 32px 0 80px;
+  min-height: calc(100vh - var(--header-h));
+  background: var(--gray-50);
+}
+
+.back-btn {
+  margin-bottom: 24px;
+}
+
+.submit-header {
+  margin-bottom: 32px;
+}
+
+.submit-mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 4px;
+  max-width: 460px;
+}
+
+.mode-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  background: transparent;
+  color: var(--gray-500);
+  transition: all 0.2s var(--ease);
+  border: none;
+  cursor: pointer;
+}
+
+.mode-btn:hover {
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+
+.mode-btn.active {
+  background: var(--navy);
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.email-parse-section {
+  max-width: 640px;
+}
+
+.email-box {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.email-textarea {
+  width: 100%;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 14px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  resize: vertical;
+  margin: 12px 0 16px;
+  min-height: 200px;
+  line-height: 1.6;
+  color: var(--gray-900);
+  background: var(--gray-50);
+}
+
+.email-textarea:focus {
+  border-color: var(--color-green-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.booking-form {
+  max-width: 800px;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group.full {
+  grid-column: 1 / -1;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-900);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  padding: 10px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--gray-900);
+  transition: all 0.2s var(--ease);
+  background: var(--white);
+}
+
+.form-input:focus {
+  border-color: var(--color-green-500);
+  box-shadow: var(--shadow-focus);
+}
+
+.form-input::placeholder {
+  color: var(--gray-400);
+}
+
+.form-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--navy-50);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--gray-600);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.form-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--navy);
+}
+
+.hotel-autocomplete { position: relative; }
+.hotel-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+  list-style: none;
+  margin-top: 4px;
+  padding: 0;
+}
+.hotel-suggestions li {
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-100);
+}
+.hotel-suggestions li:hover { background: var(--gray-50); }
+.hotel-suggestions li:last-child { border-bottom: none; }
+.hs-name { font-weight: 600; font-size: 14px; color: var(--gray-900); }
+.hs-dest { font-size: 12px; color: var(--gray-400); }
+
+.submit-btn {
+  width: 100%;
+}
+
+.loading-pulse {
+  animation: pulse-dot 1.5s infinite;
+}
+
+@media (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .booking-form {
+    padding: 20px;
+  }
+  .submit-mode-toggle {
+    max-width: 100%;
+  }
+}

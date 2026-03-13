@@ -1,0 +1,829 @@
+{
+  "meta": {
+    "name": "ResDrop Component Library",
+    "version": "1.0.0",
+    "totalComponents": 30,
+    "designPhilosophy": "Every pixel serves a purpose. Remove until it breaks, then add one thing back.",
+    "figmaLibrary": "ResDrop / Components"
+  },
+
+  "components": [
+
+    {
+      "id": 1,
+      "name": "Button",
+      "category": "Action",
+      "figmaPath": "Components / Action / Button",
+      "description": "Primary action trigger. Uses bold green to command attention against white surfaces. Generous padding for tap targets.",
+      "variants": ["primary", "secondary", "ghost", "danger", "brand-inverse"],
+      "sizes": ["sm|32px", "md|40px", "lg|48px", "xl|56px"],
+      "states": {
+        "default": { "cursor": "pointer" },
+        "hover": { "transform": "translateY(-1px)", "shadow": "shadow-md", "bg": "lighter shade" },
+        "active": { "transform": "translateY(0)", "shadow": "shadow-xs", "bg": "darker shade" },
+        "focus": { "outline": "2px solid green-500", "outlineOffset": "2px" },
+        "disabled": { "opacity": 1, "bg": "neutral-100", "text": "neutral-400", "cursor": "not-allowed" },
+        "loading": { "icon": "spinner replaces icon or label", "pointer-events": "none" }
+      },
+      "anatomy": ["leading-icon (optional)", "label", "trailing-icon (optional)", "spinner (loading state)"],
+      "specs": {
+        "borderRadius": "8px",
+        "fontWeight": 600,
+        "letterSpacing": "-0.01em",
+        "minWidth": "auto (sm) | 120px (md+)",
+        "iconGap": "6px (sm) | 8px (md+)",
+        "transitionProperty": "all",
+        "transitionDuration": "200ms",
+        "transitionEasing": "ease-default"
+      },
+      "accessibility": {
+        "role": "button",
+        "ariaLabel": "Required when icon-only",
+        "ariaDisabled": "true when disabled (prefer over disabled attribute for screen readers)",
+        "keyboardTrigger": "Enter or Space",
+        "contrastRatio": "4.5:1 minimum (text on bg)"
+      },
+      "usage": {
+        "do": ["One primary button per section", "Verb-first labels: 'Verificar Precos', 'Reservar Agora'", "Use loading state for async actions"],
+        "dont": ["Multiple primary buttons competing", "Vague labels like 'Clique aqui'", "Disable without tooltip explaining why"]
+      }
+    },
+
+    {
+      "id": 2,
+      "name": "IconButton",
+      "category": "Action",
+      "figmaPath": "Components / Action / IconButton",
+      "description": "Square button containing only an icon. For compact actions in toolbars, cards, and table rows.",
+      "variants": ["primary", "secondary", "ghost", "danger"],
+      "sizes": ["sm|28px", "md|36px", "lg|44px"],
+      "states": {
+        "default": {},
+        "hover": { "bg": "subtle fill appears" },
+        "active": { "bg": "slightly darker" },
+        "focus": { "outline": "2px solid green-500" },
+        "disabled": { "opacity": 0.4 }
+      },
+      "specs": {
+        "borderRadius": "8px",
+        "aspectRatio": "1:1",
+        "iconSize": "14px (sm) | 18px (md) | 22px (lg)"
+      },
+      "accessibility": {
+        "ariaLabel": "REQUIRED — must describe action",
+        "title": "Show tooltip on hover"
+      }
+    },
+
+    {
+      "id": 3,
+      "name": "Input",
+      "category": "Form",
+      "figmaPath": "Components / Form / Input",
+      "description": "Single-line text input. Clean border with generous focus ring. Supports prefix/suffix icons and inline validation.",
+      "variants": ["text", "email", "password", "search", "number", "date", "tel", "url"],
+      "sizes": ["sm|32px", "md|40px", "lg|48px"],
+      "states": {
+        "empty": { "border": "neutral-200", "placeholder": "neutral-400" },
+        "filled": { "border": "neutral-200", "text": "neutral-900" },
+        "hover": { "border": "neutral-300" },
+        "focus": { "border": "green-500", "shadow": "focus ring 3px green-500/30" },
+        "error": { "border": "red-500", "shadow": "focus ring 3px red-500/20", "helperText": "red-500" },
+        "success": { "border": "green-500", "icon": "checkmark green-600" },
+        "disabled": { "bg": "neutral-50", "text": "neutral-400", "cursor": "not-allowed" },
+        "readonly": { "bg": "neutral-50", "border": "neutral-200" }
+      },
+      "anatomy": ["label (above)", "leading-icon (optional)", "input field", "trailing-icon (optional, clear/toggle)", "helper-text / error-message (below)", "character-count (optional)"],
+      "specs": {
+        "borderWidth": "1px",
+        "borderRadius": "8px",
+        "labelMarginBottom": "6px",
+        "labelFontSize": "14px",
+        "labelFontWeight": 500,
+        "helperMarginTop": "4px",
+        "helperFontSize": "13px"
+      },
+      "accessibility": {
+        "labelAssociation": "htmlFor + id",
+        "ariaDescribedby": "Points to helper/error text",
+        "ariaInvalid": "true on error state",
+        "ariaRequired": "true for required fields",
+        "autocomplete": "Use appropriate values"
+      }
+    },
+
+    {
+      "id": 4,
+      "name": "Select",
+      "category": "Form",
+      "figmaPath": "Components / Form / Select",
+      "description": "Dropdown selector styled to match Input. Chevron indicator aligned right. Custom dropdown panel.",
+      "sizes": ["sm|32px", "md|40px", "lg|48px"],
+      "states": {
+        "closed": { "border": "neutral-200" },
+        "open": { "border": "green-500", "dropdown": "shadow-lg, radius-md" },
+        "hover": { "border": "neutral-300" },
+        "focus": { "border": "green-500", "shadow": "focus ring" },
+        "error": { "border": "red-500" },
+        "disabled": { "bg": "neutral-50", "opacity": 1, "text": "neutral-400" }
+      },
+      "anatomy": ["label", "trigger button", "chevron icon", "dropdown panel", "option items", "option group headers"],
+      "specs": {
+        "dropdownMaxHeight": "280px",
+        "optionHeight": "36px (sm) | 40px (md)",
+        "optionPadding": "8px 12px",
+        "dropdownOffset": "4px below trigger"
+      }
+    },
+
+    {
+      "id": 5,
+      "name": "Textarea",
+      "category": "Form",
+      "figmaPath": "Components / Form / Textarea",
+      "description": "Multi-line text input. Resize handle. Same visual language as Input.",
+      "states": ["empty", "filled", "hover", "focus", "error", "disabled", "readonly"],
+      "specs": {
+        "minHeight": "80px",
+        "defaultRows": 3,
+        "padding": "12px",
+        "resize": "vertical",
+        "borderRadius": "8px",
+        "characterCountPosition": "bottom-right"
+      }
+    },
+
+    {
+      "id": 6,
+      "name": "Checkbox",
+      "category": "Form",
+      "figmaPath": "Components / Form / Checkbox",
+      "description": "Binary toggle with animated checkmark. Green fill when checked.",
+      "states": {
+        "unchecked": { "border": "neutral-300", "bg": "white" },
+        "checked": { "bg": "green-700", "border": "green-700", "icon": "white checkmark" },
+        "indeterminate": { "bg": "green-700", "icon": "white dash" },
+        "hover": { "border": "green-500" },
+        "focus": { "outline": "focus ring" },
+        "disabled": { "opacity": 0.5 },
+        "error": { "border": "red-500" }
+      },
+      "specs": {
+        "size": "18px",
+        "borderRadius": "4px",
+        "borderWidth": "1.5px",
+        "labelGap": "8px",
+        "checkmarkStrokeWidth": "2px",
+        "animation": "scale-in 100ms ease-spring"
+      }
+    },
+
+    {
+      "id": 7,
+      "name": "Radio",
+      "category": "Form",
+      "figmaPath": "Components / Form / Radio",
+      "description": "Single-choice selector within a group. Dot indicator.",
+      "states": {
+        "unselected": { "border": "neutral-300" },
+        "selected": { "border": "green-700", "dot": "green-700" },
+        "hover": { "border": "green-500" },
+        "focus": { "outline": "focus ring" },
+        "disabled": { "opacity": 0.5 }
+      },
+      "specs": {
+        "outerSize": "18px",
+        "innerDotSize": "8px",
+        "borderWidth": "1.5px",
+        "labelGap": "8px",
+        "groupGap": "12px"
+      }
+    },
+
+    {
+      "id": 8,
+      "name": "Switch",
+      "category": "Form",
+      "figmaPath": "Components / Form / Switch",
+      "description": "Toggle for on/off states. Pill track with sliding thumb. No label on the control itself.",
+      "states": {
+        "off": { "track": "neutral-300", "thumb": "white" },
+        "on": { "track": "green-600", "thumb": "white" },
+        "hover": { "thumb": "slight scale 1.05" },
+        "focus": { "outline": "focus ring around track" },
+        "disabled-off": { "track": "neutral-200", "thumb": "neutral-100" },
+        "disabled-on": { "track": "green-200", "thumb": "white" }
+      },
+      "specs": {
+        "trackWidth": "44px",
+        "trackHeight": "24px",
+        "thumbSize": "20px",
+        "thumbOffset": "2px",
+        "transition": "background-color 200ms ease, transform 200ms ease-spring"
+      }
+    },
+
+    {
+      "id": 9,
+      "name": "Badge",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / Badge",
+      "description": "Compact label for status, category, or count. Pill shape. Multiple semantic variants.",
+      "variants": ["success", "warning", "error", "info", "neutral", "brand"],
+      "sizes": ["sm|20px", "md|24px"],
+      "states": {
+        "default": {},
+        "withDot": { "description": "leading colored dot indicator" },
+        "withIcon": { "description": "leading icon 12px" },
+        "withClose": { "description": "trailing X button for removable badges" }
+      },
+      "specs": {
+        "borderRadius": "9999px",
+        "paddingX": "8px (sm) | 10px (md)",
+        "paddingY": "2px (sm) | 3px (md)",
+        "fontSize": "11px (sm) | 12px (md)",
+        "fontWeight": 600,
+        "letterSpacing": "0.01em",
+        "dotSize": "6px",
+        "maxWidth": "200px",
+        "textOverflow": "ellipsis"
+      }
+    },
+
+    {
+      "id": 10,
+      "name": "Alert",
+      "category": "Feedback",
+      "figmaPath": "Components / Feedback / Alert",
+      "description": "Inline notification banner. Full-width or card-width. Colored left border for hierarchy.",
+      "variants": ["success", "warning", "error", "info"],
+      "states": {
+        "default": {},
+        "dismissible": { "description": "close button top-right" },
+        "withAction": { "description": "action link or button" }
+      },
+      "anatomy": ["colored left border (4px)", "icon", "title (optional)", "description", "action (optional)", "close button (optional)"],
+      "specs": {
+        "borderRadius": "8px",
+        "padding": "16px",
+        "leftBorderWidth": "4px",
+        "iconSize": "18px",
+        "iconGap": "12px",
+        "titleFontSize": "14px",
+        "titleFontWeight": 600,
+        "descFontSize": "14px"
+      }
+    },
+
+    {
+      "id": 11,
+      "name": "Toast",
+      "category": "Feedback",
+      "figmaPath": "Components / Feedback / Toast",
+      "description": "Transient notification that auto-dismisses. Appears top-right. Stacks vertically.",
+      "variants": ["success", "warning", "error", "info", "neutral"],
+      "states": {
+        "entering": { "animation": "slide-in-right 300ms ease-out" },
+        "visible": {},
+        "exiting": { "animation": "fade-out + slide-right 200ms ease-in" }
+      },
+      "specs": {
+        "maxWidth": "420px",
+        "minWidth": "300px",
+        "padding": "16px",
+        "borderRadius": "12px",
+        "shadow": "shadow-lg",
+        "stackGap": "8px",
+        "defaultDuration": "5000ms",
+        "position": "fixed top-right, 24px from edges"
+      }
+    },
+
+    {
+      "id": 12,
+      "name": "Card",
+      "category": "Layout",
+      "figmaPath": "Components / Layout / Card",
+      "description": "Content container with subtle border and shadow. The primary building block for dashboard widgets.",
+      "variants": ["default", "elevated", "outlined", "interactive", "featured"],
+      "states": {
+        "default": { "shadow": "shadow-sm", "border": "neutral-200" },
+        "hover (interactive)": { "shadow": "shadow-md", "transform": "translateY(-2px)" },
+        "active (interactive)": { "shadow": "shadow-sm", "transform": "translateY(0)" },
+        "selected": { "border": "green-500", "bg": "green-50" }
+      },
+      "specs": {
+        "borderRadius": "16px",
+        "borderWidth": "1px",
+        "padding": "24px",
+        "gap": "16px between card elements",
+        "headerFontSize": "18px or 20px",
+        "transition": "shadow 300ms ease, transform 300ms ease"
+      }
+    },
+
+    {
+      "id": 13,
+      "name": "BookingCard",
+      "category": "Domain",
+      "figmaPath": "Components / Domain / BookingCard",
+      "description": "Dashboard card showing a single monitored booking. Hotel name, dates, price status, action button.",
+      "states": {
+        "monitoring": { "status": "blue dot", "message": "Monitorando..." },
+        "savings_found": { "status": "green dot + savings badge", "accentBorder": "green-500 left" },
+        "price_increase": { "status": "red dot", "message": "Preco subiu" },
+        "price_same": { "status": "neutral dot", "message": "Preco estavel" },
+        "expired": { "opacity": 0.7, "status": "gray" },
+        "loading": { "description": "update button shows spinner" },
+        "success": { "description": "update button shows checkmark, green" },
+        "error": { "description": "update button shows X, red" }
+      },
+      "anatomy": ["hotel name (h4, semibold)", "destination (body-sm, secondary)", "date range (body-sm)", "original price (body, strikethrough if savings)", "best price (h3, green-700 if savings)", "savings badge (green pill)", "status indicator (dot + text)", "update button (secondary, sm)", "more menu (icon button)"],
+      "specs": {
+        "minHeight": "160px",
+        "padding": "20px",
+        "borderRadius": "16px",
+        "savingsBorderLeft": "3px solid green-500",
+        "priceFont": "tabular-nums for alignment"
+      }
+    },
+
+    {
+      "id": 14,
+      "name": "HotelCard",
+      "category": "Domain",
+      "figmaPath": "Components / Domain / HotelCard",
+      "description": "Search result card showing a hotel with vendor, price, rating, and rebook CTA.",
+      "states": {
+        "default": {},
+        "hover": { "shadow": "shadow-md", "lift": "-2px" },
+        "bestPrice": { "description": "green accent border, BEST PRICE badge" },
+        "official": { "description": "DIRETO badge, muted green bg" }
+      },
+      "anatomy": ["vendor logo/emoji", "vendor name", "hotel name", "per-night price", "total price", "savings amount (if any)", "savings percent badge", "rating stars", "review count", "rebook/link button"],
+      "specs": {
+        "padding": "16px",
+        "borderRadius": "12px",
+        "vendorLogoSize": "24px",
+        "priceSize": "20px semibold",
+        "savingsColor": "green-700"
+      }
+    },
+
+    {
+      "id": 15,
+      "name": "PriceDisplay",
+      "category": "Domain",
+      "figmaPath": "Components / Domain / PriceDisplay",
+      "description": "Formatted currency display with optional strikethrough original, savings callout, and per-night toggle.",
+      "variants": ["current", "comparison", "savings-highlight", "increase"],
+      "states": {
+        "savings": { "originalPrice": "strikethrough neutral-500", "currentPrice": "green-700 bold", "savingsTag": "green badge" },
+        "increase": { "currentPrice": "red-500", "arrow": "up red" },
+        "stable": { "currentPrice": "neutral-900" }
+      },
+      "anatomy": ["currency symbol (R$)", "amount (tabular-nums)", "per-night indicator (optional)", "original price (strikethrough, optional)", "savings amount / percent (optional)", "direction arrow (optional)"],
+      "specs": {
+        "fontVariantNumeric": "tabular-nums",
+        "currencySize": "0.7em relative",
+        "strikeWeight": "1.5px",
+        "strikeColor": "neutral-500"
+      }
+    },
+
+    {
+      "id": 16,
+      "name": "SavingsBadge",
+      "category": "Domain",
+      "figmaPath": "Components / Domain / SavingsBadge",
+      "description": "Bold green badge showing savings amount. The hero visual when a price drop is found. Can pulse/glow.",
+      "variants": ["standard", "large", "animated"],
+      "states": {
+        "default": { "bg": "green-700", "text": "white" },
+        "large": { "fontSize": "18px", "padding": "8px 16px" },
+        "animated": { "glow animation": "savings-glow 2s infinite" },
+        "inactive": { "bg": "neutral-200", "text": "neutral-600" }
+      },
+      "specs": {
+        "standardPadding": "4px 10px",
+        "largePadding": "8px 16px",
+        "borderRadius": "8px",
+        "fontWeight": 700,
+        "letterSpacing": "-0.01em"
+      }
+    },
+
+    {
+      "id": 17,
+      "name": "StatusIndicator",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / StatusIndicator",
+      "description": "Colored dot with text label showing booking monitoring status.",
+      "variants": ["dot-only", "dot-label", "pill"],
+      "statusValues": {
+        "monitoring": { "color": "blue-500", "label": "Monitorando" },
+        "savings_found": { "color": "green-600", "label": "Economia encontrada" },
+        "booked": { "color": "green-500", "label": "Reservado" },
+        "price_increase": { "color": "red-500", "label": "Preco subiu" },
+        "price_same": { "color": "amber-500", "label": "Preco estavel" },
+        "expired": { "color": "neutral-400", "label": "Expirado" }
+      },
+      "specs": {
+        "dotSize": "8px",
+        "dotRadius": "full (circle)",
+        "labelGap": "6px",
+        "labelFontSize": "13px",
+        "labelFontWeight": 500,
+        "pulseAnimation": "for 'monitoring' status"
+      }
+    },
+
+    {
+      "id": 18,
+      "name": "Timeline",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / Timeline",
+      "description": "Vertical timeline for price history and alerts. Colored dots indicate event type.",
+      "anatomy": ["vertical line (neutral-200, 1px)", "event dot (colored by type)", "timestamp (caption)", "event description (body-sm)", "price change (if applicable)"],
+      "eventTypes": {
+        "price_drop": { "dot": "green-600", "icon": "arrow-down" },
+        "price_increase": { "dot": "red-500", "icon": "arrow-up" },
+        "price_same": { "dot": "amber-500", "icon": "minus" },
+        "booking_created": { "dot": "blue-500", "icon": "plus" },
+        "booking_edited": { "dot": "neutral-600", "icon": "pencil" }
+      },
+      "specs": {
+        "lineWidth": "1px",
+        "lineColor": "neutral-200",
+        "dotSize": "10px",
+        "dotBorder": "2px solid white",
+        "contentGap": "12px from dot",
+        "itemGap": "24px between events",
+        "timestampSize": "12px",
+        "maxHeight": "400px (scrollable)"
+      }
+    },
+
+    {
+      "id": 19,
+      "name": "Modal",
+      "category": "Overlay",
+      "figmaPath": "Components / Overlay / Modal",
+      "description": "Centered dialog overlaying content. Backdrop blur + dim. For confirmations, forms, details.",
+      "variants": ["default", "compact", "fullscreen-mobile"],
+      "states": {
+        "entering": { "animation": "backdrop fade-in 200ms, content scale-in 300ms ease-decelerate" },
+        "visible": {},
+        "exiting": { "animation": "backdrop fade-out 150ms, content scale-out 200ms ease-accelerate" }
+      },
+      "anatomy": ["overlay backdrop", "modal container", "header (title + close button)", "body (scrollable)", "footer (actions, right-aligned)"],
+      "specs": {
+        "maxWidth": "560px",
+        "maxHeight": "85vh",
+        "borderRadius": "20px",
+        "padding": "32px",
+        "headerGap": "24px",
+        "footerGap": "16px",
+        "footerBorderTop": "1px neutral-200",
+        "backdropColor": "rgba(13,15,17,0.6)",
+        "backdropBlur": "4px"
+      },
+      "accessibility": {
+        "role": "dialog",
+        "ariaModal": true,
+        "ariaLabelledby": "modal title",
+        "focusTrap": "Tab stays within modal",
+        "escapeClose": true,
+        "returnFocus": "to trigger element on close"
+      }
+    },
+
+    {
+      "id": 20,
+      "name": "DropdownMenu",
+      "category": "Overlay",
+      "figmaPath": "Components / Overlay / DropdownMenu",
+      "description": "Floating action menu. Triggered by button click. Contains action items with icons.",
+      "states": {
+        "closed": {},
+        "open": { "animation": "scale-in from trigger, 200ms ease-out" },
+        "itemHover": { "bg": "neutral-50" },
+        "itemActive": { "bg": "neutral-100" },
+        "itemDisabled": { "opacity": 0.5, "pointer-events": "none" }
+      },
+      "anatomy": ["trigger button", "menu panel", "menu items (icon + label)", "dividers", "menu groups"],
+      "specs": {
+        "minWidth": "180px",
+        "maxWidth": "300px",
+        "padding": "4px",
+        "itemHeight": "36px",
+        "itemPadding": "0 12px",
+        "itemRadius": "6px",
+        "itemIconSize": "16px",
+        "itemIconGap": "8px",
+        "borderRadius": "12px",
+        "shadow": "shadow-lg",
+        "offset": "4px from trigger"
+      }
+    },
+
+    {
+      "id": 21,
+      "name": "Tooltip",
+      "category": "Overlay",
+      "figmaPath": "Components / Overlay / Tooltip",
+      "description": "Small text popover on hover/focus. Dark bg, white text. Points to trigger with arrow.",
+      "variants": ["top", "bottom", "left", "right"],
+      "states": {
+        "hidden": {},
+        "entering": { "animation": "fade-up 100ms ease-out" },
+        "visible": {},
+        "exiting": { "animation": "fade-out 75ms ease-in" }
+      },
+      "specs": {
+        "bg": "neutral-900",
+        "text": "white",
+        "fontSize": "12px",
+        "fontWeight": 500,
+        "paddingX": "12px",
+        "paddingY": "6px",
+        "borderRadius": "8px",
+        "maxWidth": "240px",
+        "arrowSize": "6px",
+        "offset": "8px from trigger",
+        "delay": "300ms before show, 0ms before hide"
+      },
+      "accessibility": {
+        "role": "tooltip",
+        "ariaDescribedby": "on trigger element",
+        "showOnFocus": true,
+        "neverCriticalInfo": "Don't put essential info only in tooltips"
+      }
+    },
+
+    {
+      "id": 22,
+      "name": "Navbar",
+      "category": "Navigation",
+      "figmaPath": "Components / Navigation / Navbar",
+      "description": "Top navigation bar. Logo left, nav links center, user actions right. Sticky on scroll.",
+      "variants": ["transparent (hero)", "solid (scrolled)", "dark (inverse)"],
+      "states": {
+        "top": { "bg": "transparent or white", "shadow": "none" },
+        "scrolled": { "bg": "white/95 backdrop-blur", "shadow": "shadow-xs", "borderBottom": "neutral-200" },
+        "mobileOpen": { "description": "full-screen overlay menu" }
+      },
+      "anatomy": ["logo", "nav links (desktop)", "user avatar/menu", "mobile hamburger", "mobile full-screen nav"],
+      "specs": {
+        "height": "64px",
+        "paddingX": "24px",
+        "logoHeight": "28px",
+        "linkFontSize": "14px",
+        "linkFontWeight": 500,
+        "linkGap": "32px",
+        "activeIndicator": "2px bottom border green-700",
+        "mobileBreakpoint": "768px",
+        "transition": "background 200ms, shadow 200ms, border 200ms"
+      }
+    },
+
+    {
+      "id": 23,
+      "name": "TabBar",
+      "category": "Navigation",
+      "figmaPath": "Components / Navigation / TabBar",
+      "description": "Horizontal tab selector for switching views. Underline style for minimal look.",
+      "variants": ["underline", "pill", "segmented"],
+      "states": {
+        "default": { "text": "neutral-600" },
+        "hover": { "text": "neutral-900" },
+        "active": { "text": "green-700", "indicator": "2px bottom border green-700" },
+        "disabled": { "text": "neutral-400" }
+      },
+      "specs": {
+        "height": "44px",
+        "tabPadding": "0 16px",
+        "tabFontSize": "14px",
+        "tabFontWeight": "500 default, 600 active",
+        "indicatorHeight": "2px",
+        "indicatorColor": "green-700",
+        "indicatorTransition": "left + width, 200ms ease-in-out",
+        "gap": "0 (tabs are flush)"
+      }
+    },
+
+    {
+      "id": 24,
+      "name": "Breadcrumb",
+      "category": "Navigation",
+      "figmaPath": "Components / Navigation / Breadcrumb",
+      "description": "Path indicator for nested pages. Chevron separator.",
+      "states": {
+        "link": { "text": "neutral-600", "hover": "green-700", "cursor": "pointer" },
+        "current": { "text": "neutral-900", "fontWeight": 600, "cursor": "default" }
+      },
+      "specs": {
+        "fontSize": "14px",
+        "separatorIcon": "chevron-right 12px",
+        "separatorColor": "neutral-400",
+        "gap": "8px",
+        "truncate": "middle items collapse to '...' when >4 levels"
+      }
+    },
+
+    {
+      "id": 25,
+      "name": "Avatar",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / Avatar",
+      "description": "User representation. Shows image, initials fallback, or icon. Green brand tint for initials.",
+      "variants": ["image", "initials", "icon"],
+      "sizes": ["xs|24px", "sm|32px", "md|40px", "lg|48px", "xl|64px"],
+      "states": {
+        "default": {},
+        "withBadge": { "description": "small dot indicator at bottom-right" },
+        "group": { "description": "overlapping stack with +N counter" }
+      },
+      "specs": {
+        "borderRadius": "full (circle)",
+        "initialsBg": "green-100",
+        "initialsText": "green-800",
+        "initialsFontWeight": 600,
+        "borderWidth": "2px white (when in group)",
+        "badgeSize": "25% of avatar size",
+        "groupOverlap": "-8px"
+      }
+    },
+
+    {
+      "id": 26,
+      "name": "Table",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / Table",
+      "description": "Data table for admin views. Sortable headers, hover rows, selection checkboxes optional.",
+      "states": {
+        "default": {},
+        "rowHover": { "bg": "neutral-50" },
+        "rowSelected": { "bg": "green-50", "checkbox": "checked" },
+        "headerSorted": { "icon": "arrow indicator", "text": "neutral-900 semibold" },
+        "loading": { "description": "skeleton rows" },
+        "empty": { "description": "centered empty state illustration + message" }
+      },
+      "anatomy": ["header row", "body rows", "cells (text, badge, action, price)", "sort indicators", "selection checkboxes", "pagination footer"],
+      "specs": {
+        "headerHeight": "44px",
+        "headerBg": "neutral-50",
+        "headerFontSize": "12px",
+        "headerFontWeight": 600,
+        "headerLetterSpacing": "0.02em",
+        "headerTextTransform": "uppercase",
+        "rowHeight": "52px",
+        "cellPaddingX": "16px",
+        "cellPaddingY": "12px",
+        "borderBottom": "1px neutral-200",
+        "borderRadius": "12px (outer container)",
+        "stickyHeader": true
+      }
+    },
+
+    {
+      "id": 27,
+      "name": "Pagination",
+      "category": "Navigation",
+      "figmaPath": "Components / Navigation / Pagination",
+      "description": "Page navigation for tables and lists. Numbered pages with prev/next.",
+      "states": {
+        "default": { "text": "neutral-600" },
+        "hover": { "bg": "neutral-50" },
+        "active": { "bg": "green-700", "text": "white" },
+        "disabled": { "opacity": 0.4, "pointer-events": "none" }
+      },
+      "specs": {
+        "itemSize": "36px",
+        "itemRadius": "8px",
+        "itemFontSize": "14px",
+        "gap": "4px",
+        "prevNextPadding": "0 12px"
+      }
+    },
+
+    {
+      "id": 28,
+      "name": "ProgressBar",
+      "category": "Feedback",
+      "figmaPath": "Components / Feedback / ProgressBar",
+      "description": "Horizontal progress indicator. Determinate (percentage) or indeterminate (loading).",
+      "variants": ["determinate", "indeterminate"],
+      "states": {
+        "default": { "fill": "green-500" },
+        "success": { "fill": "green-600" },
+        "warning": { "fill": "amber-500" },
+        "error": { "fill": "red-500" }
+      },
+      "specs": {
+        "height": "6px (default) | 4px (slim) | 8px (thick)",
+        "borderRadius": "full",
+        "trackBg": "neutral-100",
+        "fillTransition": "width 400ms ease-out",
+        "indeterminateAnimation": "shimmer 1.5s infinite"
+      }
+    },
+
+    {
+      "id": 29,
+      "name": "Skeleton",
+      "category": "Feedback",
+      "figmaPath": "Components / Feedback / Skeleton",
+      "description": "Content placeholder while loading. Matches the shape of expected content.",
+      "variants": ["text", "avatar", "card", "table-row", "booking-card"],
+      "specs": {
+        "baseBg": "neutral-100",
+        "shimmerBg": "linear-gradient(90deg, neutral-100 0%, neutral-200 50%, neutral-100 100%)",
+        "shimmerAnimation": "shimmer 1.5s infinite",
+        "borderRadius": "matches content shape — 8px for text, full for avatar, 16px for card",
+        "textHeight": "14px",
+        "textGap": "8px",
+        "textLastWidth": "60%"
+      }
+    },
+
+    {
+      "id": 30,
+      "name": "Divider",
+      "category": "Layout",
+      "figmaPath": "Components / Layout / Divider",
+      "description": "Visual separator between sections. Horizontal or vertical. Optional label.",
+      "variants": ["horizontal", "vertical", "with-label"],
+      "specs": {
+        "color": "neutral-200",
+        "weight": "1px",
+        "spacing": "24px above and below",
+        "labelFontSize": "12px",
+        "labelFontWeight": 500,
+        "labelColor": "neutral-500",
+        "labelPaddingX": "16px",
+        "labelBg": "white (to mask line)"
+      }
+    },
+
+    {
+      "id": "bonus-1",
+      "name": "Chip",
+      "category": "Data Display",
+      "figmaPath": "Components / Data Display / Chip",
+      "description": "Filter or selection tag. Toggleable. Used in filter bars above booking lists.",
+      "states": {
+        "default": { "bg": "white", "border": "neutral-200", "text": "neutral-700" },
+        "selected": { "bg": "green-50", "border": "green-500", "text": "green-800" },
+        "hover": { "border": "neutral-300" },
+        "disabled": { "opacity": 0.5 }
+      },
+      "specs": {
+        "height": "32px",
+        "paddingX": "12px",
+        "borderRadius": "full",
+        "fontSize": "13px",
+        "fontWeight": 500,
+        "iconSize": "14px",
+        "gap": "8px between chips"
+      }
+    },
+
+    {
+      "id": "bonus-2",
+      "name": "EmptyState",
+      "category": "Feedback",
+      "figmaPath": "Components / Feedback / EmptyState",
+      "description": "Shown when a list or section has no data. Illustration, headline, description, CTA.",
+      "anatomy": ["illustration (64px icon or SVG)", "headline (h3)", "description (body-sm, secondary)", "CTA button (primary or secondary)"],
+      "specs": {
+        "maxWidth": "400px",
+        "textAlign": "center",
+        "illustrationSize": "64px",
+        "illustrationColor": "neutral-400",
+        "headlineMarginTop": "16px",
+        "descriptionMarginTop": "8px",
+        "ctaMarginTop": "24px"
+      }
+    },
+
+    {
+      "id": "bonus-3",
+      "name": "PriceHistoryChart",
+      "category": "Domain",
+      "figmaPath": "Components / Domain / PriceHistoryChart",
+      "description": "Horizontal bar chart showing price checks over time. Bars colored by direction. Embedded in BookingDetail.",
+      "anatomy": ["bars (horizontal, proportional width)", "price labels (right-aligned)", "date labels (left)", "reference line (original price, dashed)", "color coding (green = drop, red = increase, neutral = same)"],
+      "specs": {
+        "barHeight": "28px",
+        "barGap": "8px",
+        "barRadius": "4px",
+        "greenBar": "green-500",
+        "redBar": "red-400",
+        "neutralBar": "neutral-300",
+        "referenceLine": "neutral-400 dashed 1px",
+        "fontVariantNumeric": "tabular-nums"
+      }
+    }
+  ]
+}

@@ -1,0 +1,666 @@
+/* ═══════════════════════════════════════════════════════════════
+   ResDrop Design System — CSS Custom Properties
+   Version 1.0.0
+   Brand: Minimal / Bold / Luxury
+   Mode: Light
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── PRIMITIVE: Color Palette ────────────────────────────────── */
+
+:root {
+  /* Green — Brand Primary */
+  --color-green-950: #081C15;
+  --color-green-900: #0F2E1F;
+  --color-green-800: #1B4332;
+  --color-green-700: #2D6A4F;
+  --color-green-600: #40916C;
+  --color-green-500: #52B788;
+  --color-green-400: #74C69D;
+  --color-green-300: #95D5B2;
+  --color-green-200: #B7E4C7;
+  --color-green-100: #D8F3DC;
+  --color-green-50:  #F0FAF4;
+
+  /* Neutral */
+  --color-white:       #FFFFFF;
+  --color-neutral-50:  #FAFBFC;
+  --color-neutral-100: #F1F3F5;
+  --color-neutral-200: #E9ECEF;
+  --color-neutral-300: #DEE2E6;
+  --color-neutral-400: #CED4DA;
+  --color-neutral-500: #ADB5BD;
+  --color-neutral-600: #868E96;
+  --color-neutral-700: #495057;
+  --color-neutral-800: #343A40;
+  --color-neutral-900: #212529;
+  --color-neutral-950: #0D0F11;
+
+  /* Red — Error / Danger */
+  --color-red-50:  #FEF2F2;
+  --color-red-100: #FEE2E2;
+  --color-red-500: #C1292E;
+  --color-red-600: #A3202B;
+  --color-red-700: #8B1A24;
+
+  /* Amber — Warning */
+  --color-amber-50:  #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-500: #D4940A;
+  --color-amber-600: #B8800A;
+  --color-amber-700: #92660C;
+
+  /* Blue — Info */
+  --color-blue-50:  #EFF6FF;
+  --color-blue-100: #DBEAFE;
+  --color-blue-500: #2B6CB0;
+  --color-blue-600: #245EA0;
+  --color-blue-700: #1E4E8C;
+
+
+  /* ─── SEMANTIC: Backgrounds ─────────────────────────────────── */
+
+  --bg-primary:      var(--color-white);
+  --bg-secondary:    var(--color-neutral-50);
+  --bg-tertiary:     var(--color-neutral-100);
+  --bg-inverse:      var(--color-green-900);
+  --bg-brand:        var(--color-green-800);
+  --bg-brand-subtle: var(--color-green-50);
+  --bg-success:      var(--color-green-50);
+  --bg-warning:      var(--color-amber-50);
+  --bg-error:        var(--color-red-50);
+  --bg-info:         var(--color-blue-50);
+  --bg-overlay:      rgba(13, 15, 17, 0.6);
+
+  /* ─── SEMANTIC: Text ────────────────────────────────────────── */
+
+  --text-primary:    var(--color-neutral-900);
+  --text-secondary:  var(--color-neutral-600);
+  --text-tertiary:   var(--color-neutral-500);
+  --text-disabled:   var(--color-neutral-400);
+  --text-inverse:    var(--color-white);
+  --text-brand:      var(--color-green-700);
+  --text-success:    var(--color-green-700);
+  --text-warning:    var(--color-amber-700);
+  --text-error:      var(--color-red-500);
+  --text-info:       var(--color-blue-700);
+  --text-link:       var(--color-green-700);
+  --text-link-hover: var(--color-green-600);
+
+  /* ─── SEMANTIC: Borders ─────────────────────────────────────── */
+
+  --border-primary:   var(--color-neutral-200);
+  --border-secondary: var(--color-neutral-300);
+  --border-focus:     var(--color-green-500);
+  --border-brand:     var(--color-green-700);
+  --border-error:     var(--color-red-500);
+  --border-success:   var(--color-green-500);
+
+  /* ─── SEMANTIC: Icons ───────────────────────────────────────── */
+
+  --icon-primary:   var(--color-neutral-700);
+  --icon-secondary: var(--color-neutral-500);
+  --icon-brand:     var(--color-green-700);
+  --icon-inverse:   var(--color-white);
+  --icon-success:   var(--color-green-600);
+  --icon-warning:   var(--color-amber-500);
+  --icon-error:     var(--color-red-500);
+
+
+  /* ─── PRIMITIVE: Typography ─────────────────────────────────── */
+
+  /* Font Families */
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* Font Weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* Font Sizes */
+  --text-xs:  0.75rem;   /* 12px */
+  --text-sm:  0.875rem;  /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg:  1.125rem;  /* 18px */
+  --text-xl:  1.25rem;   /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 2rem;      /* 32px */
+  --text-4xl: 2.5rem;    /* 40px */
+  --text-5xl: 3rem;      /* 48px */
+  --text-6xl: 3.5rem;    /* 56px */
+  --text-7xl: 4.5rem;    /* 72px */
+
+  /* Line Heights */
+  --leading-none:    1;
+  --leading-tight:   1.1;
+  --leading-snug:    1.25;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose:   1.75;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.03em;
+  --tracking-tight:   -0.02em;
+  --tracking-snug:    -0.01em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.01em;
+  --tracking-wider:   0.02em;
+  --tracking-widest:  0.08em;
+
+
+  /* ─── SEMANTIC: Typography Compositions ─────────────────────── */
+
+  /* Display XL — 72px hero */
+  --type-display-xl-size:    var(--text-7xl);
+  --type-display-xl-leading: var(--leading-tight);
+  --type-display-xl-weight:  var(--weight-bold);
+  --type-display-xl-spacing: var(--tracking-tighter);
+
+  /* Display — 56px sections */
+  --type-display-size:    var(--text-6xl);
+  --type-display-leading: var(--leading-tight);
+  --type-display-weight:  var(--weight-bold);
+  --type-display-spacing: var(--tracking-tight);
+
+  /* H1 — 40px page titles */
+  --type-h1-size:    var(--text-4xl);
+  --type-h1-leading: var(--leading-snug);
+  --type-h1-weight:  var(--weight-bold);
+  --type-h1-spacing: var(--tracking-tight);
+
+  /* H2 — 32px section headings */
+  --type-h2-size:    var(--text-3xl);
+  --type-h2-leading: var(--leading-snug);
+  --type-h2-weight:  var(--weight-semibold);
+  --type-h2-spacing: var(--tracking-snug);
+
+  /* H3 — 24px card headings */
+  --type-h3-size:    var(--text-2xl);
+  --type-h3-leading: var(--leading-snug);
+  --type-h3-weight:  var(--weight-semibold);
+  --type-h3-spacing: var(--tracking-snug);
+
+  /* H4 — 20px widget titles */
+  --type-h4-size:    var(--text-xl);
+  --type-h4-leading: var(--leading-snug);
+  --type-h4-weight:  var(--weight-semibold);
+  --type-h4-spacing: var(--tracking-normal);
+
+  /* Body Large — 18px leads */
+  --type-body-lg-size:    var(--text-lg);
+  --type-body-lg-leading: var(--leading-relaxed);
+  --type-body-lg-weight:  var(--weight-regular);
+  --type-body-lg-spacing: var(--tracking-normal);
+
+  /* Body — 16px default */
+  --type-body-size:    var(--text-base);
+  --type-body-leading: var(--leading-normal);
+  --type-body-weight:  var(--weight-regular);
+  --type-body-spacing: var(--tracking-normal);
+
+  /* Body Small — 14px secondary */
+  --type-body-sm-size:    var(--text-sm);
+  --type-body-sm-leading: var(--leading-normal);
+  --type-body-sm-weight:  var(--weight-regular);
+  --type-body-sm-spacing: var(--tracking-wide);
+
+  /* Caption — 12px labels */
+  --type-caption-size:    var(--text-xs);
+  --type-caption-leading: var(--leading-normal);
+  --type-caption-weight:  var(--weight-medium);
+  --type-caption-spacing: var(--tracking-wider);
+
+  /* Overline — 12px uppercase */
+  --type-overline-size:    var(--text-xs);
+  --type-overline-leading: var(--leading-normal);
+  --type-overline-weight:  var(--weight-semibold);
+  --type-overline-spacing: var(--tracking-widest);
+
+
+  /* ─── PRIMITIVE: Spacing (8px base grid) ────────────────────── */
+
+  --space-0:    0;
+  --space-px:   1px;
+  --space-0-5:  2px;
+  --space-1:    4px;
+  --space-1-5:  6px;
+  --space-2:    8px;
+  --space-3:    12px;
+  --space-4:    16px;
+  --space-5:    20px;
+  --space-6:    24px;
+  --space-8:    32px;
+  --space-10:   40px;
+  --space-12:   48px;
+  --space-16:   64px;
+  --space-20:   80px;
+  --space-24:   96px;
+  --space-32:   128px;
+  --space-40:   160px;
+
+
+  /* ─── PRIMITIVE: Border Radius ──────────────────────────────── */
+
+  --radius-none: 0;
+  --radius-sm:   4px;
+  --radius-base: 8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-2xl:  24px;
+  --radius-full: 9999px;
+
+
+  /* ─── PRIMITIVE: Shadows ────────────────────────────────────── */
+
+  --shadow-xs:    0 1px 2px rgba(13,15,17,0.04);
+  --shadow-sm:    0 1px 3px rgba(13,15,17,0.06), 0 1px 2px rgba(13,15,17,0.04);
+  --shadow-md:    0 4px 6px -1px rgba(13,15,17,0.06), 0 2px 4px -2px rgba(13,15,17,0.04);
+  --shadow-lg:    0 10px 15px -3px rgba(13,15,17,0.06), 0 4px 6px -4px rgba(13,15,17,0.04);
+  --shadow-xl:    0 20px 25px -5px rgba(13,15,17,0.06), 0 8px 10px -6px rgba(13,15,17,0.04);
+  --shadow-2xl:   0 25px 50px -12px rgba(13,15,17,0.12);
+  --shadow-inner: inset 0 2px 4px rgba(13,15,17,0.04);
+  --shadow-focus: 0 0 0 3px rgba(82, 183, 136, 0.3);
+  --shadow-focus-error: 0 0 0 3px rgba(193, 41, 46, 0.2);
+
+
+  /* ─── PRIMITIVE: Motion ─────────────────────────────────────── */
+
+  /* Durations */
+  --duration-instant:  50ms;
+  --duration-fast:     100ms;
+  --duration-normal:   200ms;
+  --duration-moderate: 300ms;
+  --duration-slow:     400ms;
+  --duration-slower:   600ms;
+  --duration-entrance: 500ms;
+
+  /* Easing Curves */
+  --ease-default:    cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-in:         cubic-bezier(0.42, 0, 1, 1);
+  --ease-out:        cubic-bezier(0, 0, 0.58, 1);
+  --ease-in-out:     cubic-bezier(0.42, 0, 0.58, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+
+  /* ─── PRIMITIVE: Z-Index Scale ──────────────────────────────── */
+
+  --z-hide:     -1;
+  --z-base:     0;
+  --z-raised:   1;
+  --z-dropdown: 100;
+  --z-sticky:   200;
+  --z-overlay:  300;
+  --z-modal:    400;
+  --z-toast:    500;
+  --z-tooltip:  600;
+
+
+  /* ─── PRIMITIVE: Breakpoints (reference values) ─────────────── */
+  /* Use in media queries: @media (min-width: 768px) { } */
+  /* --bp-xs:  375px   — Mobile small  */
+  /* --bp-sm:  640px   — Mobile large  */
+  /* --bp-md:  768px   — Tablet        */
+  /* --bp-lg:  1024px  — Laptop        */
+  /* --bp-xl:  1280px  — Desktop       */
+  /* --bp-2xl: 1440px  — Wide desktop  */
+  /* --bp-3xl: 1680px  — Ultra-wide    */
+
+
+  /* ─── COMPONENT: Button ─────────────────────────────────────── */
+
+  --btn-radius: var(--radius-base);
+  --btn-font-weight: var(--weight-semibold);
+  --btn-font-family: var(--font-body);
+  --btn-transition: all var(--duration-normal) var(--ease-default);
+
+  /* Button — Primary */
+  --btn-primary-bg:           var(--color-green-700);
+  --btn-primary-bg-hover:     var(--color-green-600);
+  --btn-primary-bg-active:    var(--color-green-800);
+  --btn-primary-text:         var(--color-white);
+  --btn-primary-border:       var(--color-green-700);
+
+  /* Button — Secondary */
+  --btn-secondary-bg:           var(--color-white);
+  --btn-secondary-bg-hover:     var(--color-neutral-50);
+  --btn-secondary-bg-active:    var(--color-neutral-100);
+  --btn-secondary-text:         var(--color-neutral-900);
+  --btn-secondary-border:       var(--color-neutral-200);
+
+  /* Button — Ghost */
+  --btn-ghost-bg:           transparent;
+  --btn-ghost-bg-hover:     var(--color-neutral-50);
+  --btn-ghost-bg-active:    var(--color-neutral-100);
+  --btn-ghost-text:         var(--color-neutral-700);
+  --btn-ghost-border:       transparent;
+
+  /* Button — Danger */
+  --btn-danger-bg:           var(--color-red-500);
+  --btn-danger-bg-hover:     var(--color-red-600);
+  --btn-danger-bg-active:    var(--color-red-700);
+  --btn-danger-text:         var(--color-white);
+  --btn-danger-border:       var(--color-red-500);
+
+  /* Button — Disabled (all variants) */
+  --btn-disabled-bg:     var(--color-neutral-100);
+  --btn-disabled-text:   var(--color-neutral-400);
+  --btn-disabled-border: var(--color-neutral-200);
+
+  /* Button Sizes */
+  --btn-sm-h:  32px;
+  --btn-sm-px: 12px;
+  --btn-sm-fs: 13px;
+
+  --btn-md-h:  40px;
+  --btn-md-px: 16px;
+  --btn-md-fs: 14px;
+
+  --btn-lg-h:  48px;
+  --btn-lg-px: 24px;
+  --btn-lg-fs: 16px;
+
+  --btn-xl-h:  56px;
+  --btn-xl-px: 32px;
+  --btn-xl-fs: 16px;
+
+
+  /* ─── COMPONENT: Input ──────────────────────────────────────── */
+
+  --input-bg:             var(--color-white);
+  --input-bg-disabled:    var(--color-neutral-50);
+  --input-border:         var(--color-neutral-200);
+  --input-border-hover:   var(--color-neutral-300);
+  --input-border-focus:   var(--color-green-500);
+  --input-border-error:   var(--color-red-500);
+  --input-text:           var(--color-neutral-900);
+  --input-placeholder:    var(--color-neutral-400);
+  --input-radius:         var(--radius-base);
+  --input-transition:     border-color var(--duration-normal) var(--ease-default),
+                          box-shadow var(--duration-normal) var(--ease-default);
+
+  --input-sm-h:  32px;
+  --input-sm-px: 10px;
+  --input-sm-fs: 13px;
+
+  --input-md-h:  40px;
+  --input-md-px: 12px;
+  --input-md-fs: 14px;
+
+  --input-lg-h:  48px;
+  --input-lg-px: 16px;
+  --input-lg-fs: 16px;
+
+
+  /* ─── COMPONENT: Card ───────────────────────────────────────── */
+
+  --card-bg:         var(--color-white);
+  --card-border:     var(--color-neutral-200);
+  --card-radius:     var(--radius-lg);
+  --card-padding:    var(--space-6);
+  --card-shadow:     var(--shadow-sm);
+  --card-shadow-hover: var(--shadow-md);
+  --card-transition: box-shadow var(--duration-moderate) var(--ease-default),
+                     transform var(--duration-moderate) var(--ease-default);
+
+  /* ─── COMPONENT: Badge ──────────────────────────────────────── */
+
+  --badge-radius:  var(--radius-full);
+  --badge-px:      var(--space-2);
+  --badge-py:      var(--space-0-5);
+  --badge-fs:      var(--text-xs);
+  --badge-weight:  var(--weight-semibold);
+  --badge-spacing: var(--tracking-wide);
+
+  --badge-success-bg:   var(--color-green-100);
+  --badge-success-text: var(--color-green-800);
+
+  --badge-warning-bg:   var(--color-amber-100);
+  --badge-warning-text: var(--color-amber-700);
+
+  --badge-error-bg:     var(--color-red-100);
+  --badge-error-text:   var(--color-red-700);
+
+  --badge-info-bg:      var(--color-blue-100);
+  --badge-info-text:    var(--color-blue-700);
+
+  --badge-neutral-bg:   var(--color-neutral-100);
+  --badge-neutral-text: var(--color-neutral-700);
+
+  --badge-brand-bg:     var(--color-green-700);
+  --badge-brand-text:   var(--color-white);
+
+
+  /* ─── COMPONENT: Modal ──────────────────────────────────────── */
+
+  --modal-bg:          var(--color-white);
+  --modal-radius:      var(--radius-xl);
+  --modal-padding:     var(--space-8);
+  --modal-shadow:      var(--shadow-2xl);
+  --modal-overlay:     rgba(13, 15, 17, 0.6);
+  --modal-max-width:   560px;
+  --modal-z:           var(--z-modal);
+
+  /* ─── COMPONENT: Toast ──────────────────────────────────────── */
+
+  --toast-radius:    var(--radius-md);
+  --toast-padding:   var(--space-4);
+  --toast-shadow:    var(--shadow-lg);
+  --toast-max-width: 420px;
+  --toast-z:         var(--z-toast);
+
+  /* ─── COMPONENT: Navbar ─────────────────────────────────────── */
+
+  --nav-height:    64px;
+  --nav-bg:        var(--color-white);
+  --nav-border:    var(--color-neutral-200);
+  --nav-shadow:    var(--shadow-xs);
+  --nav-z:         var(--z-sticky);
+  --nav-px:        var(--space-6);
+
+  /* ─── COMPONENT: Sidebar ────────────────────────────────────── */
+
+  --sidebar-width:           280px;
+  --sidebar-collapsed-width: 64px;
+  --sidebar-bg:              var(--color-white);
+  --sidebar-border:          var(--color-neutral-200);
+
+  /* ─── COMPONENT: Table ──────────────────────────────────────── */
+
+  --table-header-bg:     var(--color-neutral-50);
+  --table-header-text:   var(--color-neutral-600);
+  --table-header-height: 44px;
+  --table-row-height:    52px;
+  --table-row-hover:     var(--color-neutral-50);
+  --table-row-selected:  var(--color-green-50);
+  --table-border:        var(--color-neutral-200);
+  --table-radius:        var(--radius-md);
+  --table-cell-px:       var(--space-4);
+  --table-cell-py:       var(--space-3);
+
+  /* ─── COMPONENT: Tooltip ────────────────────────────────────── */
+
+  --tooltip-bg:     var(--color-neutral-900);
+  --tooltip-text:   var(--color-white);
+  --tooltip-radius: var(--radius-base);
+  --tooltip-px:     var(--space-3);
+  --tooltip-py:     var(--space-1-5);
+  --tooltip-fs:     var(--text-xs);
+  --tooltip-z:      var(--z-tooltip);
+
+  /* ─── COMPONENT: Avatar ─────────────────────────────────────── */
+
+  --avatar-radius:   var(--radius-full);
+  --avatar-bg:       var(--color-green-100);
+  --avatar-text:     var(--color-green-800);
+  --avatar-border:   var(--color-white);
+
+  /* ─── COMPONENT: Progress ───────────────────────────────────── */
+
+  --progress-bg:     var(--color-neutral-100);
+  --progress-fill:   var(--color-green-500);
+  --progress-radius: var(--radius-full);
+  --progress-height: 6px;
+
+  /* ─── COMPONENT: Skeleton ───────────────────────────────────── */
+
+  --skeleton-bg:      var(--color-neutral-100);
+  --skeleton-shimmer: var(--color-neutral-200);
+  --skeleton-radius:  var(--radius-base);
+
+  /* ─── COMPONENT: Divider ────────────────────────────────────── */
+
+  --divider-color:  var(--color-neutral-200);
+  --divider-weight: 1px;
+  --divider-spacing: var(--space-6);
+
+  /* ─── COMPONENT: Switch / Toggle ────────────────────────────── */
+
+  --switch-bg-off:     var(--color-neutral-300);
+  --switch-bg-on:      var(--color-green-600);
+  --switch-thumb:      var(--color-white);
+  --switch-width:      44px;
+  --switch-height:     24px;
+  --switch-thumb-size: 20px;
+  --switch-transition: background-color var(--duration-normal) var(--ease-default);
+
+  /* ─── COMPONENT: Savings Badge (ResDrop-specific) ───────────── */
+
+  --savings-bg:       var(--color-green-700);
+  --savings-text:     var(--color-white);
+  --savings-glow:     0 0 20px rgba(45, 106, 79, 0.3);
+  --savings-radius:   var(--radius-base);
+
+  /* ─── COMPONENT: Price Display (ResDrop-specific) ───────────── */
+
+  --price-current:       var(--color-green-700);
+  --price-original:      var(--color-neutral-500);
+  --price-increase:      var(--color-red-500);
+  --price-decrease:      var(--color-green-600);
+  --price-strike-weight: 1.5px;
+
+  /* ─── COMPONENT: Status Indicator ───────────────────────────── */
+
+  --status-active-color:     var(--color-green-500);
+  --status-monitoring-color: var(--color-blue-500);
+  --status-expired-color:    var(--color-neutral-400);
+  --status-savings-color:    var(--color-green-600);
+  --status-dot-size:         8px;
+
+  /* ─── COMPONENT: Hotel Card (ResDrop-specific) ──────────────── */
+
+  --hotel-card-radius:    var(--radius-lg);
+  --hotel-card-padding:   var(--space-5);
+  --hotel-card-gap:       var(--space-4);
+  --hotel-card-img-ratio: 16 / 10;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Container widths */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+@media (min-width: 640px)  { .container { max-width: 640px; } }
+@media (min-width: 768px)  { .container { max-width: 768px; padding-left: var(--space-6); padding-right: var(--space-6); } }
+@media (min-width: 1024px) { .container { max-width: 1024px; } }
+@media (min-width: 1280px) { .container { max-width: 1200px; padding-left: var(--space-8); padding-right: var(--space-8); } }
+@media (min-width: 1440px) { .container { max-width: 1400px; } }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATION KEYFRAMES
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes rd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes rd-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rd-fade-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes rd-scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes rd-slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes rd-slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes rd-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes rd-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes rd-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes rd-savings-glow {
+  0%, 100% { box-shadow: var(--savings-glow); }
+  50%      { box-shadow: 0 0 30px rgba(45, 106, 79, 0.5); }
+}
+
+@keyframes rd-count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ACCESSIBILITY: Focus Visible
+   ═══════════════════════════════════════════════════════════════ */
+
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

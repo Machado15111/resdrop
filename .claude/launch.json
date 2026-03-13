@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "repricehq",
+      "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/npx",
+      "runtimeArgs": ["vite", "--host"],
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/node",
+      "runtimeArgs": ["server/index.js"],
+      "port": 3001
+    }
+  ]
+}

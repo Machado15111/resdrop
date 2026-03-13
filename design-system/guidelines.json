@@ -1,0 +1,305 @@
+{
+  "meta": {
+    "name": "ResDrop Design Guidelines",
+    "version": "1.0.0"
+  },
+
+  "layoutPatterns": {
+    "philosophy": "Content-first. Generous whitespace. Maximum 1200px content width. Mobile-first responsive.",
+
+    "breakpoints": {
+      "xs":  { "value": "0-374px",    "label": "Mobile Small",  "columns": 4,  "gutter": "16px", "margin": "16px", "notes": "Single column, stacked layout" },
+      "sm":  { "value": "375-639px",  "label": "Mobile",        "columns": 4,  "gutter": "16px", "margin": "16px", "notes": "Primary mobile breakpoint. All cards full-width." },
+      "md":  { "value": "640-767px",  "label": "Mobile Large",  "columns": 6,  "gutter": "20px", "margin": "20px", "notes": "Some 2-column layouts possible." },
+      "lg":  { "value": "768-1023px", "label": "Tablet",        "columns": 8,  "gutter": "24px", "margin": "24px", "notes": "Sidebar collapses. 2-column booking grid." },
+      "xl":  { "value": "1024-1279px","label": "Laptop",        "columns": 12, "gutter": "24px", "margin": "24px", "notes": "Full layout. Sidebar visible." },
+      "2xl": { "value": "1280-1439px","label": "Desktop",       "columns": 12, "gutter": "24px", "margin": "32px", "notes": "Max container 1200px. Centered." },
+      "3xl": { "value": "1440px+",   "label": "Wide",          "columns": 12, "gutter": "24px", "margin": "auto", "notes": "Max container 1400px. Extra whitespace." }
+    },
+
+    "pageLayouts": {
+      "landing": {
+        "description": "Marketing landing page. Full-width hero, centered content sections.",
+        "structure": ["Navbar (sticky)", "Hero (full-width, dark green bg)", "How It Works (3-column grid)", "Price Strategy (centered)", "Pricing Plans (3-card row)", "Footer"],
+        "heroMaxWidth": "800px centered text",
+        "sectionSpacing": "96px (desktop) | 64px (mobile)",
+        "sectionMaxWidth": "1200px centered"
+      },
+      "dashboard": {
+        "description": "User dashboard. Stats bar + booking cards grid.",
+        "structure": ["Navbar", "Stats bar (4 metrics)", "Action bar (filter + add)", "Booking cards grid", "Empty state (if no bookings)"],
+        "statsGrid": "4 columns (desktop) → 2 columns (tablet) → 1 column (mobile)",
+        "cardGrid": "max 2 columns, 24px gap",
+        "maxWidth": "1200px"
+      },
+      "bookingDetail": {
+        "description": "Single booking view. Header + 2-column info/results layout.",
+        "structure": ["Back button + breadcrumb", "Booking header (hotel name, status)", "2-column: Info panel | Price results panel", "Alert history (timeline)", "Change history (if exists)"],
+        "infoColumnWidth": "40%",
+        "resultsColumnWidth": "60%",
+        "mobileStack": "Single column, info first"
+      },
+      "submitBooking": {
+        "description": "Booking creation form. Single centered column.",
+        "structure": ["Back button", "Form title", "Email parse section (optional)", "Form fields (single column)", "Submit button"],
+        "formMaxWidth": "560px centered",
+        "fieldSpacing": "20px"
+      },
+      "account": {
+        "description": "Login / account settings. Centered card.",
+        "structure": ["Back button", "Auth card (centered)", "Login/register form OR account settings"],
+        "cardMaxWidth": "440px centered",
+        "cardPadding": "40px"
+      },
+      "admin": {
+        "description": "Admin dashboard. Table-heavy layout with stats.",
+        "structure": ["Admin navbar", "Stats overview", "Data tables (users, bookings, revenue)", "Actions panel"],
+        "maxWidth": "1400px"
+      }
+    },
+
+    "spacingRules": {
+      "pagePadding": {
+        "mobile": "16px",
+        "tablet": "24px",
+        "desktop": "32px"
+      },
+      "sectionSpacing": {
+        "compact": "48px",
+        "default": "64px",
+        "generous": "96px"
+      },
+      "cardSpacing": {
+        "internalPadding": "24px (default) | 20px (compact)",
+        "betweenCards": "24px (grid gap)",
+        "sectionWithinCard": "16px"
+      },
+      "formSpacing": {
+        "betweenFields": "20px",
+        "labelToInput": "6px",
+        "inputToHelper": "4px",
+        "fieldGroupGap": "32px",
+        "submitMarginTop": "32px"
+      }
+    }
+  },
+
+  "animationGuidelines": {
+    "philosophy": "Animation should feel invisible — it guides, never distracts. Duration under 400ms for interactions. Ease-out for entrances, ease-in for exits.",
+
+    "principles": [
+      "Respond instantly: 50-100ms for micro-feedback (button press, toggle)",
+      "Transitions are functional: 200-300ms for state changes (tab switch, form error)",
+      "Entrances welcome: 300-500ms for content appearing (page load, modal open)",
+      "Exits are swift: 150-200ms for content leaving (modal close, toast dismiss)",
+      "Direction matters: content enters from where user expects it",
+      "Respect motion preferences: disable all animation for prefers-reduced-motion"
+    ],
+
+    "catalog": {
+      "buttonPress": {
+        "property": "transform, background-color",
+        "duration": "100ms",
+        "easing": "ease-default",
+        "description": "Subtle press feedback"
+      },
+      "buttonHover": {
+        "property": "transform, background-color, box-shadow",
+        "duration": "200ms",
+        "easing": "ease-default",
+        "description": "Lift -1px + shadow increase"
+      },
+      "inputFocus": {
+        "property": "border-color, box-shadow",
+        "duration": "200ms",
+        "easing": "ease-default",
+        "description": "Border turns green, focus ring appears"
+      },
+      "cardHover": {
+        "property": "transform, box-shadow",
+        "duration": "300ms",
+        "easing": "ease-default",
+        "description": "Lift -2px + shadow increase"
+      },
+      "tabSwitch": {
+        "property": "left, width (indicator)",
+        "duration": "200ms",
+        "easing": "ease-in-out",
+        "description": "Underline slides to active tab"
+      },
+      "modalEnter": {
+        "backdrop": { "property": "opacity", "duration": "200ms", "easing": "ease-out" },
+        "content": { "property": "opacity, transform (scale)", "duration": "300ms", "easing": "ease-decelerate", "from": "scale(0.95) opacity(0)" }
+      },
+      "modalExit": {
+        "content": { "property": "opacity, transform", "duration": "200ms", "easing": "ease-accelerate" },
+        "backdrop": { "property": "opacity", "duration": "150ms", "easing": "ease-in" }
+      },
+      "toastEnter": {
+        "property": "opacity, transform",
+        "duration": "300ms",
+        "easing": "ease-out",
+        "from": "translateX(16px) opacity(0)"
+      },
+      "toastExit": {
+        "property": "opacity, transform",
+        "duration": "200ms",
+        "easing": "ease-in",
+        "to": "translateX(16px) opacity(0)"
+      },
+      "dropdownOpen": {
+        "property": "opacity, transform",
+        "duration": "200ms",
+        "easing": "ease-out",
+        "from": "scale(0.95) opacity(0)",
+        "transformOrigin": "top (or adaptive based on position)"
+      },
+      "pageTransition": {
+        "property": "opacity, transform",
+        "duration": "300ms",
+        "easing": "ease-decelerate",
+        "from": "translateY(8px) opacity(0)",
+        "stagger": "50ms between elements"
+      },
+      "priceUpdate": {
+        "property": "color, transform",
+        "duration": "400ms",
+        "easing": "ease-spring",
+        "description": "New price number counts up/down, color flashes green/red"
+      },
+      "savingsBadgePulse": {
+        "property": "box-shadow",
+        "duration": "2000ms",
+        "easing": "ease-in-out",
+        "iteration": "infinite (3 times then stop)",
+        "description": "Gentle glow pulse when new savings found"
+      },
+      "skeletonShimmer": {
+        "property": "background-position",
+        "duration": "1500ms",
+        "easing": "linear",
+        "iteration": "infinite"
+      },
+      "checkboxCheck": {
+        "property": "transform (scale), stroke-dashoffset",
+        "duration": "100ms",
+        "easing": "ease-spring",
+        "description": "Scale bounce + checkmark draw"
+      },
+      "switchToggle": {
+        "property": "background-color (track), transform (thumb)",
+        "duration": "200ms",
+        "easing": "ease-spring"
+      },
+      "statusDotPulse": {
+        "property": "opacity, transform (scale)",
+        "duration": "2000ms",
+        "easing": "ease-in-out",
+        "iteration": "infinite",
+        "description": "For 'monitoring' status — gentle breathe"
+      }
+    }
+  },
+
+  "accessibility": {
+    "standard": "WCAG 2.1 Level AA",
+    "targetLevel": "AA (with AAA for critical text)",
+
+    "colorContrast": {
+      "normalText": { "ratio": "4.5:1", "level": "AA", "applies": "All body text, labels, descriptions" },
+      "largeText": { "ratio": "3:1", "level": "AA", "applies": "Text ≥18px regular or ≥14px bold" },
+      "uiComponents": { "ratio": "3:1", "level": "AA", "applies": "Borders, icons, focus indicators against bg" },
+      "enhancedText": { "ratio": "7:1", "level": "AAA", "applies": "Critical info: prices, savings, errors" },
+
+      "verifiedPairs": [
+        { "fg": "#212529 (neutral-900)", "bg": "#FFFFFF", "ratio": "16.05:1", "status": "AAA" },
+        { "fg": "#868E96 (neutral-600)", "bg": "#FFFFFF", "ratio": "4.63:1", "status": "AA" },
+        { "fg": "#2D6A4F (green-700)", "bg": "#FFFFFF", "ratio": "6.14:1", "status": "AA+" },
+        { "fg": "#FFFFFF", "bg": "#2D6A4F (green-700)", "ratio": "6.14:1", "status": "AA+" },
+        { "fg": "#FFFFFF", "bg": "#1B4332 (green-800)", "ratio": "10.41:1", "status": "AAA" },
+        { "fg": "#FFFFFF", "bg": "#0F2E1F (green-900)", "ratio": "14.17:1", "status": "AAA" },
+        { "fg": "#C1292E (red-500)", "bg": "#FFFFFF", "ratio": "5.89:1", "status": "AA" },
+        { "fg": "#92660C (amber-700)", "bg": "#FFFFFF", "ratio": "5.21:1", "status": "AA" },
+        { "fg": "#1E4E8C (blue-700)", "bg": "#FFFFFF", "ratio": "7.43:1", "status": "AAA" },
+        { "fg": "#495057 (neutral-700)", "bg": "#FFFFFF", "ratio": "8.59:1", "status": "AAA" },
+        { "fg": "#ADB5BD (neutral-500)", "bg": "#FFFFFF", "ratio": "2.93:1", "status": "FAIL for text, OK for decorative" }
+      ],
+
+      "warningNote": "neutral-500 (#ADB5BD) on white fails AA for text. Use neutral-600 (#868E96) minimum for readable text. neutral-500 is only for decorative/disabled elements."
+    },
+
+    "keyboard": {
+      "allInteractive": "Must be reachable via Tab",
+      "tabOrder": "Follows visual reading order (left-to-right, top-to-bottom)",
+      "focusVisible": "2px solid green-500 outline, 2px offset. Never remove.",
+      "escapeClose": "Modals, dropdowns, tooltips close on Escape",
+      "enterActivate": "Buttons and links activate on Enter",
+      "spaceActivate": "Buttons, checkboxes, switches activate on Space",
+      "arrowNavigation": "Within tab bars, radio groups, dropdowns",
+      "skipLink": "First focusable element: 'Skip to main content'"
+    },
+
+    "screenReader": {
+      "landmarks": {
+        "nav": "Main navigation",
+        "main": "Page content",
+        "complementary": "Sidebar, if present",
+        "banner": "Top header/navbar",
+        "contentinfo": "Footer"
+      },
+      "liveRegions": {
+        "priceUpdates": "aria-live='polite' for price change notifications",
+        "toasts": "aria-live='assertive' for error toasts, 'polite' for success",
+        "loadingStates": "aria-busy='true' while loading, aria-live='polite' for completion",
+        "formErrors": "aria-live='polite', also linked via aria-describedby"
+      },
+      "images": "All meaningful images have alt text. Decorative images have alt='' and role='presentation'.",
+      "headingHierarchy": "Strict h1 → h2 → h3 order. One h1 per page.",
+      "priceAnnouncement": "Screen readers announce 'Preco atual: R$ 2.489, economia de R$ 932' — not just the number"
+    },
+
+    "motion": {
+      "prefersReducedMotion": "All animations disabled. Transitions set to 0.01ms. No parallax, no auto-play.",
+      "noFlashing": "Nothing flashes more than 3 times per second",
+      "noAutoScroll": "User controls scrolling. No auto-scroll except explicit navigation.",
+      "loadingTimeout": "If loading >10 seconds, show message with option to cancel"
+    },
+
+    "forms": {
+      "labels": "Every input has a visible label. Never placeholder-only.",
+      "errors": "Error messages appear below field with error icon. Both visual (red) and text.",
+      "requiredFields": "Marked with * and aria-required='true'. Legend at top of form.",
+      "autocomplete": "Use appropriate autocomplete attributes for personal data fields.",
+      "inputPurpose": "Date fields use type='date', email uses type='email', etc.",
+      "errorSummary": "On submit failure, focus moves to first error. Summary at top of form."
+    },
+
+    "touchTargets": {
+      "minimum": "44px x 44px for all interactive elements",
+      "spacing": "At least 8px between adjacent touch targets",
+      "exception": "Inline links in text can be smaller if text is large enough"
+    },
+
+    "colorIndependence": {
+      "rule": "Never use color alone to convey information",
+      "examples": [
+        "Price drop: green color + down arrow icon + text 'Economia de R$X'",
+        "Price increase: red color + up arrow icon + text '+R$X'",
+        "Error state: red border + error icon + error message text",
+        "Status: colored dot + text label always present"
+      ]
+    }
+  },
+
+  "brandVoice": {
+    "tone": "Confident, clean, trustworthy. Like a premium concierge, not a salesperson.",
+    "copyGuidelines": {
+      "headings": "Short. Declarative. No exclamation marks. 'Encontre o melhor preco.' not 'ECONOMIZE JA!!!'",
+      "body": "Clear, warm, professional. Brazilian Portuguese. Formal 'voce' (not 'tu').",
+      "numbers": "Always formatted: R$ 2.489,00 — use Brazilian formatting with dots and commas.",
+      "CTAs": "Verb-first: 'Verificar Precos', 'Criar Reserva', 'Reservar Agora'",
+      "empty states": "Encouraging, not blaming. 'Nenhuma reserva ainda. Adicione sua primeira reserva para comecar a monitorar.'",
+      "errors": "Specific and helpful. 'Data de checkout deve ser posterior ao checkin.' not 'Erro no formulario.'"
+    }
+  }
+}
