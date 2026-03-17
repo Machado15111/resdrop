@@ -9,6 +9,7 @@ dotenv.config({ path: join(__dirname, '.env') });
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import * as db from './db.js';
 import {
   isBookingApiConfigured,
@@ -47,6 +48,25 @@ import {
   isSerpApiConfigured,
   searchRealPrices,
 } from './serpApi.js';
+
+// Blocked/unreliable sources — filtered from all results (including cached)
+const BLOCKED_SOURCES_DISPLAY = ['oyo', 'oyorooms', 'elmisti', 'el misti', 'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling'];
+
+function filterBlockedResults(results) {
+  if (!Array.isArray(results)) return results;
+  return results.filter(r => {
+    const src = (r.source || '').toLowerCase();
+    const url = (r.link || '').toLowerCase();
+    return !BLOCKED_SOURCES_DISPLAY.some(b => src.includes(b) || url.includes(b));
+  });
+}
+
+function filterBookingResults(booking) {
+  if (booking && Array.isArray(booking.latestResults)) {
+    booking.latestResults = filterBlockedResults(booking.latestResults);
+  }
+  return booking;
+}
 
 const app = express();
 app.use(cors({
@@ -87,14 +107,43 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+// ─── Auth Middleware ─────────────────────────────────────────
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com';
+
+async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  const token = authHeader.slice(7);
+  const session = await db.getSessionByToken(token);
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid or expired session' });
+  }
+  const user = await db.getUser(session.user_email);
+  if (!user) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+  req.user = user;
+  req.userEmail = session.user_email;
+  next();
+}
+
+function adminMiddleware(req, res, next) {
+  if (req.userEmail !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Admin access denied' });
+  }
+  next();
+}
+
 // ─── Price search: real APIs only (no simulation) ────────────
-async function searchPrices(booking) {
+async function searchPrices(booking, options = {}) {
   const allResults = [];
 
   // 1) Try SerpApi Google Hotels (real prices from multiple OTAs)
   if (isSerpApiConfigured()) {
     try {
-      const serpResults = await searchRealPrices(booking);
+      const serpResults = await searchRealPrices(booking, { currency: options.currency || 'BRL' });
       if (serpResults.length > 0) {
         // Add affiliate links to real results
         for (const r of serpResults) {
@@ -145,8 +194,10 @@ async function searchPrices(booking) {
     console.log('[Search] No results found (APIs returned empty)');
   }
 
-  allResults.sort((a, b) => a.totalPrice - b.totalPrice);
-  return allResults;
+  // Filter out blocked/unreliable sources from all results
+  const filtered = filterBlockedResults(allResults);
+  filtered.sort((a, b) => a.totalPrice - b.totalPrice);
+  return filtered;
 }
 
 // ─── Helper: update booking with best result ─────────────────
@@ -162,7 +213,17 @@ async function applyBestResult(booking, results) {
   if (exactMatches.length > 0) {
     const bestExact = exactMatches[0]; // sorted by price ascending
     const currentPrice = bestExact.totalPrice;
-    const diff = Math.round((booking.originalPrice - currentPrice) * 100) / 100;
+
+    // Handle per-night rate: convert to total for comparison
+    let effectiveOriginal = booking.originalPrice;
+    if (booking.rateType === 'per_night') {
+      const checkin = new Date(booking.checkinDate);
+      const checkout = new Date(booking.checkoutDate);
+      const nights = Math.max(1, Math.round((checkout - checkin) / (1000 * 60 * 60 * 24)));
+      effectiveOriginal = booking.originalPrice * nights;
+    }
+
+    const diff = Math.round((effectiveOriginal - currentPrice) * 100) / 100;
 
     // Always record price history
     if (!booking.priceHistory) booking.priceHistory = [];
@@ -229,11 +290,12 @@ async function applyBestResult(booking, results) {
 // ═══════════════════════════════════════════════════════════════
 
 // Submit a new booking for monitoring
-app.post('/api/bookings', async (req, res) => {
+app.post('/api/bookings', authMiddleware, async (req, res) => {
   const {
     hotelName, destination, checkinDate, checkoutDate,
     roomType, originalPrice,
-    guestName, confirmationNumber, email,
+    guestName, confirmationNumber,
+    rateType, roomTypeCustom,
   } = req.body;
 
   if (!hotelName || !checkinDate || !checkoutDate || !originalPrice) {
@@ -246,18 +308,15 @@ app.post('/api/bookings', async (req, res) => {
     return res.status(400).json({ error: 'Price must be greater than zero' });
   }
 
-  // Create/update user and validate plan limit
-  const user = await db.getOrCreateUser(email, guestName);
-  if (user) {
-    const plan = PLANS[user.plan] || PLANS.free;
-    if (user.bookingsCount >= plan.bookingsPerMonth) {
-      return res.status(403).json({
-        error: 'plan_limit',
-        message: `Limite do plano atingido (${plan.bookingsPerMonth} reservas/mes). Faca upgrade para continuar.`,
-        limit: plan.bookingsPerMonth,
-        plan: user.plan,
-      });
-    }
+  // Validate plan limit using authenticated user
+  const plan = PLANS[req.user.plan] || PLANS.free;
+  if ((req.user.bookingsCount || 0) >= plan.bookingsPerMonth) {
+    return res.status(403).json({
+      error: 'plan_limit',
+      message: `Limite do plano atingido (${plan.bookingsPerMonth} reservas/mes). Faca upgrade para continuar.`,
+      limit: plan.bookingsPerMonth,
+      plan: req.user.plan,
+    });
   }
 
   const id = generateId();
@@ -269,9 +328,9 @@ app.post('/api/bookings', async (req, res) => {
     checkoutDate,
     roomType: roomType || 'Standard Room',
     originalPrice: parseFloat(originalPrice),
-    guestName: guestName || 'Guest',
+    guestName: guestName || req.user.name || 'Guest',
     confirmationNumber: confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
-    email: email || '',
+    email: req.userEmail,
     status: 'monitoring',
     createdAt: new Date().toISOString(),
     lastChecked: null,
@@ -279,7 +338,8 @@ app.post('/api/bookings', async (req, res) => {
     bestSource: null,
     totalSavings: 0,
     notes: '',
-    rateType: 'total',
+    rateType: rateType || 'total',
+    roomTypeCustom: roomTypeCustom || null,
     priceHistory: [
       {
         date: new Date().toISOString(),
@@ -300,48 +360,46 @@ app.post('/api/bookings', async (req, res) => {
   res.status(201).json(created);
 });
 
-// Get bookings (LGPD: filtered by user email)
-app.get('/api/bookings', async (req, res) => {
-  const email = (req.query.email || '').toLowerCase().trim();
-  let results;
-  if (email) {
-    results = await db.getBookingsByEmail(email);
-  } else {
-    results = await db.getAllBookings();
-  }
-  res.json(results);
+// Get bookings (LGPD: always filtered by authenticated user)
+app.get('/api/bookings', authMiddleware, async (req, res) => {
+  const results = await db.getBookingsByEmail(req.userEmail);
+  res.json(results.map(filterBookingResults));
 });
 
-// Get a single booking
-app.get('/api/bookings/:id', async (req, res) => {
+// Get a single booking (ownership check)
+app.get('/api/bookings/:id', authMiddleware, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
-  res.json(booking);
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+  res.json(filterBookingResults(booking));
 });
 
-// Refresh price check
-app.post('/api/bookings/:id/check', async (req, res) => {
+// Refresh price check (ownership check)
+app.post('/api/bookings/:id/check', authMiddleware, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
 
   try {
-    const results = await searchPrices(booking);
+    const user = await db.getUser(req.userEmail);
+    const results = await searchPrices(booking, { currency: user?.currency || 'BRL' });
     await applyBestResult(booking, results);
     // Re-fetch to get the updated version from DB
     const updated = await db.getBooking(req.params.id);
-    res.json(updated);
+    res.json(filterBookingResults(updated));
   } catch (err) {
     console.error(`[Check] Failed for ${booking.hotelName}: ${err.message}`);
     res.status(500).json({ error: 'Price check failed', message: err.message });
   }
 });
 
-// Edit a booking (inline editing)
-app.put('/api/bookings/:id', async (req, res) => {
+// Edit a booking (ownership check)
+app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
 
-  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType'];
+  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType'];
   const changes = [];
   const updates = {};
 
@@ -398,8 +456,8 @@ app.post('/api/parse-email', (req, res) => {
 });
 
 // Email-to-booking workflow: forward email → auto-create booking
-app.post('/api/bookings/from-email', async (req, res) => {
-  const { rawEmail, email } = req.body;
+app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
+  const { rawEmail } = req.body;
   if (!rawEmail) return res.status(400).json({ error: 'rawEmail is required' });
 
   const parsed = {
@@ -428,20 +486,17 @@ app.post('/api/bookings/from-email', async (req, res) => {
     });
   }
 
-  // All fields extracted — create the booking
-  const user = await db.getOrCreateUser(email, parsed.guestName);
-  if (user) {
-    const plan = PLANS[user.plan] || PLANS.free;
-    if (user.bookingsCount >= plan.bookingsPerMonth) {
-      return res.status(403).json({ error: 'plan_limit', parsed });
-    }
+  // Validate plan limit
+  const plan = PLANS[req.user.plan] || PLANS.free;
+  if ((req.user.bookingsCount || 0) >= plan.bookingsPerMonth) {
+    return res.status(403).json({ error: 'plan_limit', parsed });
   }
 
   const id = generateId();
   const booking = {
     id,
     ...parsed,
-    email: email || '',
+    email: req.userEmail,
     originalPrice: parseFloat(parsed.originalPrice),
     confirmationNumber: parsed.confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
     status: 'monitoring',
@@ -461,10 +516,9 @@ app.post('/api/bookings/from-email', async (req, res) => {
   res.status(201).json({ status: 'created', booking: created, parsed });
 });
 
-// Get stats summary (LGPD: filtered by user email if provided)
-app.get('/api/stats', async (req, res) => {
-  const email = (req.query.email || '').toLowerCase().trim();
-  const stats = await db.getStats(email || null);
+// Get stats summary (always filtered by authenticated user)
+app.get('/api/stats', authMiddleware, async (req, res) => {
+  const stats = await db.getStats(req.userEmail);
   res.json({ ...stats, apiMode: API_MODE });
 });
 
@@ -492,41 +546,190 @@ app.get('/api/hotels/search', (req, res) => {
 
 // ─── AUTH & USER ROUTES ─────────────────────────────────────
 app.post('/api/auth/login', async (req, res) => {
-  const { email } = req.body;
+  const { email, password } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
-  const user = await db.getUser(email);
-  if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  if (!password) return res.status(400).json({ error: 'Senha obrigatoria' });
+
+  const userWithPw = await db.getUserWithPassword(email);
+  if (!userWithPw) return res.status(404).json({ error: 'Usuario nao encontrado' });
+
+  // Legacy user without password: set password on first login
+  if (!userWithPw.passwordHash) {
+    const hash = await bcrypt.hash(password, 10);
+    await db.updateUser(email, { passwordHash: hash });
+  } else {
+    const valid = await bcrypt.compare(password, userWithPw.passwordHash);
+    if (!valid) return res.status(401).json({ error: 'Senha incorreta' });
+  }
+
   await db.updateUser(email, { lastActive: new Date().toISOString() });
   await db.updateUserStats(email);
-  const updated = await db.getUser(email);
-  res.json(updated);
+
+  const token = crypto.randomUUID();
+  await db.createSession(email.toLowerCase(), token);
+
+  const user = await db.getUser(email);
+  res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
 });
 
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, name } = req.body;
+  const { email, name, password, phone, currency, country } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  }
   const existing = await db.getUser(email);
   if (existing) return res.status(409).json({ error: 'Usuario ja existe' });
-  const user = await db.createUser(email, name || 'Guest');
-  res.json(user);
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const { data, error } = await db.supabase
+    .from('users')
+    .insert({
+      email: email.toLowerCase(),
+      name: name || 'Guest',
+      password_hash: passwordHash,
+      phone: phone || null,
+      currency: currency || 'BRL',
+      country: country || null,
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: 'Failed to create user' });
+
+  const token = crypto.randomUUID();
+  await db.createSession(email.toLowerCase(), token);
+
+  const user = await db.getUser(email);
+  res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
 });
 
-app.get('/api/users/:email', async (req, res) => {
-  const key = req.params.email.toLowerCase();
-  await db.updateUserStats(key);
-  const user = await db.getUser(key);
+app.post('/api/auth/logout', authMiddleware, async (req, res) => {
+  const token = req.headers.authorization.slice(7);
+  await db.deleteSession(token);
+  res.json({ success: true });
+});
+
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  res.json({ ...req.user, isAdmin: req.userEmail === ADMIN_EMAIL });
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
+
+  const user = await db.getUser(email);
+  if (!user) {
+    // Don't reveal if user exists
+    return res.json({ success: true });
+  }
+
+  const token = crypto.randomUUID();
+  await db.createPasswordReset(email.toLowerCase(), token);
+  console.log(`[Auth] Password reset token for ${email}: ${token}`);
+
+  res.json({ success: true });
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token e senha obrigatorios' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  }
+
+  const reset = await db.getPasswordReset(token);
+  if (!reset) {
+    return res.status(400).json({ error: 'Token invalido ou expirado' });
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  await db.updateUser(reset.user_email, { passwordHash: hash });
+  await db.markPasswordResetUsed(token);
+  await db.deleteUserSessions(reset.user_email);
+
+  res.json({ success: true });
+});
+
+app.post('/api/auth/onboarding', authMiddleware, async (req, res) => {
+  const { travelerType, preferredEmail, currency, alertsEnabled } = req.body;
+
+  const updates = {
+    onboardingCompleted: true,
+    travelerType: travelerType || null,
+    preferredEmail: preferredEmail || req.userEmail,
+    currency: currency || 'BRL',
+    alertsEnabled: alertsEnabled !== false,
+  };
+
+  const updated = await db.updateUser(req.userEmail, updates);
+  if (!updated) return res.status(500).json({ error: 'Failed to save onboarding' });
+  delete updated.passwordHash;
+  res.json(updated);
+});
+
+// ─── CURRENCIES ─────────────────────────────────────────────
+const CURRENCIES = [
+  { code: 'BRL', label: 'R$', name: 'Real Brasileiro' },
+  { code: 'USD', label: '$', name: 'US Dollar' },
+  { code: 'EUR', label: '\u20ac', name: 'Euro' },
+  { code: 'GBP', label: '\u00a3', name: 'British Pound' },
+  { code: 'CAD', label: 'CA$', name: 'Canadian Dollar' },
+  { code: 'AED', label: '\u062f.\u0625', name: 'UAE Dirham' },
+  { code: 'INR', label: '\u20b9', name: 'Indian Rupee' },
+  { code: 'JPY', label: '\u00a5', name: 'Japanese Yen' },
+  { code: 'CNY', label: '\u00a5', name: 'Chinese Yuan' },
+  { code: 'AUD', label: 'A$', name: 'Australian Dollar' },
+  { code: 'CHF', label: 'CHF', name: 'Swiss Franc' },
+  { code: 'SGD', label: 'S$', name: 'Singapore Dollar' },
+];
+
+app.get('/api/currencies', (req, res) => {
+  res.json(CURRENCIES);
+});
+
+// ─── PROFILE ─────────────────────────────────────────────────
+app.put('/api/profile', authMiddleware, async (req, res) => {
+  const { name, phone, dateOfBirth, preferredRoomType, loyaltyPrograms } = req.body;
+
+  const updates = {};
+  if (name !== undefined) updates.name = name;
+  if (phone !== undefined) updates.phone = phone;
+  if (dateOfBirth !== undefined) updates.dateOfBirth = dateOfBirth;
+  if (preferredRoomType !== undefined) updates.preferredRoomType = preferredRoomType;
+  if (loyaltyPrograms !== undefined) updates.loyaltyPrograms = loyaltyPrograms;
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No fields to update' });
+  }
+
+  const updated = await db.updateUser(req.userEmail, updates);
+  if (!updated) return res.status(500).json({ error: 'Failed to update profile' });
+  delete updated.passwordHash;
+  res.json(updated);
+});
+
+app.get('/api/users/:email', authMiddleware, async (req, res) => {
+  if (req.params.email.toLowerCase() !== req.userEmail) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  await db.updateUserStats(req.userEmail);
+  const user = await db.getUser(req.userEmail);
   if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' });
   const plan = PLANS[user.plan] || PLANS.free;
   res.json({ ...user, planLimit: plan.bookingsPerMonth, planPrice: plan.price });
 });
 
-app.put('/api/users/:email/plan', async (req, res) => {
-  const key = req.params.email.toLowerCase();
-  const user = await db.getUser(key);
-  if (!user) return res.status(404).json({ error: 'Usuario nao encontrado' });
+app.put('/api/users/:email/plan', authMiddleware, async (req, res) => {
+  if (req.params.email.toLowerCase() !== req.userEmail) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
   const { plan } = req.body;
   if (!PLANS[plan]) return res.status(400).json({ error: 'Plano invalido' });
-  const updated = await db.updateUser(key, { plan });
+  const updated = await db.updateUser(req.userEmail, { plan });
   const planInfo = PLANS[plan];
   res.json({ ...updated, planLimit: planInfo.bookingsPerMonth, planPrice: planInfo.price });
 });
@@ -637,7 +840,7 @@ app.post('/api/expedia/commission', (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 
 // Full admin dashboard data
-app.get('/api/admin/dashboard', async (req, res) => {
+app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
   const allBookings = await db.getAllBookings();
   const allUsers = await db.getAllUsers(200);
   const now = new Date();
@@ -770,7 +973,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
 });
 
 // Trigger manual price check
-app.post('/api/admin/trigger-check', async (req, res) => {
+app.post('/api/admin/trigger-check', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     // For manual check, fetch all bookings and pass them
     const allBookings = await db.getAllBookings();
@@ -783,17 +986,17 @@ app.post('/api/admin/trigger-check', async (req, res) => {
 });
 
 // Get scheduler status
-app.get('/api/admin/scheduler', (req, res) => {
+app.get('/api/admin/scheduler', authMiddleware, adminMiddleware, (req, res) => {
   res.json(getSchedulerStatus());
 });
 
 // Get check history
-app.get('/api/admin/check-history', (req, res) => {
+app.get('/api/admin/check-history', authMiddleware, adminMiddleware, (req, res) => {
   res.json(getCheckHistory());
 });
 
 // Get all users
-app.get('/api/admin/users', async (req, res) => {
+app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   const allUsers = await db.getAllUsers(200);
   res.json({
     total: allUsers.length,

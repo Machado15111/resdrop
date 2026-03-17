@@ -26,12 +26,10 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
         <div className="dash-welcome">
           <div>
             <h1 className="dash-greeting">
-              {lang === 'pt' ? `Ola, ${firstName}` : `Hello, ${firstName}`}
+              {t('dash.greeting')}, {firstName}
             </h1>
             <p className="dash-greeting-sub">
-              {lang === 'pt'
-                ? 'Acompanhe suas reservas e economias em um so lugar.'
-                : 'Track your bookings and savings in one place.'}
+              {t('dash.greetingSub')}
             </p>
           </div>
           <button className="btn btn-primary" onClick={onNewBooking}>
@@ -46,28 +44,28 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
             <div className="dash-kpi-icon kpi-blue"><IconBarChart size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value">{stats?.totalBookings || 0}</span>
-              <span className="dash-kpi-label">{lang === 'pt' ? 'Reservas' : 'Bookings'}</span>
+              <span className="dash-kpi-label">{t('dash.bookings')}</span>
             </div>
           </div>
           <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-green"><IconDollar size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value accent">R${(stats?.totalSavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
-              <span className="dash-kpi-label">{lang === 'pt' ? 'Economia total' : 'Total savings'}</span>
+              <span className="dash-kpi-label">{t('dash.totalSavings')}</span>
             </div>
           </div>
           <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-gold"><IconTrendDown size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value">{stats?.savingsFound || 0}</span>
-              <span className="dash-kpi-label">{lang === 'pt' ? 'Quedas encontradas' : 'Drops found'}</span>
+              <span className="dash-kpi-label">{t('dash.dropsFound')}</span>
             </div>
           </div>
           <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-purple"><IconShield size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value">{stats?.successRate || 0}%</span>
-              <span className="dash-kpi-label">{lang === 'pt' ? 'Taxa de sucesso' : 'Success rate'}</span>
+              <span className="dash-kpi-label">{t('dash.successRateLabel')}</span>
             </div>
           </div>
         </div>
@@ -75,7 +73,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
         {/* Active bookings */}
         <div className="dash-section">
           <h2 className="dash-section-title">
-            {lang === 'pt' ? 'Reservas ativas' : 'Active bookings'}
+            {t('dash.activeBookings')}
             {active.length > 0 && <span className="dash-count">{active.length}</span>}
           </h2>
 
@@ -111,7 +109,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
         {past.length > 0 && (
           <div className="dash-section">
             <h2 className="dash-section-title">
-              {lang === 'pt' ? 'Historico' : 'History'}
+              {t('dash.history')}
               <span className="dash-count">{past.length}</span>
             </h2>
             <div className="dash-bookings-list past">
@@ -138,10 +136,10 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
 
 function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, isPast, bookingState }) {
   const statusMap = {
-    savings_found: { label: lang === 'pt' ? 'Economia encontrada' : 'Savings found', cls: 'status-success' },
-    monitoring: { label: lang === 'pt' ? 'Monitorando' : 'Monitoring', cls: 'status-info' },
-    booked: { label: lang === 'pt' ? 'Re-reservado' : 'Rebooked', cls: 'status-accent' },
-    expired: { label: lang === 'pt' ? 'Expirado' : 'Expired', cls: 'status-muted' },
+    savings_found: { label: t('dash.savingsFound'), cls: 'status-success' },
+    monitoring: { label: t('dash.monitoring'), cls: 'status-info' },
+    booked: { label: t('detail.rebooked'), cls: 'status-accent' },
+    expired: { label: t('detail.expired'), cls: 'status-muted' },
   };
   const st = statusMap[booking.status] || statusMap.monitoring;
   const isLoading = bookingState?.state === 'loading';
@@ -170,7 +168,7 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
 
       <div className="dbc-pricing">
         <div className="dbc-original">
-          <span className="dbc-price-label">{lang === 'pt' ? 'Preco original' : 'Original price'}</span>
+          <span className="dbc-price-label">{t('dash.originalPrice')}</span>
           <span className="dbc-price">R${booking.originalPrice.toLocaleString('pt-BR')}</span>
         </div>
         {booking.status === 'savings_found' && booking.bestPrice && booking.totalSavings > 0 ? (
@@ -194,7 +192,7 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
             disabled={isLoading}
           >
             {isLoading ? (
-              <span className="loading-pulse">{lang === 'pt' ? 'Buscando...' : 'Checking...'}</span>
+              <span className="loading-pulse">{t('dash.checking')}</span>
             ) : isSuccess ? (
               <span>&#10003;</span>
             ) : isError ? (

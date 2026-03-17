@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { LogoMark } from './Icons';
 import { useI18n } from '../i18n';
 import './Footer.css';
@@ -25,19 +26,18 @@ function Footer() {
           </div>
           <div className="footer-links">
             <h4>{t('footer.company')}</h4>
-            <a href="#about">About</a>
+            <Link to="/about">About</Link>
             <a href="#blog">Blog</a>
             <a href="#contact">Contact</a>
           </div>
           <div className="footer-links">
             <h4>{t('footer.legal')}</h4>
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/terms">Terms of Service</Link>
           </div>
         </div>
         <div className="footer-bottom">
           <p>&copy; 2026 ResDrop. {t('footer.rights')}</p>
-          <p className="footer-note">{t('footer.affiliate')}</p>
         </div>
       </div>
     </footer>

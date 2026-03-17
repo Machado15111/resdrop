@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import { IconCheck, IconX, IconCrown, IconZap, IconStar } from './Icons';
 import './Pricing.css';
@@ -6,18 +7,17 @@ const plans = [
   {
     id: 'free',
     name: 'Free',
-    namePt: 'Gratis',
+    namePt: 'Gr\u00e1tis',
     price: 0,
     icon: IconZap,
-    desc: 'Experimente a plataforma sem compromisso.',
-    descEn: 'Try the platform with no commitment.',
+    desc: 'Para experimentar.',
+    descEn: 'To try it out.',
     bookings: 1,
     features: [
-      { pt: '1 reserva por mes', en: '1 booking per month', included: true },
-      { pt: '1 busca por dia', en: '1 search per day', included: true },
+      { pt: 'Monitoramento de 1 reserva', en: 'Monitor 1 booking', included: true },
+      { pt: 'Mais de 20 plataformas', en: 'Over 20 platforms', included: true },
       { pt: 'Alertas por email', en: 'Email alerts', included: true },
-      { pt: '6 fontes OTA', en: '6 OTA sources', included: true },
-      { pt: 'Alertas prioritarios', en: 'Priority alerts', included: false },
+      { pt: 'Alertas priorit\u00e1rios', en: 'Priority alerts', included: false },
       { pt: 'Suporte dedicado', en: 'Dedicated support', included: false },
     ],
   },
@@ -27,16 +27,16 @@ const plans = [
     namePt: 'Viajante',
     price: 25,
     icon: IconStar,
-    desc: 'Para viajantes frequentes que querem mais economia.',
-    descEn: 'For frequent travelers who want more savings.',
+    desc: 'Ideal para f\u00e9rias e viagens.',
+    descEn: 'Perfect for vacation travel.',
     bookings: 10,
     popular: true,
     features: [
-      { pt: '10 reservas por mes', en: '10 bookings per month', included: true },
-      { pt: 'Buscas ilimitadas', en: 'Unlimited searches', included: true },
-      { pt: 'Alertas por email e push', en: 'Email + push alerts', included: true },
-      { pt: 'Todas fontes OTA', en: 'All OTA sources', included: true },
-      { pt: 'Alertas prioritarios', en: 'Priority alerts', included: true },
+      { pt: 'Monitoramento de at\u00e9 10 reservas por m\u00eas', en: 'Monitor up to 10 bookings/month', included: true },
+      { pt: 'Mais de 20 plataformas', en: 'Over 20 platforms', included: true },
+      { pt: 'Alertas por email e push', en: 'Email & push alerts', included: true },
+      { pt: 'Hist\u00f3rico de pre\u00e7os', en: 'Price history', included: true },
+      { pt: 'Alertas priorit\u00e1rios', en: 'Priority alerts', included: true },
       { pt: 'Suporte dedicado', en: 'Dedicated support', included: false },
     ],
   },
@@ -46,22 +46,22 @@ const plans = [
     namePt: 'Premium',
     price: 100,
     icon: IconCrown,
-    desc: 'Economia maxima para familias e viajantes premium.',
-    descEn: 'Maximum savings for families and premium travelers.',
+    desc: 'Para viajantes frequentes.',
+    descEn: 'For frequent travelers.',
     bookings: 50,
     features: [
-      { pt: '50 reservas por mes', en: '50 bookings per month', included: true },
-      { pt: 'Buscas ilimitadas', en: 'Unlimited searches', included: true },
-      { pt: 'Todos canais de alerta', en: 'All alert channels', included: true },
-      { pt: 'Todas fontes OTA + direto', en: 'All OTA sources + direct', included: true },
-      { pt: 'Alertas prioritarios', en: 'Priority alerts', included: true },
+      { pt: 'Monitoramento de at\u00e9 50 reservas por m\u00eas', en: 'Monitor up to 50 bookings/month', included: true },
+      { pt: 'Mais de 20 plataformas', en: 'Over 20 platforms', included: true },
+      { pt: 'Alertas priorit\u00e1rios', en: 'Priority alerts', included: true },
+      { pt: 'Hist\u00f3rico completo + relat\u00f3rios', en: 'Full history + reports', included: true },
       { pt: 'Suporte dedicado', en: 'Dedicated support', included: true },
     ],
   },
 ];
 
-function Pricing({ onSelectPlan }) {
+function Pricing() {
   const { t, lang } = useI18n();
+  const navigate = useNavigate();
 
   return (
     <section className="section pricing-section">
@@ -107,7 +107,7 @@ function Pricing({ onSelectPlan }) {
               </ul>
               <button
                 className={`btn ${plan.popular ? 'btn-accent' : 'btn-outline'} pricing-cta`}
-                onClick={() => onSelectPlan?.(plan.id)}
+                onClick={() => navigate('/signup')}
               >
                 {t('pricing.getStarted')}
               </button>

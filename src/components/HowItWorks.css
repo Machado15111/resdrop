@@ -1,5 +1,5 @@
 .how-it-works {
-  background: var(--white);
+  background: #ffffff;
 }
 .hiw-steps {
   display: grid;
@@ -10,20 +10,20 @@
   text-align: center;
   padding: 32px 20px;
   border-radius: var(--radius);
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
   position: relative;
   transition: all 0.25s var(--ease);
 }
 .hiw-step:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
-  border-color: var(--navy);
+  border-color: var(--color-neutral-900);
 }
 .hiw-step-num {
   font-size: 12px;
   font-weight: 700;
-  color: var(--navy);
+  color: var(--color-neutral-900);
   letter-spacing: 0.1em;
   margin-bottom: 20px;
   font-family: var(--font-display);
@@ -35,7 +35,7 @@
   align-items: center;
   justify-content: center;
   background: var(--navy-50);
-  color: var(--navy);
+  color: var(--color-neutral-900);
   border-radius: var(--radius);
   margin: 0 auto 20px;
 }
@@ -44,11 +44,11 @@
   font-size: 17px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: var(--gray-900);
+  color: var(--color-neutral-900);
 }
 .hiw-step-desc {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
   line-height: 1.6;
 }
 @media (max-width: 900px) {

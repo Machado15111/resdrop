@@ -30,6 +30,10 @@ function toSnake(obj) {
     checkCount: 'check_count', apiMode: 'api_mode', priceHistory: 'price_history',
     changeHistory: 'change_history', latestResults: 'latest_results',
     joinedAt: 'joined_at', lastActive: 'last_active', bookingsCount: 'bookings_count',
+    passwordHash: 'password_hash', onboardingCompleted: 'onboarding_completed',
+    travelerType: 'traveler_type', preferredEmail: 'preferred_email', alertsEnabled: 'alerts_enabled',
+    dateOfBirth: 'date_of_birth', preferredRoomType: 'preferred_room_type',
+    loyaltyPrograms: 'loyalty_programs', roomTypeCustom: 'room_type_custom',
   };
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -49,6 +53,10 @@ function toCamel(row) {
     check_count: 'checkCount', api_mode: 'apiMode', price_history: 'priceHistory',
     change_history: 'changeHistory', latest_results: 'latestResults',
     joined_at: 'joinedAt', last_active: 'lastActive', bookings_count: 'bookingsCount',
+    password_hash: 'passwordHash', onboarding_completed: 'onboardingCompleted',
+    traveler_type: 'travelerType', preferred_email: 'preferredEmail', alerts_enabled: 'alertsEnabled',
+    date_of_birth: 'dateOfBirth', preferred_room_type: 'preferredRoomType',
+    loyalty_programs: 'loyaltyPrograms', room_type_custom: 'roomTypeCustom',
   };
   const out = {};
   for (const [k, v] of Object.entries(row)) {
@@ -63,14 +71,20 @@ function toCamel(row) {
 
 // ─── Users ──────────────────────────────────────────────────
 
-export async function getUser(email) {
+export async function getUserWithPassword(email) {
   const { data, error } = await supabase
     .from('users')
     .select('*')
     .eq('email', email.toLowerCase())
     .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getUser:', error.message);
+  if (error && error.code !== 'PGRST116') console.error('[DB] getUserWithPassword:', error.message);
   return data ? toCamel(data) : null;
+}
+
+export async function getUser(email) {
+  const user = await getUserWithPassword(email);
+  if (user) delete user.passwordHash;
+  return user;
 }
 
 export async function createUser(email, name) {
@@ -134,7 +148,7 @@ export async function getAllUsers(limit = 50) {
     .order('joined_at', { ascending: false })
     .limit(limit);
   if (error) console.error('[DB] getAllUsers:', error.message);
-  return (data || []).map(toCamel);
+  return (data || []).map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
 }
 
 export async function getUserCount() {
@@ -227,6 +241,74 @@ export async function getStats(email) {
     avgSavings: savingsFound > 0 ? Math.round((totalSavings / savingsFound) * 100) / 100 : 0,
     successRate: total > 0 ? Math.round((savingsFound / total) * 100) : 0,
   };
+}
+
+// ─── Sessions ─────────────────────────────────────────────
+
+export async function createSession(email, token) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .insert({ user_email: email.toLowerCase(), token })
+    .select()
+    .single();
+  if (error) console.error('[DB] createSession:', error.message);
+  return data;
+}
+
+export async function getSessionByToken(token) {
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('token', token)
+    .gt('expires_at', new Date().toISOString())
+    .single();
+  if (error && error.code !== 'PGRST116') console.error('[DB] getSession:', error.message);
+  return data;
+}
+
+export async function deleteSession(token) {
+  await supabase.from('sessions').delete().eq('token', token);
+}
+
+export async function deleteUserSessions(email) {
+  await supabase.from('sessions').delete().eq('user_email', email.toLowerCase());
+}
+
+// ─── Password Resets ──────────────────────────────────────
+
+export async function createPasswordReset(email, token) {
+  await supabase
+    .from('password_resets')
+    .update({ used: true })
+    .eq('user_email', email.toLowerCase())
+    .eq('used', false);
+
+  const { data, error } = await supabase
+    .from('password_resets')
+    .insert({ user_email: email.toLowerCase(), token })
+    .select()
+    .single();
+  if (error) console.error('[DB] createPasswordReset:', error.message);
+  return data;
+}
+
+export async function getPasswordReset(token) {
+  const { data, error } = await supabase
+    .from('password_resets')
+    .select('*')
+    .eq('token', token)
+    .eq('used', false)
+    .gt('expires_at', new Date().toISOString())
+    .single();
+  if (error && error.code !== 'PGRST116') console.error('[DB] getPasswordReset:', error.message);
+  return data;
+}
+
+export async function markPasswordResetUsed(token) {
+  await supabase
+    .from('password_resets')
+    .update({ used: true })
+    .eq('token', token);
 }
 
 export { supabase };

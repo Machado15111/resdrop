@@ -141,6 +141,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       // Detect OTA from link or source name
       const source = detectSourceFromVendor(sourceName, link);
 
+      // Skip blocked/unreliable sources (unless hotel itself is that brand)
+      if (isBlockedSource(sourceName, link, booking.hotelName)) continue;
+
       const savings = isMatch ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
       const savingsPercent = isMatch && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
@@ -198,6 +201,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     // Detect which OTA from the link
     const source = detectSource(prop, link);
 
+    // Skip blocked/unreliable sources (unless hotel itself is that brand)
+    if (isBlockedSource(source.name, link, booking.hotelName)) continue;
+
     // Check if this is the same hotel the user booked
     const isMatch = isHotelNameMatch(name, booking.hotelName);
 
@@ -240,6 +246,44 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
   console.log(`[SerpApi] Matches: ${exactCount} exact, ${altCount} alternatives`);
 
   return results;
+}
+
+/**
+ * Blocked sources — unreliable or budget-only platforms that should be
+ * excluded from results unless the user's hotel belongs to that brand.
+ * Matched case-insensitively against source/vendor names and URLs.
+ */
+const BLOCKED_SOURCES = [
+  'oyo',
+  'oyorooms',
+  'elmisti',
+  'el misti',
+  'hostel-bb',
+  'hotel-bb',
+  'hostelclub',
+  'hostelling',
+];
+
+/**
+ * Check if a source should be excluded from results.
+ * A source is blocked unless the booked hotel itself belongs to that brand
+ * (e.g., an OYO-branded hotel should still show OYO results).
+ */
+function isBlockedSource(sourceName, link, bookedHotelName) {
+  const src = (sourceName || '').toLowerCase();
+  const url = (link || '').toLowerCase();
+  const hotel = (bookedHotelName || '').toLowerCase();
+
+  for (const blocked of BLOCKED_SOURCES) {
+    const inSource = src.includes(blocked);
+    const inUrl = url.includes(blocked);
+    if (inSource || inUrl) {
+      // Allow if the booked hotel itself is from that brand
+      if (hotel.includes(blocked)) return false;
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -303,7 +347,6 @@ function detectSource(prop, link) {
   if (url.includes('kayak')) return { name: 'Kayak', logo: '🔍', id: 'kayak_real' };
   if (url.includes('trivago')) return { name: 'Trivago', logo: '🔎', id: 'trivago_real' };
   if (url.includes('priceline.com')) return { name: 'Priceline', logo: '💲', id: 'priceline_real' };
-  if (url.includes('hostelworld.com')) return { name: 'Hostelworld', logo: '🏠', id: 'hostelworld_real' };
   if (url.includes('decolar.com')) return { name: 'Decolar', logo: '✈️', id: 'decolar_real' };
   if (url.includes('hurb.com')) return { name: 'Hurb', logo: '🌴', id: 'hurb_real' };
 
@@ -340,13 +383,14 @@ function detectSource(prop, link) {
 /**
  * Full search: query SerpApi and return parsed results
  */
-export async function searchRealPrices(booking) {
+export async function searchRealPrices(booking, options = {}) {
   try {
     const data = await searchGoogleHotels({
       hotelName: booking.hotelName,
       destination: booking.destination,
       checkinDate: booking.checkinDate,
       checkoutDate: booking.checkoutDate,
+      currency: options.currency || 'BRL',
     });
 
     const results = parseGoogleHotelsResults(data, booking.originalPrice, booking);

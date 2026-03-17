@@ -46,6 +46,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
       guestName: booking.guestName || '',
       notes: booking.notes || '',
       rateType: booking.rateType || 'total',
+      roomTypeCustom: booking.roomTypeCustom || '',
     });
     setEditing(true);
   };
@@ -69,10 +70,10 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
   };
 
   const statusConfig = {
-    savings_found: { label: lang === 'pt' ? 'Economia encontrada' : 'Savings found', cls: 'badge-success' },
-    monitoring: { label: lang === 'pt' ? 'Monitorando' : 'Monitoring', cls: 'badge-info' },
-    booked: { label: lang === 'pt' ? 'Re-reservado' : 'Rebooked', cls: 'badge-accent' },
-    expired: { label: lang === 'pt' ? 'Expirado' : 'Expired', cls: 'badge-muted' },
+    savings_found: { label: t('dash.savingsFound'), cls: 'badge-success' },
+    monitoring: { label: t('dash.monitoring'), cls: 'badge-info' },
+    booked: { label: t('detail.rebooked'), cls: 'badge-accent' },
+    expired: { label: t('detail.expired'), cls: 'badge-muted' },
   };
   const st = statusConfig[booking.status] || statusConfig.monitoring;
 
@@ -114,15 +115,15 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
               <h3 className="detail-card-title">{t('detail.reservationDetails')}</h3>
               {!editing ? (
                 <button className="btn btn-ghost btn-xs" onClick={startEditing}>
-                  {lang === 'pt' ? 'Editar' : 'Edit'}
+                  {t('detail.edit')}
                 </button>
               ) : (
                 <div className="edit-actions">
                   <button className="btn btn-ghost btn-xs" onClick={cancelEditing} disabled={saving}>
-                    {lang === 'pt' ? 'Cancelar' : 'Cancel'}
+                    {t('account.cancel')}
                   </button>
                   <button className="btn btn-primary btn-xs" onClick={saveEdits} disabled={saving}>
-                    {saving ? '...' : (lang === 'pt' ? 'Salvar' : 'Save')}
+                    {saving ? '...' : t('detail.save')}
                   </button>
                 </div>
               )}
@@ -131,39 +132,57 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
             <div className="info-rows">
               {editing ? (
                 <>
-                  <EditRow label={lang === 'pt' ? 'Hotel' : 'Hotel'} value={editForm.hotelName} onChange={v => handleEditChange('hotelName', v)} />
-                  <EditRow label={lang === 'pt' ? 'Destino' : 'Destination'} value={editForm.destination} onChange={v => handleEditChange('destination', v)} />
+                  <EditRow label={t('detail.hotel')} value={editForm.hotelName} onChange={v => handleEditChange('hotelName', v)} />
+                  <EditRow label={t('detail.destination')} value={editForm.destination} onChange={v => handleEditChange('destination', v)} />
                   <EditRow label={t('detail.checkin')} value={editForm.checkinDate} onChange={v => handleEditChange('checkinDate', v)} type="date" />
                   <EditRow label={t('detail.checkout')} value={editForm.checkoutDate} onChange={v => handleEditChange('checkoutDate', v)} type="date" />
                   <div className="info-row">
                     <span className="info-label">{t('detail.room')}</span>
                     <select className="edit-input" value={editForm.roomType} onChange={e => handleEditChange('roomType', e.target.value)}>
-                      <option>Standard Room</option>
-                      <option>Deluxe Room</option>
-                      <option>Deluxe Twin Room</option>
-                      <option>Superior Room</option>
-                      <option>Deluxe King Suite</option>
-                      <option>Junior Suite</option>
-                      <option>Executive Suite</option>
-                      <option>Family Room</option>
-                      <option>Penthouse</option>
+                      {[
+                        { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
+                        { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
+                        { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
+                        { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
+                        { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
+                        { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
+                        { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
+                        { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
+                        { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
+                        { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
+                        { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
+                        { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
+                        { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
+                        { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
+                        { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
+                        { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
+                        { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
+                        { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
+                        { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
+                        { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
+                        { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
+                        { value: 'Other', pt: 'Outro', en: 'Other' },
+                      ].map(rt => (
+                        <option key={rt.value} value={rt.value}>{lang === 'pt' ? rt.pt : rt.en}</option>
+                      ))}
                     </select>
                   </div>
+                  {editForm.roomType === 'Other' && (
+                    <EditRow label={t('detail.customType')} value={editForm.roomTypeCustom || ''} onChange={v => handleEditChange('roomTypeCustom', v)} />
+                  )}
                   <EditRow label={t('detail.confirmation')} value={editForm.confirmationNumber} onChange={v => handleEditChange('confirmationNumber', v)} />
                   <EditRow label={t('detail.originalPrice')} value={editForm.originalPrice} onChange={v => handleEditChange('originalPrice', v)} type="number" />
-                  <EditRow label={lang === 'pt' ? 'Hospede' : 'Guest'} value={editForm.guestName} onChange={v => handleEditChange('guestName', v)} />
+                  <EditRow label={t('detail.guest')} value={editForm.guestName} onChange={v => handleEditChange('guestName', v)} />
                   <div className="info-row">
-                    <span className="info-label">{lang === 'pt' ? 'Tipo de tarifa' : 'Rate type'}</span>
+                    <span className="info-label">{t('detail.rateType')}</span>
                     <select className="edit-input" value={editForm.rateType} onChange={e => handleEditChange('rateType', e.target.value)}>
-                      <option value="total">{lang === 'pt' ? 'Preco total' : 'Total price'}</option>
-                      <option value="pernight">{lang === 'pt' ? 'Por noite' : 'Per night'}</option>
-                      <option value="refundable">{lang === 'pt' ? 'Reembolsavel' : 'Refundable'}</option>
-                      <option value="nonrefundable">{lang === 'pt' ? 'Nao-reembolsavel' : 'Non-refundable'}</option>
+                      <option value="total">{t('submit.totalStay')}</option>
+                      <option value="per_night">{t('submit.perNight')}</option>
                     </select>
                   </div>
                   <div className="info-row info-row-notes">
-                    <span className="info-label">{lang === 'pt' ? 'Notas' : 'Notes'}</span>
-                    <textarea className="edit-textarea" value={editForm.notes} onChange={e => handleEditChange('notes', e.target.value)} rows={2} placeholder={lang === 'pt' ? 'Observacoes...' : 'Notes...'} />
+                    <span className="info-label">{t('detail.notes')}</span>
+                    <textarea className="edit-textarea" value={editForm.notes} onChange={e => handleEditChange('notes', e.target.value)} rows={2} placeholder={t('detail.notesPlaceholder')} />
                   </div>
                 </>
               ) : (
@@ -171,12 +190,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
                   <InfoRow label={t('detail.checkin')} value={formatDate(booking.checkinDate)} />
                   <InfoRow label={t('detail.checkout')} value={formatDate(booking.checkoutDate)} />
                   <InfoRow label={t('detail.duration')} value={`${nights} ${nights !== 1 ? t('common.nights') : t('common.night')}`} />
-                  <InfoRow label={t('detail.room')} value={booking.roomType} />
+                  <InfoRow label={t('detail.room')} value={booking.roomType === 'Other' && booking.roomTypeCustom ? booking.roomTypeCustom : booking.roomType} />
                   <InfoRow label={t('detail.confirmation')} value={booking.confirmationNumber} mono />
-                  {booking.guestName && <InfoRow label={lang === 'pt' ? 'Hospede' : 'Guest'} value={booking.guestName} />}
+                  {booking.guestName && <InfoRow label={t('detail.guest')} value={booking.guestName} />}
                   {booking.rateType && booking.rateType !== 'total' && (
-                    <InfoRow label={lang === 'pt' ? 'Tipo de tarifa' : 'Rate type'} value={
-                      { pernight: lang === 'pt' ? 'Por noite' : 'Per night', refundable: lang === 'pt' ? 'Reembolsavel' : 'Refundable', nonrefundable: lang === 'pt' ? 'Nao-reembolsavel' : 'Non-refundable' }[booking.rateType] || booking.rateType
+                    <InfoRow label={t('detail.rateType')} value={
+                      booking.rateType === 'per_night' ? t('submit.perNight') : booking.rateType
                     } />
                   )}
                   <div className="info-row">
@@ -191,7 +210,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
                       </button>
                     </div>
                   </div>
-                  {booking.notes && <InfoRow label={lang === 'pt' ? 'Notas' : 'Notes'} value={booking.notes} />}
+                  {booking.notes && <InfoRow label={t('detail.notes')} value={booking.notes} />}
                 </>
               )}
             </div>
@@ -219,7 +238,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
             </div>
             {booking.lastChecked && (
               <p className="results-updated">
-                {lang === 'pt' ? 'Verificado:' : 'Last checked:'} {formatDate(booking.lastChecked)} {formatTime(booking.lastChecked)}
+                {t('detail.lastChecked')} {formatDate(booking.lastChecked)} {formatTime(booking.lastChecked)}
                 {booking.checkCount > 0 && <span className="check-count"> ({booking.checkCount}x)</span>}
               </p>
             )}
@@ -240,9 +259,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
               if (!hasResults) {
                 return (
                   <div className="no-results">
-                    <p>{lang === 'pt'
-                      ? 'Nenhuma cotacao encontrada para este hotel. Clique em "Atualizar" para buscar novamente.'
-                      : 'No quotes found for this hotel. Click "Refresh" to search again.'}</p>
+                    <p>{t('detail.noQuotes')}</p>
                   </div>
                 );
               }
@@ -370,7 +387,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
           {/* Change history (audit trail) */}
           {booking.changeHistory && booking.changeHistory.length > 0 && (
             <div className="detail-card history-card">
-              <h3 className="detail-card-title">{lang === 'pt' ? 'Historico de alteracoes' : 'Change history'}</h3>
+              <h3 className="detail-card-title">{t('detail.changeHistory')}</h3>
               <div className="change-history-list">
                 {[...booking.changeHistory].reverse().slice(0, 10).map((change, i) => (
                   <div className="change-entry" key={i}>

@@ -1,38 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { IconBarChart, IconUsers, IconDollar, IconSearch, IconLink, IconSettings, IconHotel, IconRefresh, IconClock, IconActivity, IconStar, IconCheck, IconCrown, IconZap, IconServer, IconTarget, IconChart, IconPercent, IconShield, IconTrendUp } from './Icons';
 import './AdminDashboard.css';
 import { API } from '../api';
 
-function AdminDashboard({ onBack }) {
+function AdminDashboard() {
+  const navigate = useNavigate();
+  const { authFetch } = useAuth();
+  const onBack = () => navigate('/dashboard');
   const [activeTab, setActiveTab] = useState('overview');
   const [adminData, setAdminData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [triggeringCheck, setTriggeringCheck] = useState(false);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = useCallback(async () => {
     setLoading(true);
     try {
       const [dashboard, config] = await Promise.all([
-        fetch(`${API}/admin/dashboard`).then(r => r.json()),
-        fetch(`${API}/config`).then(r => r.json()),
+        authFetch(`${API}/admin/dashboard`).then(r => r.json()),
+        authFetch(`${API}/config`).then(r => r.json()),
       ]);
       setAdminData({ ...dashboard, config });
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
     }
     setLoading(false);
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     fetchAdminData();
-    const interval = setInterval(fetchAdminData, 30000); // Refresh every 30s
+    const interval = setInterval(fetchAdminData, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAdminData]);
 
   const triggerManualCheck = async () => {
     setTriggeringCheck(true);
     try {
-      const res = await fetch(`${API}/admin/trigger-check`, { method: 'POST' });
+      const res = await authFetch(`${API}/admin/trigger-check`, { method: 'POST' });
       const result = await res.json();
       alert(`Price check complete!\n${result.bookingsChecked} bookings checked\n${result.savingsFound} new savings found`);
       fetchAdminData();

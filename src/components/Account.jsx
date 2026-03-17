@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
-import { IconUser, IconMail, IconArrowLeft, IconCheck, IconCrown, IconStar, IconZap } from './Icons';
-import './Account.css';
 import { API } from '../api';
+import { IconUser, IconArrowLeft, IconCheck, IconCrown, IconStar, IconZap, IconPlus, IconTrash } from './Icons';
+import './Account.css';
 
 const PLANS = [
   { id: 'free', icon: IconZap, bookings: 1, price: 0 },
@@ -12,195 +14,337 @@ const PLANS = [
 
 const PLAN_NAMES = { free: 'Free', viajante: 'Viajante', premium: 'Premium' };
 
-function Account({ currentUser, onLogin, onLogout, onBack }) {
-  const { t } = useI18n();
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+const ROOM_TYPES = [
+  { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
+  { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
+  { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
+  { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
+  { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
+  { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
+  { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
+  { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
+  { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
+  { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
+  { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
+  { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
+  { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
+  { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
+  { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
+  { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
+  { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
+  { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
+  { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
+  { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
+  { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
+];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const url = mode === 'login' ? `${API}/auth/login` : `${API}/auth/signup`;
-      const body = mode === 'login' ? { email } : { email, name };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Erro ao processar');
-        setLoading(false);
-        return;
-      }
-      onLogin(data);
-    } catch (err) {
-      setError('Erro de conexao');
-    }
-    setLoading(false);
-  };
+function Account() {
+  const { t, lang } = useI18n();
+  const { user, authFetch, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    dateOfBirth: user?.dateOfBirth || '',
+    preferredRoomType: user?.preferredRoomType || 'Standard Room',
+  });
+  const [loyaltyPrograms, setLoyaltyPrograms] = useState(
+    user?.loyaltyPrograms || []
+  );
 
   const handleChangePlan = async (planId) => {
-    if (!currentUser || planId === currentUser.plan) return;
+    if (!user || planId === user.plan) return;
     try {
-      const res = await fetch(`${API}/users/${currentUser.email}/plan`, {
+      const res = await authFetch(`${API}/users/${user.email}/plan`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: planId }),
       });
-      const data = await res.json();
-      if (res.ok) onLogin(data);
+      if (res.ok) {
+        const data = await res.json();
+        updateUser(data);
+      }
     } catch (err) {
       console.error('Failed to change plan:', err);
     }
   };
 
-  // Logged-in view
-  if (currentUser) {
-    const userPlan = PLANS.find(p => p.id === currentUser.plan) || PLANS[0];
-    return (
-      <div className="account-page">
-        <div className="container">
-          <button className="btn btn-ghost back-btn" onClick={onBack}>
-            <IconArrowLeft size={16} />
-            {t('common.back')}
-          </button>
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
-          <div className="account-profile">
-            <div className="account-avatar">
-              <IconUser size={32} />
-            </div>
-            <div className="account-info">
-              <h1>{t('account.welcome')}, {currentUser.name}</h1>
-              <p className="account-email">{currentUser.email}</p>
-              <p className="account-since">{t('account.memberSince')} {new Date(currentUser.joinedAt).toLocaleDateString('pt-BR')}</p>
-            </div>
-          </div>
+  const handleProfileSave = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const res = await authFetch(`${API}/profile`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...profileForm,
+          loyaltyPrograms: loyaltyPrograms.filter(lp => lp.program.trim()),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        updateUser(data);
+        setSaveMsg(t('account.profileUpdated'));
+        setEditMode(false);
+        setTimeout(() => setSaveMsg(''), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      setSaveMsg(t('account.saveFailed'));
+    }
+    setSaving(false);
+  };
 
-          <div className="account-section">
-            <h2>{t('account.planUsage')}</h2>
-            <div className="account-usage-card">
-              <div className="usage-plan-badge">
-                <userPlan.icon size={20} />
-                <span>{PLAN_NAMES[currentUser.plan]}</span>
-              </div>
-              <div className="usage-bar-wrap">
-                <div className="usage-label">
-                  <span>{t('account.bookingsUsed')}</span>
-                  <span>{currentUser.bookings} {t('account.of')} {userPlan.bookings} {t('account.thisMonth')}</span>
-                </div>
-                <div className="usage-bar">
-                  <div
-                    className="usage-bar-fill"
-                    style={{ width: `${Math.min(100, (currentUser.bookings / userPlan.bookings) * 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+  const addLoyaltyProgram = () => {
+    setLoyaltyPrograms(prev => [...prev, { program: '', number: '' }]);
+  };
 
-          <div className="account-section">
-            <h2>{t('account.changePlan')}</h2>
-            <div className="account-plans-grid">
-              {PLANS.map(plan => (
-                <div
-                  key={plan.id}
-                  className={`account-plan-card ${currentUser.plan === plan.id ? 'current' : ''}`}
-                >
-                  <div className="apc-header">
-                    <plan.icon size={24} />
-                    <span className="apc-name">{PLAN_NAMES[plan.id]}</span>
-                  </div>
-                  <div className="apc-price">
-                    {plan.price === 0 ? (
-                      <span className="apc-amount">{t('pricing.free')}</span>
-                    ) : (
-                      <>
-                        <span className="apc-currency">R$</span>
-                        <span className="apc-amount">{plan.price}</span>
-                        <span className="apc-period">{t('pricing.month')}</span>
-                      </>
-                    )}
-                  </div>
-                  <p className="apc-bookings">{plan.bookings} {t('pricing.bookings')}</p>
-                  {currentUser.plan === plan.id ? (
-                    <button className="btn btn-outline btn-sm" disabled>
-                      <IconCheck size={14} />
-                      {t('pricing.currentPlan')}
-                    </button>
-                  ) : (
-                    <button className="btn btn-primary btn-sm" onClick={() => handleChangePlan(plan.id)}>
-                      {t('account.selectPlan')}
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+  const removeLoyaltyProgram = (index) => {
+    setLoyaltyPrograms(prev => prev.filter((_, i) => i !== index));
+  };
 
-          <button className="btn btn-ghost logout-btn" onClick={onLogout}>
-            {t('account.logout')}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const updateLoyaltyProgram = (index, field, value) => {
+    setLoyaltyPrograms(prev => prev.map((lp, i) =>
+      i === index ? { ...lp, [field]: value } : lp
+    ));
+  };
 
-  // Logged-out view
+  if (!user) return null;
+
+  const userPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
+
   return (
     <div className="account-page">
       <div className="container">
-        <button className="btn btn-ghost back-btn" onClick={onBack}>
+        <button className="btn btn-ghost back-btn" onClick={() => navigate('/dashboard')}>
           <IconArrowLeft size={16} />
           {t('common.back')}
         </button>
 
-        <div className="account-auth-card">
-          <h1>{mode === 'login' ? t('account.loginTitle') : t('account.signupTitle')}</h1>
+        <div className="account-profile">
+          <div className="account-avatar">
+            <IconUser size={32} />
+          </div>
+          <div className="account-info">
+            <h1>{t('account.welcome')}, {user.name}</h1>
+            <p className="account-email">{user.email}</p>
+            <p className="account-since">{t('account.memberSince')} {new Date(user.joinedAt).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US')}</p>
+          </div>
+        </div>
 
-          <form onSubmit={handleSubmit}>
-            {mode === 'signup' && (
-              <div className="form-group">
-                <label className="form-label">{t('account.name')}</label>
-                <input
-                  className="form-input"
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Joao Silva"
-                  required
-                />
+        {/* Profile Section */}
+        <div className="account-section">
+          <div className="section-header">
+            <h2>{t('account.profileTitle')}</h2>
+            {!editMode ? (
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditMode(true)}>
+                {t('account.editProfile')}
+              </button>
+            ) : (
+              <div className="edit-actions">
+                <button className="btn btn-ghost btn-sm" onClick={() => setEditMode(false)} disabled={saving}>
+                  {t('account.cancel')}
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={handleProfileSave} disabled={saving}>
+                  {saving ? '...' : t('account.saveProfile')}
+                </button>
               </div>
             )}
-            <div className="form-group">
-              <label className="form-label">{t('account.email')}</label>
-              <input
-                className="form-input"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="voce@exemplo.com"
-                required
-              />
-            </div>
-            {error && <p className="account-error">{error}</p>}
-            <button className="btn btn-accent btn-lg account-submit" type="submit" disabled={loading}>
-              {mode === 'login' ? t('account.login') : t('account.signup')}
-            </button>
-          </form>
+          </div>
 
-          <p className="account-toggle">
-            {mode === 'login' ? t('account.noAccount') : t('account.hasAccount')}{' '}
-            <button className="account-link" onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }}>
-              {mode === 'login' ? t('account.signup') : t('account.login')}
-            </button>
-          </p>
+          {saveMsg && <p className="save-message">{saveMsg}</p>}
+
+          {editMode ? (
+            <div className="profile-form">
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label className="form-label">{t('account.name')}</label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    value={profileForm.name}
+                    onChange={e => setProfileForm(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('account.phone')}</label>
+                  <input
+                    className="form-input"
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={e => setProfileForm(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+55 11 99999-9999"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('account.dateOfBirth')}</label>
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={profileForm.dateOfBirth}
+                    onChange={e => setProfileForm(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('account.preferredRoom')}</label>
+                  <select
+                    className="form-input"
+                    value={profileForm.preferredRoomType}
+                    onChange={e => setProfileForm(prev => ({ ...prev, preferredRoomType: e.target.value }))}
+                  >
+                    {ROOM_TYPES.map(rt => (
+                      <option key={rt.value} value={rt.value}>
+                        {lang === 'pt' ? rt.pt : rt.en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Loyalty Programs */}
+              <div className="loyalty-section">
+                <label className="form-label">{t('account.loyaltyPrograms')}</label>
+                {loyaltyPrograms.map((lp, i) => (
+                  <div className="loyalty-row" key={i}>
+                    <input
+                      className="form-input loyalty-input"
+                      type="text"
+                      value={lp.program}
+                      onChange={e => updateLoyaltyProgram(i, 'program', e.target.value)}
+                      placeholder={t('account.programName')}
+                    />
+                    <input
+                      className="form-input loyalty-input"
+                      type="text"
+                      value={lp.number}
+                      onChange={e => updateLoyaltyProgram(i, 'number', e.target.value)}
+                      placeholder={t('account.loyaltyNumber')}
+                    />
+                    <button
+                      className="btn btn-ghost btn-icon loyalty-remove"
+                      onClick={() => removeLoyaltyProgram(i)}
+                      title={t('account.remove')}
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn btn-ghost btn-sm add-loyalty" onClick={addLoyaltyProgram}>
+                  <IconPlus size={14} />
+                  {t('account.addProgram')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="profile-display">
+              <div className="profile-row">
+                <span className="profile-label">{t('account.name')}</span>
+                <span className="profile-value">{user.name}</span>
+              </div>
+              {user.phone && (
+                <div className="profile-row">
+                  <span className="profile-label">{t('account.phone')}</span>
+                  <span className="profile-value">{user.phone}</span>
+                </div>
+              )}
+              {user.dateOfBirth && (
+                <div className="profile-row">
+                  <span className="profile-label">{t('account.dateOfBirth')}</span>
+                  <span className="profile-value">{new Date(user.dateOfBirth).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US')}</span>
+                </div>
+              )}
+              {user.preferredRoomType && (
+                <div className="profile-row">
+                  <span className="profile-label">{t('account.preferredRoom')}</span>
+                  <span className="profile-value">{user.preferredRoomType}</span>
+                </div>
+              )}
+              {user.loyaltyPrograms && user.loyaltyPrograms.length > 0 && (
+                <div className="profile-row">
+                  <span className="profile-label">{t('account.loyaltyPrograms')}</span>
+                  <div className="profile-loyalty-list">
+                    {user.loyaltyPrograms.map((lp, i) => (
+                      <span key={i} className="loyalty-badge">{lp.program}: {lp.number}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Plan Usage */}
+        <div className="account-section">
+          <h2>{t('account.planUsage')}</h2>
+          <div className="account-usage-card">
+            <div className="usage-plan-badge">
+              <userPlan.icon size={20} />
+              <span>{PLAN_NAMES[user.plan]}</span>
+            </div>
+            <div className="usage-bar-wrap">
+              <div className="usage-label">
+                <span>{t('account.bookingsUsed')}</span>
+                <span>{user.bookings || user.bookingsCount || 0} {t('account.of')} {userPlan.bookings} {t('account.thisMonth')}</span>
+              </div>
+              <div className="usage-bar">
+                <div
+                  className="usage-bar-fill"
+                  style={{ width: `${Math.min(100, ((user.bookings || user.bookingsCount || 0) / userPlan.bookings) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Change Plan */}
+        <div className="account-section">
+          <h2>{t('account.changePlan')}</h2>
+          <div className="account-plans-grid">
+            {PLANS.map(plan => (
+              <div
+                key={plan.id}
+                className={`account-plan-card ${user.plan === plan.id ? 'current' : ''}`}
+              >
+                <div className="apc-header">
+                  <plan.icon size={24} />
+                  <span className="apc-name">{PLAN_NAMES[plan.id]}</span>
+                </div>
+                <div className="apc-price">
+                  {plan.price === 0 ? (
+                    <span className="apc-amount">{t('pricing.free')}</span>
+                  ) : (
+                    <>
+                      <span className="apc-currency">R$</span>
+                      <span className="apc-amount">{plan.price}</span>
+                      <span className="apc-period">{t('pricing.month')}</span>
+                    </>
+                  )}
+                </div>
+                <p className="apc-bookings">{plan.bookings} {t('pricing.bookings')}</p>
+                {user.plan === plan.id ? (
+                  <button className="btn btn-outline btn-sm" disabled>
+                    <IconCheck size={14} />
+                    {t('pricing.currentPlan')}
+                  </button>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={() => handleChangePlan(plan.id)}>
+                    {t('account.selectPlan')}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button className="btn btn-ghost logout-btn" onClick={handleLogout}>
+          {t('account.logout')}
+        </button>
       </div>
     </div>
   );

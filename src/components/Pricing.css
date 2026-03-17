@@ -1,5 +1,5 @@
 .pricing-section {
-  background: var(--gray-50);
+  background: var(--color-neutral-50);
 }
 .pricing-grid {
   display: grid;
@@ -8,8 +8,8 @@
   align-items: start;
 }
 .pricing-card {
-  background: var(--white);
-  border: 1px solid var(--gray-200);
+  background: #ffffff;
+  border: 1px solid var(--color-neutral-200);
   border-radius: var(--radius-lg);
   padding: 32px 24px;
   position: relative;
@@ -22,19 +22,19 @@
   transform: translateY(-4px);
 }
 .pricing-popular {
-  border-color: var(--emerald);
-  box-shadow: 0 0 0 1px var(--emerald), var(--shadow-md);
+  border-color: var(--color-green-700);
+  box-shadow: 0 0 0 1px var(--color-green-700), var(--shadow-md);
 }
 .pricing-popular:hover {
-  box-shadow: 0 0 0 1px var(--emerald), var(--shadow-xl);
+  box-shadow: 0 0 0 1px var(--color-green-700), var(--shadow-xl);
 }
 .pricing-badge {
   position: absolute;
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--emerald);
-  color: var(--white);
+  background: var(--color-green-700);
+  color: #ffffff;
   padding: 4px 16px;
   border-radius: var(--radius-full);
   font-size: 12px;
@@ -53,20 +53,20 @@
   justify-content: center;
   margin-bottom: 16px;
 }
-.pricing-icon-free { background: var(--gray-100); color: var(--gray-600); }
-.pricing-icon-viajante { background: var(--emerald-light); color: var(--emerald); }
+.pricing-icon-free { background: var(--color-neutral-100); color: var(--color-neutral-600); }
+.pricing-icon-viajante { background: var(--emerald-light); color: var(--color-green-700); }
 .pricing-icon-premium { background: var(--gold-light); color: var(--gold-dark); }
 .pricing-free { font-size: 36px !important; }
 .pricing-name {
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 700;
-  color: var(--gray-900);
+  color: var(--color-neutral-900);
   margin-bottom: 4px;
 }
 .pricing-desc {
   font-size: 14px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
   line-height: 1.5;
 }
 .pricing-price {
@@ -78,27 +78,27 @@
 .pricing-currency {
   font-size: 18px;
   font-weight: 600;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 .pricing-amount {
   font-family: var(--font-display);
   font-size: 48px;
   font-weight: 700;
-  color: var(--gray-900);
+  color: var(--color-neutral-900);
   letter-spacing: -0.03em;
   line-height: 1;
 }
 .pricing-period {
   font-size: 14px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
   margin-left: 2px;
 }
 .pricing-limit {
   font-size: 13px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
   padding-bottom: 24px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--gray-200);
+  border-bottom: 1px solid var(--color-neutral-200);
 }
 .pricing-features {
   list-style: none;
@@ -114,14 +114,14 @@
   align-items: center;
   gap: 10px;
   font-size: 14px;
-  color: var(--gray-700);
+  color: var(--color-neutral-700);
 }
 .pricing-features li svg { flex-shrink: 0; }
-.pricing-features li.included svg { color: var(--emerald); }
+.pricing-features li.included svg { color: var(--color-green-700); }
 .pricing-features li.excluded {
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
 }
-.pricing-features li.excluded svg { color: var(--gray-300); }
+.pricing-features li.excluded svg { color: var(--color-neutral-300); }
 .pricing-cta {
   width: 100%;
   padding: 12px;
@@ -130,7 +130,7 @@
 .pricing-note {
   text-align: center;
   font-size: 13px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
   margin-top: 32px;
 }
 @media (max-width: 1024px) {

@@ -424,6 +424,46 @@ export function IconInfinity({ size = 24, className }) {
 }
 
 // Logo mark for ResDrop
+export function IconBriefcase({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <rect x="2" y="7" width="20" height="14" rx="2" />
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+export function IconFamily({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <circle cx="12" cy="5" r="3" />
+      <path d="M12 8c-3 0-5 2-5 4v1h10v-1c0-2-2-4-5-4z" />
+      <circle cx="5" cy="11" r="2" />
+      <path d="M5 13c-2 0-3.5 1.5-3.5 3v0.5h7v-0.5c0-1.5-1.5-3-3.5-3z" />
+      <circle cx="19" cy="11" r="2" />
+      <path d="M19 13c-2 0-3.5 1.5-3.5 3v0.5h7v-0.5c0-1.5-1.5-3-3.5-3z" />
+    </svg>
+  );
+}
+
+export function IconHeart({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  );
+}
+
+export function IconTrash({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
 export function LogoMark({ size = 32, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className}>

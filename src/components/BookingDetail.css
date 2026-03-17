@@ -1,7 +1,7 @@
 .detail-page {
   padding: 32px 0 80px;
   min-height: calc(100vh - var(--header-h));
-  background: var(--gray-50);
+  background: var(--color-neutral-50);
 }
 
 .detail-header {
@@ -23,7 +23,7 @@
   height: 52px;
   border-radius: var(--radius);
   background: var(--navy-50);
-  color: var(--navy);
+  color: var(--color-neutral-900);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,7 +37,7 @@
 }
 
 .detail-dest {
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
   font-size: 15px;
   margin-top: 2px;
 }
@@ -47,7 +47,7 @@
   flex-direction: column;
   align-items: flex-end;
   background: var(--emerald-light);
-  border: 2px solid var(--emerald);
+  border: 2px solid var(--color-green-700);
   border-radius: var(--radius);
   padding: 12px 20px;
 }
@@ -78,7 +78,7 @@
 
 .detail-card {
   background: white;
-  border: 1px solid var(--gray-200);
+  border: 1px solid var(--color-neutral-200);
   border-radius: var(--radius);
   padding: 24px;
 }
@@ -107,7 +107,7 @@
   border-radius: 6px;
 }
 .btn-primary.btn-xs {
-  background: var(--navy);
+  background: var(--color-neutral-900);
   color: white;
   border: none;
 }
@@ -126,7 +126,7 @@
   justify-content: space-between;
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--color-neutral-100);
 }
 
 .info-row:last-child {
@@ -136,7 +136,7 @@
 
 .info-label {
   font-size: 13px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 
 .info-value {
@@ -152,14 +152,14 @@
 .info-value.price {
   font-size: 18px;
   font-weight: 800;
-  color: var(--gray-900);
+  color: var(--color-neutral-900);
 }
 
 /* Edit mode inputs */
 .edit-input {
   font-size: 13px;
   padding: 5px 8px;
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--color-neutral-300);
   border-radius: 6px;
   min-width: 140px;
   max-width: 180px;
@@ -215,7 +215,7 @@
 .btn-success-state {
   background: var(--emerald-50) !important;
   color: var(--emerald-dark) !important;
-  border-color: var(--emerald) !important;
+  border-color: var(--color-green-700) !important;
 }
 .btn-error-state {
   background: #fef2f2 !important;
@@ -223,7 +223,7 @@
   border-color: #fca5a5 !important;
 }
 .check-count {
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
 }
 
 .results-card {
@@ -240,7 +240,7 @@
 
 .results-updated {
   font-size: 12px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
   margin-bottom: 16px;
 }
 
@@ -256,17 +256,17 @@
   gap: 16px;
   padding: 14px 16px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--gray-100);
+  border: 1px solid var(--color-neutral-100);
   transition: all 0.2s;
 }
 
 .result-row:hover {
-  border-color: var(--gray-200);
-  background: var(--gray-50);
+  border-color: var(--color-neutral-200);
+  background: var(--color-neutral-50);
 }
 
 .result-row.best {
-  border-color: var(--emerald);
+  border-color: var(--color-green-700);
   background: var(--emerald-light);
 }
 
@@ -305,7 +305,7 @@
 }
 
 .result-perk.blue {
-  color: var(--navy);
+  color: var(--color-neutral-900);
 }
 
 .result-pricing {
@@ -315,7 +315,7 @@
 
 .result-pn {
   font-size: 13px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 
 .result-total {
@@ -326,7 +326,7 @@
 .result-total-label {
   font-size: 12px;
   font-weight: 400;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
 }
 
 .result-action {
@@ -346,13 +346,13 @@
 
 .result-no-savings {
   font-size: 13px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
 }
 
 .no-results, .no-alerts {
   text-align: center;
   padding: 32px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 
 .alerts-card {
@@ -375,11 +375,11 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--gray-300);
+  background: var(--color-neutral-300);
   flex-shrink: 0;
   margin-top: 5px;
 }
-.alert-dot.dot-drop { background: var(--emerald); }
+.alert-dot.dot-drop { background: var(--color-green-700); }
 .alert-dot.dot-increase { background: var(--color-red-500); }
 .alert-dot.dot-same { background: var(--color-amber-500); }
 
@@ -391,7 +391,7 @@
 
 .alert-time {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
   margin-top: 2px;
 }
 
@@ -414,7 +414,7 @@
 .ph-bar-container {
   flex: 1;
   height: 28px;
-  background: var(--gray-100);
+  background: var(--color-neutral-100);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -441,12 +441,12 @@
 
 .ph-source {
   font-size: 12px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 
 .ph-date {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
 }
 
 .rebook-banner {
@@ -513,7 +513,7 @@
   gap: 12px;
   font-size: 13px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--color-neutral-100);
 }
 .change-entry:last-child { border-bottom: none; }
 .change-field {
@@ -523,17 +523,17 @@
 }
 .change-arrow {
   flex: 1;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
 }
 .change-date {
   font-size: 11px;
-  color: var(--gray-400);
+  color: var(--color-neutral-400);
   flex-shrink: 0;
 }
 
 /* Badge variants */
 .badge-accent { background: var(--color-blue-100); color: var(--color-blue-700); }
-.badge-muted { background: var(--gray-100); color: var(--gray-500); }
+.badge-muted { background: var(--color-neutral-100); color: var(--color-neutral-500); }
 
 @media (max-width: 600px) {
   .result-row {

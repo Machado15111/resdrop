@@ -1,5 +1,5 @@
 .stats-section {
-  background: var(--gray-50);
+  background: var(--color-neutral-50);
 }
 .stats-grid {
   display: grid;
@@ -7,8 +7,8 @@
   gap: 20px;
 }
 .stat-card {
-  background: var(--white);
-  border: 1px solid var(--gray-200);
+  background: #ffffff;
+  border: 1px solid var(--color-neutral-200);
   border-radius: var(--radius);
   padding: 28px 24px;
   text-align: center;
@@ -45,7 +45,7 @@
 }
 .stat-label {
   font-size: 13px;
-  color: var(--gray-500);
+  color: var(--color-neutral-500);
   font-weight: 500;
 }
 @media (max-width: 768px) {
