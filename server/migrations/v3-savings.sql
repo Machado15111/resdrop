@@ -58,8 +58,9 @@ ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Server full access activity_log" ON activity_log;
 CREATE POLICY "Server full access activity_log" ON activity_log FOR ALL USING (true);
 
--- 4. Add potential_savings to bookings
+-- 4. Add potential_savings and room_type_custom to bookings
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS potential_savings NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS room_type_custom TEXT;
 
 -- 5. Add confirmed_savings to users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmed_savings NUMERIC(10,2) DEFAULT 0;

@@ -224,14 +224,55 @@ export async function getAllBookings() {
   return (data || []).map(toCamel);
 }
 
+// Core booking columns that always exist
+const BOOKING_CORE_COLUMNS = [
+  'id', 'hotel_name', 'destination', 'checkin_date', 'checkout_date',
+  'room_type', 'original_price', 'guest_name', 'confirmation_number',
+  'email', 'status', 'created_at', 'updated_at', 'last_checked',
+  'best_price', 'best_source', 'total_savings',
+  'notes', 'rate_type', 'check_count', 'api_mode',
+  'price_history', 'alerts', 'change_history', 'latest_results',
+  'source', 'alternatives',
+];
+
+// Extra columns added by migrations (may not exist yet)
+const BOOKING_EXTRA_COLUMNS = ['potential_savings', 'room_type_custom'];
+
 export async function createBooking(booking) {
-  const row = toSnake(booking);
+  const raw = toSnake(booking);
+
+  // Try with all columns first (includes migration columns)
+  const allCols = [...BOOKING_CORE_COLUMNS, ...BOOKING_EXTRA_COLUMNS];
+  const row = {};
+  for (const col of allCols) {
+    if (raw[col] !== undefined) row[col] = raw[col];
+  }
+
   const { data, error } = await supabase
     .from('bookings')
     .insert(row)
     .select()
     .single();
-  if (error) { console.error('[DB] createBooking:', error.message); return null; }
+
+  if (error) {
+    // If error is about unknown column, retry with only core columns
+    if (error.message?.includes('column') || error.code === '42703') {
+      console.warn('[DB] createBooking: retrying with core columns only');
+      const coreRow = {};
+      for (const col of BOOKING_CORE_COLUMNS) {
+        if (raw[col] !== undefined) coreRow[col] = raw[col];
+      }
+      const { data: d2, error: e2 } = await supabase
+        .from('bookings')
+        .insert(coreRow)
+        .select()
+        .single();
+      if (e2) { console.error('[DB] createBooking (core):', e2.message, e2.details); return null; }
+      return toCamel(d2);
+    }
+    console.error('[DB] createBooking:', error.message, error.details, error.hint);
+    return null;
+  }
   return toCamel(data);
 }
 

@@ -332,73 +332,82 @@ async function applyBestResult(booking, results) {
 
 // Submit a new booking for monitoring
 app.post('/api/bookings', authMiddleware, async (req, res) => {
-  const {
-    hotelName, destination, checkinDate, checkoutDate,
-    roomType, originalPrice,
-    guestName, confirmationNumber,
-    rateType, roomTypeCustom,
-  } = req.body;
+  try {
+    const {
+      hotelName, destination, checkinDate, checkoutDate,
+      roomType, originalPrice,
+      guestName, confirmationNumber,
+      rateType, roomTypeCustom,
+      preferences, taxesIncluded,
+    } = req.body;
 
-  if (!hotelName || !checkinDate || !checkoutDate || !originalPrice) {
-    return res.status(400).json({ error: 'Missing required fields: hotelName, checkinDate, checkoutDate, originalPrice' });
-  }
-  if (new Date(checkoutDate) <= new Date(checkinDate)) {
-    return res.status(400).json({ error: 'Check-out must be after check-in' });
-  }
-  if (parseFloat(originalPrice) <= 0) {
-    return res.status(400).json({ error: 'Price must be greater than zero' });
-  }
+    if (!hotelName || !checkinDate || !checkoutDate || !originalPrice) {
+      return res.status(400).json({ error: 'Missing required fields: hotelName, checkinDate, checkoutDate, originalPrice' });
+    }
+    if (new Date(checkoutDate) <= new Date(checkinDate)) {
+      return res.status(400).json({ error: 'Check-out must be after check-in' });
+    }
+    if (parseFloat(originalPrice) <= 0) {
+      return res.status(400).json({ error: 'Price must be greater than zero' });
+    }
 
-  // Validate plan limit using authenticated user
-  const plan = PLANS[req.user.plan] || PLANS.free;
-  if ((req.user.bookingsCount || 0) >= plan.bookingsPerMonth) {
-    return res.status(403).json({
-      error: 'plan_limit',
-      message: `Limite do plano atingido (${plan.bookingsPerMonth} reservas/mes). Faca upgrade para continuar.`,
-      limit: plan.bookingsPerMonth,
-      plan: req.user.plan,
-    });
+    // Validate plan limit using authenticated user
+    const plan = PLANS[req.user.plan] || PLANS.free;
+    if ((req.user.bookingsCount || 0) >= plan.bookingsPerMonth) {
+      return res.status(403).json({
+        error: 'plan_limit',
+        message: `Limite do plano atingido (${plan.bookingsPerMonth} reservas/mes). Faca upgrade para continuar.`,
+        limit: plan.bookingsPerMonth,
+        plan: req.user.plan,
+      });
+    }
+
+    const id = generateId();
+    const booking = {
+      id,
+      hotelName,
+      destination: destination || '',
+      checkinDate,
+      checkoutDate,
+      roomType: roomType || 'Standard Room',
+      originalPrice: parseFloat(originalPrice),
+      guestName: guestName || req.user.name || 'Guest',
+      confirmationNumber: confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
+      email: req.userEmail,
+      status: 'monitoring',
+      createdAt: new Date().toISOString(),
+      lastChecked: null,
+      bestPrice: null,
+      bestSource: null,
+      totalSavings: 0,
+      notes: [
+        preferences?.length ? `Preferências: ${preferences.join(', ')}` : '',
+        taxesIncluded ? 'Impostos incluídos' : '',
+      ].filter(Boolean).join(' | '),
+      rateType: rateType || 'total',
+      roomTypeCustom: roomTypeCustom || null,
+      priceHistory: [
+        {
+          date: new Date().toISOString(),
+          price: parseFloat(originalPrice),
+          source: 'Reserva Original',
+        },
+      ],
+      alerts: [],
+      changeHistory: [],
+      apiMode: API_MODE,
+    };
+
+    const created = await db.createBooking(booking);
+    if (!created) {
+      return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
+    }
+
+    res.status(201).json(created);
+  } catch (err) {
+    console.error('[API] POST /bookings error:', err);
+    res.status(500).json({ error: `Server error: ${err.message}` });
   }
-
-  const id = generateId();
-  const booking = {
-    id,
-    hotelName,
-    destination: destination || '',
-    checkinDate,
-    checkoutDate,
-    roomType: roomType || 'Standard Room',
-    originalPrice: parseFloat(originalPrice),
-    guestName: guestName || req.user.name || 'Guest',
-    confirmationNumber: confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
-    email: req.userEmail,
-    status: 'monitoring',
-    createdAt: new Date().toISOString(),
-    lastChecked: null,
-    bestPrice: null,
-    bestSource: null,
-    totalSavings: 0,
-    notes: '',
-    rateType: rateType || 'total',
-    roomTypeCustom: roomTypeCustom || null,
-    priceHistory: [
-      {
-        date: new Date().toISOString(),
-        price: parseFloat(originalPrice),
-        source: 'Reserva Original',
-      },
-    ],
-    alerts: [],
-    changeHistory: [],
-    apiMode: API_MODE,
-  };
-
-  const created = await db.createBooking(booking);
-  if (!created) {
-    return res.status(500).json({ error: 'Failed to create booking' });
-  }
-
-  res.status(201).json(created);
 });
 
 // Get bookings (LGPD: always filtered by authenticated user)
