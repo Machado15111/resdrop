@@ -7,6 +7,8 @@
     "dev": "vite",
     "server": "node server/index.js",
     "build": "vite build",
+    "build:prod": "npm install && vite build && cd server && npm install",
+    "start": "node server/index.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

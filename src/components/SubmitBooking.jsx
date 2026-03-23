@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { IconArrowLeft, IconMail, IconUpload, IconArrowRight, IconShield, IconChevronDown } from './Icons';
+import DocumentUpload from './DocumentUpload';
 import './SubmitBooking.css';
 import { API } from '../api';
 
@@ -37,7 +38,7 @@ const PREFERENCES = [
   { value: 'junior_suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
 ];
 
-function SubmitBooking({ onSubmit, onBack, loading, userEmail }) {
+function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
   const { t, lang } = useI18n();
   const [mode, setMode] = useState('form');
   const [emailContent, setEmailContent] = useState('');
@@ -194,9 +195,18 @@ function SubmitBooking({ onSubmit, onBack, loading, userEmail }) {
               <IconMail size={16} />
               {t('submit.pasteEmail')}
             </button>
+            <button
+              className={`mode-btn ${mode === 'upload' ? 'active' : ''}`}
+              onClick={() => setMode('upload')}
+            >
+              <IconUpload size={16} />
+              {t('submit.uploadDoc')}
+            </button>
           </div>
 
-          {mode === 'email' ? (
+          {mode === 'upload' ? (
+            <DocumentUpload onSubmit={onSubmit} userEmail={userEmail} onBack={() => setMode('form')} />
+          ) : mode === 'email' ? (
             <div className="email-parse-section animate-in">
               <label className="form-label">{t('submit.pasteLabel')}</label>
               <textarea
@@ -435,8 +445,9 @@ function SubmitBooking({ onSubmit, onBack, loading, userEmail }) {
                 <span>{t('submit.freeCancel')}</span>
               </div>
 
+              {error && <p className="form-error" style={{color: '#C1292E', marginBottom: '16px', textAlign: 'center', fontWeight: '500'}}>{error}</p>}
               <button
-                className="btn btn-accent btn-lg submit-btn"
+                className="btn btn-primary btn-lg submit-btn"
                 type="submit"
                 disabled={loading || !form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
               >

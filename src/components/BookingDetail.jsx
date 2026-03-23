@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { IconArrowLeft, IconHotel, IconRefresh } from './Icons';
+import SavingsConfirmationModal from './SavingsConfirmationModal';
 import './BookingDetail.css';
 
-function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
+function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onConfirmSavings, onDismissSavings }) {
   const { t, lang } = useI18n();
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
   const nights = Math.ceil(
@@ -15,6 +16,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [priceDisplay, setPriceDisplay] = useState('total');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isLoading = bookingState?.state === 'loading';
   const isSuccess = bookingState?.state === 'success';
@@ -71,11 +73,17 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
 
   const statusConfig = {
     savings_found: { label: t('dash.savingsFound'), cls: 'badge-success' },
+    lower_fare_found: { label: t('savings.lowerFareFound'), cls: 'badge-success' },
+    confirmed_savings: { label: t('savings.confirmedBadge'), cls: 'badge-confirmed' },
+    dismissed: { label: t('savings.dismissedBadge'), cls: 'badge-muted' },
     monitoring: { label: t('dash.monitoring'), cls: 'badge-info' },
     booked: { label: t('detail.rebooked'), cls: 'badge-accent' },
     expired: { label: t('detail.expired'), cls: 'badge-muted' },
   };
   const st = statusConfig[booking.status] || statusConfig.monitoring;
+
+  const hasUnconfirmedSavings = (booking.status === 'lower_fare_found' || booking.status === 'savings_found') &&
+    (booking.potentialSavings > 0 || booking.totalSavings > 0);
 
   return (
     <div className="detail-page">
@@ -95,9 +103,14 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
             </div>
           </div>
           <div className="detail-status-area">
-            {booking.status === 'savings_found' && booking.totalSavings > 0 ? (
-              <div className="detail-savings-highlight">
-                <span className="savings-label">{t('detail.totalSavings')}</span>
+            {hasUnconfirmedSavings ? (
+              <div className="detail-savings-highlight unconfirmed">
+                <span className="savings-label">{t('savings.potentialSavings')}</span>
+                <span className="savings-amount">R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
+              </div>
+            ) : booking.status === 'confirmed_savings' && booking.totalSavings > 0 ? (
+              <div className="detail-savings-highlight confirmed">
+                <span className="savings-label">{t('savings.confirmedBadge')}</span>
                 <span className="savings-amount">R${booking.totalSavings.toFixed(0)}</span>
               </div>
             ) : (
@@ -401,22 +414,45 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState }) {
           )}
         </div>
 
-        {/* Rebooking instructions */}
-        {booking.status === 'savings_found' && booking.totalSavings > 0 && (
-          <div className="rebook-banner">
+        {/* Savings confirmation banner */}
+        {hasUnconfirmedSavings && (
+          <div className="confirm-savings-banner">
             <div className="rebook-content">
-              <h3>{t('detail.readyToSave')} R${booking.totalSavings.toFixed(0)}?</h3>
+              <h3>{t('detail.readyToSave')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}?</h3>
               <p>
                 {t('detail.rebookSteps')}{' '}
                 <strong>{booking.confirmationNumber}</strong>.
               </p>
             </div>
-            <button className="btn btn-accent btn-lg">
-              {t('detail.startRebooking')}
+            <button className="btn btn-accent btn-lg" onClick={() => setShowConfirmModal(true)}>
+              {t('savings.confirmBtn')}
             </button>
           </div>
         )}
+
+        {/* Confirmed savings badge */}
+        {booking.status === 'confirmed_savings' && (
+          <div className="confirmed-banner">
+            <span className="confirmed-icon">&#10003;</span>
+            <span>{t('savings.confirmedBadge')} — R${booking.totalSavings?.toFixed(0)}</span>
+          </div>
+        )}
       </div>
+
+      {showConfirmModal && (
+        <SavingsConfirmationModal
+          booking={booking}
+          onConfirm={async (data) => {
+            await onConfirmSavings(booking.id, data);
+            setShowConfirmModal(false);
+          }}
+          onDismiss={async (data) => {
+            await onDismissSavings(booking.id, data);
+            setShowConfirmModal(false);
+          }}
+          onClose={() => setShowConfirmModal(false)}
+        />
+      )}
     </div>
   );
 }

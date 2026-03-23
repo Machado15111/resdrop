@@ -14,7 +14,8 @@ export function AuthProvider({ children }) {
     if (currentToken) {
       headers['Authorization'] = `Bearer ${currentToken}`;
     }
-    if (options.body && !headers['Content-Type']) {
+    // Auto-set JSON content type, but NOT for FormData (let browser handle multipart boundary)
+    if (options.body && !headers['Content-Type'] && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
     return fetch(url, { ...options, headers });

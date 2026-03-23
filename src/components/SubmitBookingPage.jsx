@@ -8,9 +8,11 @@ function SubmitBookingPage() {
   const { user, authFetch } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (bookingData) => {
     setLoading(true);
+    setError('');
     try {
       const res = await authFetch(`${API}/bookings`, {
         method: 'POST',
@@ -18,13 +20,13 @@ function SubmitBookingPage() {
       });
       if (res.status === 403) {
         const err = await res.json();
-        alert(err.message || 'Limite do plano atingido. Faca upgrade.');
+        setError(err.message || 'Limite do plano atingido. Faca upgrade.');
         setLoading(false);
         return;
       }
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || 'Erro ao criar reserva');
+        setError(err.error || 'Erro ao criar reserva');
         setLoading(false);
         return;
       }
@@ -32,7 +34,7 @@ function SubmitBookingPage() {
       navigate(`/bookings/${newBooking.id}`);
     } catch (err) {
       console.error('Failed to submit booking:', err);
-      alert('Falha ao criar reserva. Verifique sua conexao.');
+      setError('Falha ao criar reserva. Verifique sua conexao.');
     }
     setLoading(false);
   };
@@ -42,6 +44,7 @@ function SubmitBookingPage() {
       onSubmit={handleSubmit}
       onBack={() => navigate('/dashboard')}
       loading={loading}
+      error={error}
       userEmail={user?.email || ''}
     />
   );

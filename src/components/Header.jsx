@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
-import { LogoMark, IconMenu, IconX, IconPlus, IconLock, IconGlobe, IconUser } from './Icons';
+import { IconMenu, IconX, IconPlus, IconLock, IconGlobe, IconUser } from './Icons';
 import './Header.css';
 
 function Header() {
@@ -17,7 +17,14 @@ function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to={isAuthenticated ? '/dashboard' : '/'} className="header-logo" onClick={closeMobile}>
-          <LogoMark size={30} />
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            <path d="M11 8h2" />
+            <path d="M12 8v1.5" />
+            <path d="M8 14.5a4 4 0 0 1 8 0" />
+            <line x1="7" y1="14.5" x2="17" y2="14.5" />
+            <line x1="6" y1="16.5" x2="18" y2="16.5" />
+          </svg>
           <span className="logo-text">ResDrop</span>
         </Link>
 

@@ -66,6 +66,37 @@ function BookingDetailPage() {
     }
   };
 
+  const handleConfirmSavings = async (bookingId, data) => {
+    try {
+      const res = await authFetch(`${API}/bookings/${bookingId}/confirm-savings`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        // Re-fetch booking to get updated status
+        const bookingRes = await authFetch(`${API}/bookings/${bookingId}`);
+        if (bookingRes.ok) setBooking(await bookingRes.json());
+      }
+    } catch (err) {
+      console.error('Failed to confirm savings:', err);
+    }
+  };
+
+  const handleDismissSavings = async (bookingId, data) => {
+    try {
+      const res = await authFetch(`${API}/bookings/${bookingId}/dismiss-savings`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const bookingRes = await authFetch(`${API}/bookings/${bookingId}`);
+        if (bookingRes.ok) setBooking(await bookingRes.json());
+      }
+    } catch (err) {
+      console.error('Failed to dismiss savings:', err);
+    }
+  };
+
   if (loading) return null;
   if (!booking) return null;
 
@@ -76,6 +107,8 @@ function BookingDetailPage() {
       onRefresh={handleRefresh}
       onUpdate={handleUpdate}
       bookingState={bookingState}
+      onConfirmSavings={handleConfirmSavings}
+      onDismissSavings={handleDismissSavings}
     />
   );
 }

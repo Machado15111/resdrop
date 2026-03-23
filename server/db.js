@@ -34,6 +34,23 @@ function toSnake(obj) {
     travelerType: 'traveler_type', preferredEmail: 'preferred_email', alertsEnabled: 'alerts_enabled',
     dateOfBirth: 'date_of_birth', preferredRoomType: 'preferred_room_type',
     loyaltyPrograms: 'loyalty_programs', roomTypeCustom: 'room_type_custom',
+    potentialSavings: 'potential_savings', confirmedSavings: 'confirmed_savings',
+    clientEmail: 'client_email', clientName: 'client_name', clientPhone: 'client_phone',
+    bookingId: 'booking_id', userEmail: 'user_email', confirmationType: 'confirmation_type',
+    confirmedSavingsAmount: 'confirmed_savings', finalPaidAmount: 'final_paid_amount',
+    externalConfirmationNumber: 'external_confirmation_number', proofFileUrl: 'proof_file_url',
+    entityType: 'entity_type', entityId: 'entity_id', actorEmail: 'actor_email',
+    currentPrice: 'current_price', boardBasis: 'board_basis', originalSource: 'original_source',
+    foundSource: 'found_source', paymentChoice: 'payment_choice', paymentStatus: 'payment_status',
+    clientDecision: 'client_decision', bookingExecution: 'booking_execution',
+    assignedAgent: 'assigned_agent', clientNotes: 'client_notes', internalNotes: 'internal_notes',
+    finalAmount: 'final_amount', bookingConfirmationNumber: 'booking_confirmation_number',
+    voucherUrl: 'voucher_url', realizedSavings: 'realized_savings', savingsAmount: 'savings_amount',
+    offeredPrice: 'offered_price', cancellationDeadline: 'cancellation_deadline',
+    offeredAt: 'offered_at', acceptedAt: 'accepted_at', confirmedAt: 'confirmed_at',
+    cancelledAt: 'cancelled_at', fileType: 'file_type', fileSize: 'file_size',
+    storagePath: 'storage_path', extractedData: 'extracted_data',
+    confidenceScores: 'confidence_scores', processingStatus: 'processing_status',
   };
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -57,6 +74,23 @@ function toCamel(row) {
     traveler_type: 'travelerType', preferred_email: 'preferredEmail', alerts_enabled: 'alertsEnabled',
     date_of_birth: 'dateOfBirth', preferred_room_type: 'preferredRoomType',
     loyalty_programs: 'loyaltyPrograms', room_type_custom: 'roomTypeCustom',
+    potential_savings: 'potentialSavings', confirmed_savings: 'confirmedSavings',
+    client_email: 'clientEmail', client_name: 'clientName', client_phone: 'clientPhone',
+    booking_id: 'bookingId', user_email: 'userEmail', confirmation_type: 'confirmationType',
+    final_paid_amount: 'finalPaidAmount', external_confirmation_number: 'externalConfirmationNumber',
+    proof_file_url: 'proofFileUrl', entity_type: 'entityType', entity_id: 'entityId',
+    actor_email: 'actorEmail', current_price: 'currentPrice', board_basis: 'boardBasis',
+    original_source: 'originalSource', found_source: 'foundSource',
+    payment_choice: 'paymentChoice', payment_status: 'paymentStatus',
+    client_decision: 'clientDecision', booking_execution: 'bookingExecution',
+    assigned_agent: 'assignedAgent', client_notes: 'clientNotes', internal_notes: 'internalNotes',
+    final_amount: 'finalAmount', booking_confirmation_number: 'bookingConfirmationNumber',
+    voucher_url: 'voucherUrl', realized_savings: 'realizedSavings', savings_amount: 'savingsAmount',
+    offered_price: 'offeredPrice', cancellation_deadline: 'cancellationDeadline',
+    offered_at: 'offeredAt', accepted_at: 'acceptedAt', confirmed_at: 'confirmedAt',
+    cancelled_at: 'cancelledAt', file_type: 'fileType', file_size: 'fileSize',
+    storage_path: 'storagePath', extracted_data: 'extractedData',
+    confidence_scores: 'confidenceScores', processing_status: 'processingStatus',
   };
   const out = {};
   for (const [k, v] of Object.entries(row)) {
@@ -224,23 +258,230 @@ export async function getBookingCount() {
 // ─── Stats helpers ──────────────────────────────────────────
 
 export async function getStats(email) {
-  let query = supabase.from('bookings').select('total_savings, status');
+  let query = supabase.from('bookings').select('total_savings, potential_savings, status');
   if (email) query = query.eq('email', email.toLowerCase());
   const { data, error } = await query;
   if (error) { console.error('[DB] getStats:', error.message); return null; }
 
   const allBookings = data || [];
-  const totalSavings = allBookings.reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
-  const savingsFound = allBookings.filter(b => b.status === 'savings_found').length;
+  const confirmedSavings = allBookings
+    .filter(b => b.status === 'confirmed_savings')
+    .reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+  const potentialSavings = allBookings
+    .filter(b => ['lower_fare_found', 'savings_found'].includes(b.status))
+    .reduce((sum, b) => sum + (parseFloat(b.potential_savings) || parseFloat(b.total_savings) || 0), 0);
+  const dropsFound = allBookings.filter(b =>
+    ['lower_fare_found', 'savings_found', 'confirmed_savings', 'pending_user_confirmation'].includes(b.status)
+  ).length;
   const total = allBookings.length;
 
   return {
     totalBookings: total,
-    savingsFound,
-    totalSavings: Math.round(totalSavings * 100) / 100,
-    avgSavings: savingsFound > 0 ? Math.round((totalSavings / savingsFound) * 100) / 100 : 0,
-    successRate: total > 0 ? Math.round((savingsFound / total) * 100) : 0,
+    savingsFound: dropsFound,
+    confirmedSavings: Math.round(confirmedSavings * 100) / 100,
+    potentialSavings: Math.round(potentialSavings * 100) / 100,
+    totalSavings: Math.round(confirmedSavings * 100) / 100, // backward compat: total = confirmed only
+    avgSavings: dropsFound > 0 ? Math.round(((confirmedSavings + potentialSavings) / dropsFound) * 100) / 100 : 0,
+    successRate: total > 0 ? Math.round((dropsFound / total) * 100) : 0,
   };
+}
+
+// ─── Fare Alerts ─────────────────────────────────────────────
+
+export async function createFareAlert(alert) {
+  const row = toSnake(alert);
+  const { data, error } = await supabase
+    .from('fare_alerts')
+    .insert(row)
+    .select()
+    .single();
+  if (error) console.error('[DB] createFareAlert:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+export async function getAlertsByBooking(bookingId) {
+  const { data, error } = await supabase
+    .from('fare_alerts')
+    .select('*')
+    .eq('booking_id', bookingId)
+    .order('created_at', { ascending: false });
+  if (error) console.error('[DB] getAlertsByBooking:', error.message);
+  return (data || []).map(toCamel);
+}
+
+export async function getAlertsByEmail(email) {
+  // Join fare_alerts with bookings to filter by user email
+  const bookings = await getBookingsByEmail(email);
+  const bookingIds = bookings.map(b => b.id);
+  if (bookingIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('fare_alerts')
+    .select('*')
+    .in('booking_id', bookingIds)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) console.error('[DB] getAlertsByEmail:', error.message);
+  return (data || []).map(toCamel);
+}
+
+// ─── Savings Confirmations ───────────────────────────────────
+
+export async function createSavingsConfirmation(confirmation) {
+  const row = toSnake(confirmation);
+  const { data, error } = await supabase
+    .from('savings_confirmations')
+    .insert(row)
+    .select()
+    .single();
+  if (error) console.error('[DB] createSavingsConfirmation:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+export async function getConfirmationByBooking(bookingId) {
+  const { data, error } = await supabase
+    .from('savings_confirmations')
+    .select('*')
+    .eq('booking_id', bookingId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (error && error.code !== 'PGRST116') console.error('[DB] getConfirmationByBooking:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+export async function updateUserConfirmedSavings(email) {
+  if (!email) return;
+  const key = email.toLowerCase();
+  const { data } = await supabase
+    .from('savings_confirmations')
+    .select('confirmed_savings')
+    .eq('user_email', key)
+    .eq('status', 'confirmed');
+
+  const total = (data || []).reduce((sum, c) => sum + (parseFloat(c.confirmed_savings) || 0), 0);
+  await supabase
+    .from('users')
+    .update({ confirmed_savings: Math.round(total * 100) / 100 })
+    .eq('email', key);
+}
+
+// ─── Activity Log ────────────────────────────────────────────
+
+export async function logActivity(entityType, entityId, action, actorEmail, details = {}) {
+  const { error } = await supabase
+    .from('activity_log')
+    .insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      actor_email: actorEmail || null,
+      details,
+    });
+  if (error) console.error('[DB] logActivity:', error.message);
+}
+
+export async function getActivityLog(entityType, entityId) {
+  const { data, error } = await supabase
+    .from('activity_log')
+    .select('*')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) console.error('[DB] getActivityLog:', error.message);
+  return (data || []).map(toCamel);
+}
+
+// ─── Special Fare Cases ─────────────────────────────────────
+
+export async function createSpecialFare(fareCase) {
+  const row = toSnake(fareCase);
+  const { data, error } = await supabase
+    .from('special_fare_cases')
+    .insert(row)
+    .select()
+    .single();
+  if (error) { console.error('[DB] createSpecialFare:', error.message); return null; }
+  return toCamel(data);
+}
+
+export async function getSpecialFare(id) {
+  const { data, error } = await supabase
+    .from('special_fare_cases')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error && error.code !== 'PGRST116') console.error('[DB] getSpecialFare:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+export async function getAllSpecialFares(filters = {}) {
+  let query = supabase.from('special_fare_cases').select('*').order('created_at', { ascending: false });
+  if (filters.status) query = query.eq('status', filters.status);
+  if (filters.assignedAgent) query = query.eq('assigned_agent', filters.assignedAgent);
+  const { data, error } = await query.limit(200);
+  if (error) console.error('[DB] getAllSpecialFares:', error.message);
+  return (data || []).map(toCamel);
+}
+
+export async function updateSpecialFare(id, updates) {
+  const row = toSnake({ ...updates, updatedAt: new Date().toISOString() });
+  const { data, error } = await supabase
+    .from('special_fare_cases')
+    .update(row)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) console.error('[DB] updateSpecialFare:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+// ─── Document Uploads ────────────────────────────────────────
+
+export async function createDocumentUpload(doc) {
+  const row = toSnake(doc);
+  const { data, error } = await supabase
+    .from('document_uploads')
+    .insert(row)
+    .select()
+    .single();
+  if (error) { console.error('[DB] createDocumentUpload:', error.message); return null; }
+  return toCamel(data);
+}
+
+export async function getDocumentUpload(id) {
+  const { data, error } = await supabase
+    .from('document_uploads')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error && error.code !== 'PGRST116') console.error('[DB] getDocumentUpload:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+export async function updateDocumentUpload(id, updates) {
+  const row = toSnake(updates);
+  const { data, error } = await supabase
+    .from('document_uploads')
+    .update(row)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) console.error('[DB] updateDocumentUpload:', error.message);
+  return data ? toCamel(data) : null;
+}
+
+// ─── Run Migrations ──────────────────────────────────────────
+
+export async function runMigration(sql) {
+  const { error } = await supabase.rpc('exec_sql', { sql_text: sql });
+  if (error) {
+    // Fallback: try individual statements
+    console.error('[DB] Migration via RPC failed:', error.message);
+    return false;
+  }
+  return true;
 }
 
 // ─── Sessions ─────────────────────────────────────────────

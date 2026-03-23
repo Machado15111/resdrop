@@ -255,8 +255,30 @@
   --ease:      var(--ease-default);
   --radius:    var(--radius-md);
   --shadow:    var(--shadow-md);
-  --max-width: 1200px;
+  --max-width: 1100px;
   --header-h:  64px;
+
+  /* ─── RESDROP PREMIUM (TRAVELER) DESIGN VARIABLES ─── */
+  --tl-bg-page: #FAF9F6;
+  --tl-bg-surface: #FFFFFF;
+  --tl-bg-dark: #0F2E1F;
+  --tl-bg-darker: #081C15;
+  --tl-bg-soft-green: #F0FAF4;
+  
+  --tl-text-dark: #1A1A1A;
+  --tl-text-muted: #5B6460;
+  --tl-text-light: #FFFFFF;
+  --tl-text-light-muted: rgba(255, 255, 255, 0.7);
+  
+  --tl-accent-gold: #CBA052;
+  --tl-accent-gold-hover: #B58A3E;
+  
+  --tl-border: rgba(15, 46, 31, 0.1);
+  --tl-border-light: rgba(255, 255, 255, 0.1);
+
+  --tl-radius: 12px;
+  --tl-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  --tl-shadow-hover: 0 16px 48px rgba(0, 0, 0, 0.1);
 }
 
 
@@ -273,10 +295,10 @@ html {
 }
 
 body {
-  font-family: var(--font-body);
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  line-height: var(--leading-normal);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--tl-text-dark);
+  background: var(--tl-bg-page);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -314,6 +336,17 @@ img { max-width: 100%; display: block; }
 
 
 /* ─── Layout ─────────────────────────────────────────────── */
+
+/* Offset for fixed header — all page wrappers with header */
+.dashboard-page,
+.detail-page,
+.account-page,
+.submit-page,
+.alerts-page,
+.onboarding-page {
+  padding-top: calc(var(--header-h) + 32px);
+}
+
 .container {
   width: 100%;
   max-width: var(--max-width);
@@ -393,43 +426,44 @@ img { max-width: 100%; display: block; }
 }
 
 .btn-primary {
-  background: var(--color-green-700);
-  color: var(--color-white);
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
 }
 .btn-primary:hover {
-  background: var(--color-green-600);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  background: var(--tl-bg-darker);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 46, 31, 0.2);
 }
 
 .btn-accent {
-  background: var(--color-green-500);
-  color: var(--color-white);
+  background: var(--tl-accent-gold);
+  color: var(--tl-text-light);
 }
 .btn-accent:hover {
-  background: var(--color-green-600);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(82, 183, 136, 0.3);
+  background: var(--tl-accent-gold-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(203, 160, 82, 0.3);
 }
 
 .btn-outline {
   background: transparent;
-  color: var(--color-green-700);
-  border: 1.5px solid var(--border-secondary);
+  color: var(--tl-bg-dark);
+  border: 1px solid var(--tl-border);
 }
 .btn-outline:hover {
-  border-color: var(--color-green-700);
-  background: var(--color-green-50);
+  border-color: var(--tl-bg-dark);
+  color: var(--tl-text-light);
+  background: var(--tl-bg-dark);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--tl-bg-dark);
   padding: 8px 16px;
 }
 .btn-ghost:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--tl-accent-gold);
+  background: transparent;
 }
 
 .btn-white {
@@ -554,26 +588,31 @@ img { max-width: 100%; display: block; }
 
 /* ─── Cards ──────────────────────────────────────────────── */
 .card {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
   padding: var(--space-6);
-  transition: all var(--duration-moderate) var(--ease-default);
+  transition: all 0.3s ease;
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-secondary);
+  transform: translateY(-4px);
+  box-shadow: var(--tl-shadow);
+  border-color: rgba(203, 160, 82, 0.3);
 }
 
 .card-elevated {
-  border: none;
-  box-shadow: var(--shadow-sm);
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  box-shadow: var(--tl-shadow);
+  transition: all 0.3s ease;
 }
 
 .card-elevated:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: var(--tl-shadow-hover);
+  border-color: rgba(203, 160, 82, 0.3);
 }
 
 

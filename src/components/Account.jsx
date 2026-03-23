@@ -17,25 +17,25 @@ const PLAN_NAMES = { free: 'Free', viajante: 'Viajante', premium: 'Premium' };
 const ROOM_TYPES = [
   { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
   { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
-  { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
-  { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
-  { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
+  { value: 'Classic Room', pt: 'Quarto Clássico', en: 'Classic Room' },
+  { value: 'Classic King', pt: 'Clássico King', en: 'Classic King' },
+  { value: 'Classic Twin', pt: 'Clássico Twin', en: 'Classic Twin' },
   { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
   { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
   { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
   { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
   { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
   { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
-  { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
+  { value: 'Family Room', pt: 'Quarto Família', en: 'Family Room' },
   { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
   { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
-  { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
-  { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
-  { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
-  { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
-  { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
+  { value: 'Junior Suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
+  { value: 'Suite', pt: 'Suíte', en: 'Suite' },
+  { value: 'Executive Suite', pt: 'Suíte Executiva', en: 'Executive Suite' },
+  { value: 'One Bedroom Suite', pt: 'Suíte Um Quarto', en: 'One Bedroom Suite' },
+  { value: 'Two Bedroom Suite', pt: 'Suíte Dois Quartos', en: 'Two Bedroom Suite' },
   { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
-  { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
+  { value: 'Accessible Room', pt: 'Quarto Acessível', en: 'Accessible Room' },
 ];
 
 function Account() {
@@ -122,7 +122,7 @@ function Account() {
   return (
     <div className="account-page">
       <div className="container">
-        <button className="btn btn-ghost back-btn" onClick={() => navigate('/dashboard')}>
+        <button className="back-btn" onClick={() => navigate('/dashboard')}>
           <IconArrowLeft size={16} />
           {t('common.back')}
         </button>
@@ -143,15 +143,15 @@ function Account() {
           <div className="section-header">
             <h2>{t('account.profileTitle')}</h2>
             {!editMode ? (
-              <button className="btn btn-ghost btn-sm" onClick={() => setEditMode(true)}>
+              <button className="account-link" onClick={() => setEditMode(true)}>
                 {t('account.editProfile')}
               </button>
             ) : (
               <div className="edit-actions">
-                <button className="btn btn-ghost btn-sm" onClick={() => setEditMode(false)} disabled={saving}>
+                <button className="btn-ghost" onClick={() => setEditMode(false)} disabled={saving}>
                   {t('account.cancel')}
                 </button>
-                <button className="btn btn-primary btn-sm" onClick={handleProfileSave} disabled={saving}>
+                <button className="btn-primary" onClick={handleProfileSave} disabled={saving}>
                   {saving ? '...' : t('account.saveProfile')}
                 </button>
               </div>
@@ -227,7 +227,7 @@ function Account() {
                       placeholder={t('account.loyaltyNumber')}
                     />
                     <button
-                      className="btn btn-ghost btn-icon loyalty-remove"
+                      className="btn"
                       onClick={() => removeLoyaltyProgram(i)}
                       title={t('account.remove')}
                     >
@@ -235,7 +235,7 @@ function Account() {
                     </button>
                   </div>
                 ))}
-                <button className="btn btn-ghost btn-sm add-loyalty" onClick={addLoyaltyProgram}>
+                <button className="add-loyalty" onClick={addLoyaltyProgram}>
                   <IconPlus size={14} />
                   {t('account.addProgram')}
                 </button>
@@ -328,12 +328,12 @@ function Account() {
                 </div>
                 <p className="apc-bookings">{plan.bookings} {t('pricing.bookings')}</p>
                 {user.plan === plan.id ? (
-                  <button className="btn btn-outline btn-sm" disabled>
+                  <button className="btn-outline" disabled>
                     <IconCheck size={14} />
                     {t('pricing.currentPlan')}
                   </button>
                 ) : (
-                  <button className="btn btn-primary btn-sm" onClick={() => handleChangePlan(plan.id)}>
+                  <button className="btn-primary" onClick={() => handleChangePlan(plan.id)}>
                     {t('account.selectPlan')}
                   </button>
                 )}
@@ -342,7 +342,12 @@ function Account() {
           </div>
         </div>
 
-        <button className="btn btn-ghost logout-btn" onClick={handleLogout}>
+        <button className="logout-btn" onClick={handleLogout}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
           {t('account.logout')}
         </button>
       </div>

@@ -17,10 +17,14 @@ import AlertsPage from './components/AlertsPage';
 import Onboarding from './components/Onboarding';
 import Account from './components/Account';
 import AdminDashboard from './components/AdminDashboard';
+import AdminSpecialFares from './components/AdminSpecialFares';
 import AboutPage from './components/AboutPage';
 import PrivacyPage from './components/PrivacyPage';
 import TermsPage from './components/TermsPage';
 import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
+import PremiumLanding from './components/PremiumLanding';
+import TravelerLanding from './components/TravelerLanding';
+
 
 function LayoutWithHeader() {
   return (
@@ -63,14 +67,22 @@ function App() {
         {/* Admin — no header, admin-only */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/special-fares" element={<AdminSpecialFares />} />
         </Route>
+
+        {/* Premium Landing Preview - No existing header */}
+        <Route path="/v2" element={<PremiumLanding />} />
+
+        {/* Traveler Landing Preview */}
+        <Route path="/v3" element={<TravelerLanding />} />
+
+        {/* Landing page — no app header (TravelerLanding has its own) */}
+        <Route path="/" element={
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <TravelerLanding />
+        } />
 
         {/* All other routes — with header */}
         <Route element={<LayoutWithHeader />}>
-          {/* Home: redirect logged-in users to dashboard */}
-          <Route path="/" element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />
-          } />
 
           {/* Auth routes — redirect if already logged in */}
           <Route element={<PublicOnlyRoute />}>

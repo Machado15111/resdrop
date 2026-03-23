@@ -1,37 +1,59 @@
+/* ═══════════════════════════════════════════════════════════════
+   SubmitBooking.css (Premium Design Update)
+   ═══════════════════════════════════════════════════════════════ */
+
 .submit-page {
-  padding: 32px 0 80px;
-  min-height: calc(100vh - var(--header-h));
-  background: var(--color-neutral-50);
+  padding-bottom: 80px;
+  min-height: 100vh;
+  background: var(--tl-bg-page);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--tl-text-dark);
 }
 
 .back-btn {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tl-text-muted);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: var(--tl-bg-dark);
 }
 
 /* Card wrapper */
 .submit-card {
   max-width: 640px;
-  background: #ffffff;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-2xl);
-  padding: 32px;
-  box-shadow: var(--shadow-lg);
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 40px;
+  box-shadow: var(--tl-shadow);
 }
 
 .submit-header {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .submit-header h1 {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-neutral-900);
-  margin-bottom: 6px;
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 .submit-header p {
-  color: var(--color-neutral-500);
-  font-size: var(--text-sm);
+  color: var(--tl-text-muted);
+  font-size: 15px;
   line-height: 1.5;
 }
 
@@ -39,10 +61,11 @@
 .submit-mode-toggle {
   display: flex;
   gap: 4px;
-  margin-bottom: 24px;
-  background: var(--color-neutral-100);
-  border-radius: var(--radius-full);
-  padding: 3px;
+  margin-bottom: 32px;
+  background: var(--tl-bg-page);
+  border-radius: var(--tl-radius);
+  padding: 4px;
+  border: 1px solid var(--tl-border);
 }
 
 .mode-btn {
@@ -51,25 +74,26 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   background: transparent;
-  color: var(--color-neutral-500);
+  color: var(--tl-text-muted);
   transition: all 0.2s ease;
   border: none;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .mode-btn:hover {
-  color: var(--color-neutral-700);
+  color: var(--tl-text-dark);
 }
 
 .mode-btn.active {
-  background: #ffffff;
-  color: var(--color-neutral-900);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--tl-bg-surface);
+  color: var(--tl-text-dark);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .mode-btn svg {
@@ -80,70 +104,97 @@
 
 /* Email parse section */
 .email-parse-section {
-  animation: fadeSlideIn 0.2s ease;
+  animation: fadeSlideIn 0.3s ease;
 }
 
 .email-textarea {
   width: 100%;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  font-size: 13px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   resize: vertical;
-  margin: 8px 0 12px;
-  min-height: 180px;
+  margin: 10px 0 16px;
+  min-height: 220px;
   line-height: 1.6;
-  color: var(--color-neutral-900);
-  background: var(--color-neutral-50);
+  color: var(--tl-text-dark);
+  background: var(--tl-bg-page);
 }
 
 .email-textarea:focus {
-  border-color: var(--color-green-700);
+  border-color: var(--tl-bg-dark);
   outline: none;
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px rgba(15, 46, 31, 0.08);
 }
 
 .parse-btn {
   width: 100%;
+  padding: 14px 28px;
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.parse-btn:hover:not(:disabled) {
+  background: var(--tl-bg-darker);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 46, 31, 0.2);
+}
+
+.parse-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .parse-success {
   font-size: 13px;
-  color: var(--color-green-700);
-  margin-top: 8px;
+  color: var(--tl-bg-dark);
+  margin-top: 12px;
+  background: var(--tl-bg-soft-green);
+  padding: 10px 14px;
+  border-radius: 8px;
 }
 
 .parse-error {
   font-size: 13px;
-  color: #dc2626;
-  margin-top: 8px;
+  color: #c53030;
+  margin-top: 12px;
+  background: #fff5f5;
+  padding: 10px 14px;
+  border-radius: 8px;
 }
 
 /* Booking form */
 .booking-form {
-  animation: fadeSlideIn 0.2s ease;
+  animation: fadeSlideIn 0.3s ease;
 }
 
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .booking-form .form-group {
   display: flex;
   flex-direction: column;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-dates {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 
 .form-dates .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-group.full {
@@ -152,29 +203,31 @@
 
 .form-label {
   font-size: 13px;
-  font-weight: 600;
-  color: var(--color-neutral-900);
-  margin-bottom: 6px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
 }
 
 .form-input {
-  padding: 10px 14px;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  color: var(--color-neutral-900);
+  padding: 12px 14px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--tl-text-dark);
   transition: all 0.2s ease;
-  background: #ffffff;
+  background: var(--tl-bg-surface);
 }
 
 .form-input:focus {
-  border-color: var(--color-green-700);
+  border-color: var(--tl-bg-dark);
   outline: none;
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px rgba(15, 46, 31, 0.08);
 }
 
 .form-input::placeholder {
-  color: var(--color-neutral-400);
+  color: rgba(91, 100, 96, 0.5);
 }
 
 /* Hotel autocomplete */
@@ -185,35 +238,35 @@
   left: 0;
   right: 0;
   z-index: 10;
-  background: #ffffff;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  box-shadow: var(--tl-shadow);
   max-height: 220px;
   overflow-y: auto;
   list-style: none;
-  margin-top: 4px;
+  margin-top: 8px;
   padding: 0;
 }
 .hotel-suggestions li {
-  padding: 10px 14px;
+  padding: 12px 16px;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--color-neutral-100);
+  border-bottom: 1px solid var(--tl-border);
 }
-.hotel-suggestions li:hover { background: var(--color-neutral-50); }
+.hotel-suggestions li:hover { background: var(--tl-bg-page); }
 .hotel-suggestions li:last-child { border-bottom: none; }
-.hs-name { font-weight: 600; font-size: 14px; color: var(--color-neutral-900); }
-.hs-dest { font-size: 12px; color: var(--color-neutral-400); }
+.hs-name { font-weight: 500; font-size: 14px; color: var(--tl-text-dark); }
+.hs-dest { font-size: 12px; color: var(--tl-text-muted); }
 
 /* Price + Rate type row */
 .form-price-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .form-group-price {
@@ -229,10 +282,11 @@
 .rate-type-toggle {
   display: flex;
   gap: 4px;
-  background: var(--color-neutral-100);
-  border-radius: var(--radius-full);
-  padding: 3px;
-  height: 42px;
+  background: var(--tl-bg-page);
+  border-radius: var(--tl-radius);
+  padding: 4px;
+  height: 48px;
+  border: 1px solid var(--tl-border);
 }
 
 .rate-pill {
@@ -241,11 +295,11 @@
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   background: transparent;
-  color: var(--color-neutral-500);
+  color: var(--tl-text-muted);
   border: none;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -253,86 +307,86 @@
 }
 
 .rate-pill:hover {
-  color: var(--color-neutral-700);
+  color: var(--tl-text-dark);
 }
 
 .rate-pill.active {
-  background: #ffffff;
-  color: var(--color-neutral-900);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--tl-bg-surface);
+  color: var(--tl-text-dark);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 /* Taxes included checkbox */
 .taxes-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-neutral-600);
+  gap: 10px;
+  font-size: 14px;
+  color: var(--tl-text-muted);
   cursor: pointer;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
   user-select: none;
 }
 
 .taxes-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-green-700);
+  width: 18px;
+  height: 18px;
+  accent-color: var(--tl-bg-dark);
   cursor: pointer;
 }
 
 /* Preferences section */
 .preferences-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .preferences-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .pref-pill {
-  padding: 8px 14px;
-  border-radius: var(--radius-full);
-  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 14px;
   font-weight: 500;
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-600);
-  border: 1px solid transparent;
+  background: var(--tl-bg-page);
+  color: var(--tl-text-muted);
+  border: 1px solid var(--tl-border);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .pref-pill:hover {
-  background: var(--color-neutral-200);
-  color: var(--color-neutral-800);
+  border-color: var(--tl-bg-dark);
+  color: var(--tl-text-dark);
 }
 
 .pref-pill.active {
-  background: var(--color-green-50);
-  color: var(--color-green-700);
-  border-color: var(--color-green-700);
+  background: var(--tl-bg-soft-green);
+  color: var(--tl-bg-dark);
+  border-color: var(--tl-bg-dark);
 }
 
 /* Optional fields toggle */
 .optional-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 0;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   background: none;
   border: none;
-  color: var(--color-neutral-500);
-  font-size: 13px;
+  color: var(--tl-text-muted);
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.15s;
 }
 
 .optional-toggle:hover {
-  color: var(--color-neutral-700);
+  color: var(--tl-text-dark);
 }
 
 .optional-chevron {
@@ -345,17 +399,18 @@
 
 /* Optional fields grid */
 .optional-fields {
-  padding: 16px;
-  background: var(--color-neutral-50);
-  border-radius: var(--radius);
-  margin-bottom: 16px;
-  animation: fadeSlideIn 0.2s ease;
+  padding: 24px;
+  background: var(--tl-bg-page);
+  border-radius: var(--tl-radius);
+  border: 1px solid var(--tl-border);
+  margin-bottom: 24px;
+  animation: fadeSlideIn 0.3s ease;
 }
 
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 
 .form-grid-2 .form-group {
@@ -366,40 +421,67 @@
 .form-note {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 12px 14px;
-  background: var(--color-green-50);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  color: var(--color-neutral-600);
-  margin-bottom: 16px;
+  gap: 12px;
+  padding: 16px;
+  background: var(--tl-bg-soft-green);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--tl-text-muted);
+  margin-bottom: 24px;
   line-height: 1.5;
 }
 
 .form-note svg {
   flex-shrink: 0;
-  margin-top: 1px;
-  color: var(--color-green-700);
+  margin-top: 2px;
+  color: var(--tl-bg-dark);
 }
 
 .submit-btn {
   width: 100%;
+  padding: 14px 28px;
+  background: var(--tl-accent-gold);
+  color: var(--tl-text-light);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
 
+.submit-btn:hover:not(:disabled) {
+  background: var(--tl-accent-gold-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(203, 160, 82, 0.3);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .loading-pulse {
   animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* Mobile */
 @media (max-width: 640px) {
   .submit-card {
     padding: 24px;
-    margin: 0;
-    border-radius: var(--radius-xl);
+    margin: 0 16px;
   }
 
   .form-dates {
@@ -415,7 +497,7 @@
   }
 
   .submit-header h1 {
-    font-size: var(--text-lg);
+    font-size: 22px;
   }
 
   .form-price-row {

@@ -70,6 +70,12 @@ function AdminDashboard() {
             <span className="admin-badge">ADMIN PANEL</span>
           </div>
           <div className="admin-header-right">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => navigate('/admin/special-fares')}
+            >
+              Tarifas Especiais
+            </button>
             <span className="admin-live-dot" />
             <span className="admin-live-text">Live</span>
             <button

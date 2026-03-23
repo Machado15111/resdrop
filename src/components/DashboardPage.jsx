@@ -68,7 +68,7 @@ function DashboardPage() {
 
       const exactMatches = (updated.latestResults || []).filter(r => r.isExactMatch);
       if (exactMatches.length > 0 && exactMatches[0].hasDrop) {
-        setBookingState(bookingId, 'success', `Economia encontrada: R$${updated.totalSavings}`);
+        setBookingState(bookingId, 'success', `Economia encontrada: R$${updated.potentialSavings || updated.totalSavings}`);
       } else if (exactMatches.length > 0) {
         setBookingState(bookingId, 'success', 'Precos verificados');
       } else {

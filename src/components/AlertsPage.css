@@ -1,6 +1,12 @@
+/* ═══════════════════════════════════════════════════════════════
+   AlertsPage.css (Premium Design Update)
+   ═══════════════════════════════════════════════════════════════ */
 .alerts-page {
-  padding: 32px 0 80px;
-  min-height: 70vh;
+  padding-bottom: 80px;
+  min-height: 100vh;
+  background: var(--tl-bg-page);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--tl-text-dark);
 }
 
 .alerts-header {
@@ -8,86 +14,94 @@
 }
 
 .alerts-header h1 {
-  font-size: var(--text-3xl);
-  font-weight: 700;
-  color: var(--color-neutral-900);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
   margin-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 .alerts-subtitle {
-  color: var(--color-neutral-500);
-  font-size: var(--text-base);
+  color: var(--tl-text-muted);
+  font-size: 15px;
 }
 
 .alerts-empty {
   text-align: center;
   padding: 64px 24px;
-  background: #ffffff;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--color-neutral-200);
+  background: var(--tl-bg-surface);
+  border-radius: var(--tl-radius);
+  border: 1px dashed var(--tl-border);
 }
 
 .alerts-empty svg {
-  color: var(--color-neutral-300);
+  color: var(--tl-text-muted);
   margin-bottom: 16px;
+  opacity: 0.5;
 }
 
 .alerts-empty h3 {
-  font-size: var(--text-lg);
-  color: var(--color-neutral-700);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
   margin-bottom: 8px;
+  letter-spacing: -0.02em;
 }
 
 .alerts-empty p {
-  color: var(--color-neutral-500);
-  font-size: var(--text-sm);
+  color: var(--tl-text-muted);
+  font-size: 14px;
 }
 
 .alerts-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .alert-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
-  padding: 16px 20px;
-  background: #ffffff;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-neutral-200);
+  padding: 20px;
+  background: var(--tl-bg-surface);
+  border-radius: var(--tl-radius);
+  border: 1px solid var(--tl-border);
+  box-shadow: var(--tl-shadow);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .alert-card:hover {
-  border-color: var(--color-neutral-300);
-  box-shadow: var(--shadow-sm);
+  border-color: rgba(15, 46, 31, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 .alert-card.alert-drop {
-  border-left: 3px solid var(--green-600);
+  border-left: 4px solid var(--tl-bg-dark);
 }
 
 .alert-icon {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 2px;
 }
 
 .alert-icon-drop {
-  background: var(--green-50);
-  color: var(--green-600);
+  background: var(--tl-bg-soft-green);
+  color: var(--tl-bg-dark);
 }
 
 .alert-icon-default {
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-500);
+  background: var(--tl-bg-page);
+  color: var(--tl-text-muted);
+  border: 1px solid var(--tl-border);
 }
 
 .alert-content {
@@ -99,23 +113,39 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--text-xs);
-  color: var(--color-neutral-500);
-  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tl-text-muted);
+  margin-bottom: 6px;
+}
+
+.alert-hotel svg {
+  color: var(--tl-bg-dark);
+  opacity: 0.7;
 }
 
 .alert-message {
-  font-size: var(--text-sm);
-  color: var(--color-neutral-800);
-  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
 .alert-date {
-  font-size: var(--text-xs);
-  color: var(--color-neutral-400);
+  font-size: 12px;
+  color: var(--tl-text-muted);
+  opacity: 0.8;
 }
 
 .alert-arrow {
   flex-shrink: 0;
-  color: var(--color-neutral-400);
+  color: var(--tl-text-muted);
+  margin-top: 12px;
+  transition: transform 0.2s ease;
+}
+
+.alert-card:hover .alert-arrow {
+  transform: translateX(4px);
+  color: var(--tl-bg-dark);
 }

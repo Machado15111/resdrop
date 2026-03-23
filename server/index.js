@@ -48,6 +48,9 @@ import {
   isSerpApiConfigured,
   searchRealPrices,
 } from './serpApi.js';
+import savingsRoutes from './routes/savings.js';
+import specialFaresRoutes from './routes/specialFares.js';
+import documentRoutes from './routes/documents.js';
 
 // Blocked/unreliable sources — filtered from all results (including cached)
 const BLOCKED_SOURCES_DISPLAY = ['oyo', 'oyorooms', 'elmisti', 'el misti', 'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling'];
@@ -233,40 +236,78 @@ async function applyBestResult(booking, results) {
       source: bestExact.source,
     });
 
+    // Keep JSONB alerts for backward compat, but also write to fare_alerts table
     if (!booking.alerts) booking.alerts = [];
 
+    let alertType, alertMessage;
+
     if (diff > 0) {
-      // PRICE DROP — real savings
+      // PRICE DROP — set as potential savings (NOT confirmed yet)
       if (!booking.bestPrice || currentPrice < booking.bestPrice) {
         booking.bestPrice = currentPrice;
         booking.bestSource = bestExact.source;
-        booking.totalSavings = diff;
-        booking.status = 'savings_found';
+        booking.potentialSavings = diff;
+        // Only set lower_fare_found if not already confirmed
+        if (booking.status !== 'confirmed_savings') {
+          booking.status = 'lower_fare_found';
+        }
       }
+      alertType = 'price_drop';
+      alertMessage = `📉 Preco caiu: R$${currentPrice} via ${bestExact.source} — economia potencial R$${diff}`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
-        type: 'price_drop',
-        message: `📉 Preco caiu: R$${currentPrice} via ${bestExact.source} — economia R$${diff}`,
+        type: alertType,
+        message: alertMessage,
         savings: diff,
       });
-      await db.updateUserStats(booking.email);
     } else if (diff === 0) {
+      alertType = 'price_same';
+      alertMessage = `➡️ Preco estavel: R$${currentPrice} via ${bestExact.source}`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
-        type: 'price_same',
-        message: `➡️ Preco estavel: R$${currentPrice} via ${bestExact.source}`,
+        type: alertType,
+        message: alertMessage,
         savings: 0,
       });
     } else {
+      alertType = 'price_increase';
+      alertMessage = `📈 Preco subiu: R$${currentPrice} via ${bestExact.source} (+R$${Math.abs(diff)})`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
-        type: 'price_increase',
-        message: `📈 Preco subiu: R$${currentPrice} via ${bestExact.source} (+R$${Math.abs(diff)})`,
+        type: alertType,
+        message: alertMessage,
         savings: 0,
       });
+    }
+
+    // Write to fare_alerts table
+    try {
+      await db.createFareAlert({
+        bookingId: booking.id,
+        type: alertType,
+        message: alertMessage,
+        savings: diff > 0 ? diff : 0,
+        currentPrice,
+        source: bestExact.source,
+      });
+    } catch (err) {
+      console.error('[applyBestResult] Failed to create fare alert:', err.message);
+    }
+
+    // Log to activity_log
+    try {
+      await db.logActivity({
+        entityType: 'booking',
+        entityId: booking.id,
+        action: alertType === 'price_drop' ? 'lower_fare_found' : 'price_checked',
+        actorEmail: 'system',
+        details: { currentPrice, originalPrice: effectiveOriginal, diff, source: bestExact.source },
+      });
+    } catch (err) {
+      console.error('[applyBestResult] Failed to log activity:', err.message);
     }
   }
 
@@ -280,7 +321,7 @@ async function applyBestResult(booking, results) {
     alerts: booking.alerts,
     bestPrice: booking.bestPrice,
     bestSource: booking.bestSource,
-    totalSavings: booking.totalSavings,
+    potentialSavings: booking.potentialSavings,
     status: booking.status,
   });
 }
@@ -519,6 +560,7 @@ app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
 // Get stats summary (always filtered by authenticated user)
 app.get('/api/stats', authMiddleware, async (req, res) => {
   const stats = await db.getStats(req.userEmail);
+  // stats now returns potentialSavings + totalSavings (confirmed only)
   res.json({ ...stats, apiMode: API_MODE });
 });
 
@@ -1039,8 +1081,31 @@ function extractPrice(text) {
   return null;
 }
 
+// ─── Mount savings confirmation routes ───────────────────────
+app.use('/api', savingsRoutes(authMiddleware));
+
+// ─── Mount special fares admin routes ────────────────────────
+app.use('/api', specialFaresRoutes(authMiddleware, adminMiddleware));
+
+// ─── Mount document upload routes ────────────────────────────
+app.use('/api', documentRoutes(authMiddleware));
+
 // ─── Scheduler paused — searches only via manual "Atualizar" button ─
 console.log('[Scheduler] Paused — price checks run manually via "Atualizar"');
+
+// ─── Serve frontend build in production ─────────────────────
+import { existsSync } from 'fs';
+const distPath = join(__dirname, '..', 'dist');
+if (existsSync(distPath)) {
+  app.use(express.static(distPath));
+  // SPA fallback — all non-API routes serve index.html
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(join(distPath, 'index.html'));
+    }
+  });
+  console.log('[ResDrop] Serving frontend from /dist');
+}
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {

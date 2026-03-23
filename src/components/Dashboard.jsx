@@ -32,7 +32,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
               {t('dash.greetingSub')}
             </p>
           </div>
-          <button className="btn btn-primary" onClick={onNewBooking}>
+          <button className="btn-primary" onClick={onNewBooking}>
             <IconPlus size={18} />
             {t('dash.addBooking')}
           </button>
@@ -48,24 +48,24 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
             </div>
           </div>
           <div className="dash-kpi">
+            <div className="dash-kpi-icon kpi-gold"><IconDollar size={20} /></div>
+            <div className="dash-kpi-data">
+              <span className="dash-kpi-value gold">R${(stats?.potentialSavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+              <span className="dash-kpi-label">{t('dash.potentialSavings')}</span>
+            </div>
+          </div>
+          <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-green"><IconDollar size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value accent">R${(stats?.totalSavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
-              <span className="dash-kpi-label">{t('dash.totalSavings')}</span>
+              <span className="dash-kpi-label">{t('dash.confirmedSavings')}</span>
             </div>
           </div>
           <div className="dash-kpi">
-            <div className="dash-kpi-icon kpi-gold"><IconTrendDown size={20} /></div>
+            <div className="dash-kpi-icon kpi-purple"><IconTrendDown size={20} /></div>
             <div className="dash-kpi-data">
               <span className="dash-kpi-value">{stats?.savingsFound || 0}</span>
               <span className="dash-kpi-label">{t('dash.dropsFound')}</span>
-            </div>
-          </div>
-          <div className="dash-kpi">
-            <div className="dash-kpi-icon kpi-purple"><IconShield size={20} /></div>
-            <div className="dash-kpi-data">
-              <span className="dash-kpi-value">{stats?.successRate || 0}%</span>
-              <span className="dash-kpi-label">{t('dash.successRateLabel')}</span>
             </div>
           </div>
         </div>
@@ -79,10 +79,12 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
 
           {active.length === 0 ? (
             <div className="dash-empty">
-              <IconHotel size={40} />
+              <div className="empty-icon-wrap">
+                <IconHotel size={32} />
+              </div>
               <h3>{t('dash.noBookings')}</h3>
               <p>{t('dash.noBookingsDesc')}</p>
-              <button className="btn btn-primary" onClick={onNewBooking}>
+              <button className="btn-primary" onClick={onNewBooking}>
                 {t('dash.addFirst')}
               </button>
             </div>
@@ -137,6 +139,9 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
 function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, isPast, bookingState }) {
   const statusMap = {
     savings_found: { label: t('dash.savingsFound'), cls: 'status-success' },
+    lower_fare_found: { label: t('savings.lowerFareFound'), cls: 'status-success' },
+    confirmed_savings: { label: t('savings.confirmedBadge'), cls: 'status-confirmed' },
+    dismissed: { label: t('savings.dismissedBadge'), cls: 'status-muted' },
     monitoring: { label: t('dash.monitoring'), cls: 'status-info' },
     booked: { label: t('detail.rebooked'), cls: 'status-accent' },
     expired: { label: t('detail.expired'), cls: 'status-muted' },
@@ -171,13 +176,17 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
           <span className="dbc-price-label">{t('dash.originalPrice')}</span>
           <span className="dbc-price">R${booking.originalPrice.toLocaleString('pt-BR')}</span>
         </div>
-        {booking.status === 'savings_found' && booking.bestPrice && booking.totalSavings > 0 ? (
+        {(booking.status === 'savings_found' || booking.status === 'lower_fare_found') && booking.bestPrice && (booking.potentialSavings > 0 || booking.totalSavings > 0) ? (
           <div className="dbc-savings-info">
             <div className="dbc-best">
               <span className="dbc-price-label">{t('dash.bestFound')}</span>
               <span className="dbc-price accent">R${booking.bestPrice.toLocaleString('pt-BR')}</span>
             </div>
-            <span className="badge badge-success">{t('common.save')} R${booking.totalSavings.toFixed(0)}</span>
+            <span className="badge badge-success">{t('common.save')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
+          </div>
+        ) : booking.status === 'confirmed_savings' && booking.totalSavings > 0 ? (
+          <div className="dbc-savings-info">
+            <span className="badge badge-confirmed">{t('savings.confirmedBadge')} R${booking.totalSavings.toFixed(0)}</span>
           </div>
         ) : (
           <span className="badge badge-info">{t('dash.monitoringStatus')}</span>
@@ -187,7 +196,7 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
       <div className="dbc-actions">
         {!isPast && (
           <button
-            className={`btn btn-sm ${isSuccess ? 'btn-success-state' : isError ? 'btn-error-state' : 'btn-ghost'}`}
+            className={`btn-ghost ${isSuccess ? 'btn-success-state' : isError ? 'btn-error-state' : ''}`}
             onClick={(e) => { e.stopPropagation(); onRefresh(booking.id); }}
             disabled={isLoading}
           >
@@ -202,7 +211,7 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
             )}
           </button>
         )}
-        <button className="btn btn-outline btn-sm">
+        <button className="btn-outline">
           {t('dash.viewDetails')} <IconArrowRight size={14} />
         </button>
       </div>

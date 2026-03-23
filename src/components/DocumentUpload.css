@@ -1,0 +1,243 @@
+/* ═══════════════════════════════════════════════════════════════
+   DocumentUpload.css
+   ═══════════════════════════════════════════════════════════════ */
+
+.doc-upload {
+  margin-top: 8px;
+}
+
+/* Dropzone */
+.doc-dropzone {
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+
+.doc-dropzone:hover {
+  border-color: #0f2e1f;
+  background: #f0f7f4;
+}
+
+.doc-dropzone-icon {
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.doc-dropzone:hover .doc-dropzone-icon {
+  color: #0f2e1f;
+}
+
+.doc-dropzone-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.doc-dropzone-hint {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* File preview */
+.doc-file-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f3f4f6;
+  border-radius: 8px;
+}
+
+.doc-file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-file-size {
+  font-size: 12px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.doc-upload-btn {
+  padding: 8px 20px;
+  background: #0f2e1f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.doc-upload-btn:hover { background: #0a1f15; }
+.doc-upload-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.doc-error {
+  color: #dc2626;
+  font-size: 14px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #fef2f2;
+  border-radius: 8px;
+}
+
+/* Review section */
+.doc-review-header {
+  margin-bottom: 20px;
+}
+
+.doc-review-header h3 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+
+.doc-review-hint {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.doc-review-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.doc-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.doc-field-header label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.doc-confidence {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
+.doc-confidence-high {
+  background: #dcfce7;
+}
+.doc-confidence-medium {
+  background: #fef3c7;
+}
+.doc-confidence-low {
+  background: #fee2e2;
+}
+
+.doc-input {
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1a1a;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.doc-input:focus {
+  outline: none;
+  border-color: #0f2e1f;
+  box-shadow: 0 0 0 3px rgba(15, 46, 31, 0.08);
+}
+
+.doc-input-high {
+  border-color: #86efac;
+}
+.doc-input-medium {
+  border-color: #fcd34d;
+}
+.doc-input-low {
+  border-color: #fca5a5;
+}
+
+/* Duplicate warning */
+.doc-duplicate-warning {
+  padding: 14px 18px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.doc-duplicate-warning strong {
+  font-size: 14px;
+  color: #92400e;
+}
+
+.doc-duplicate-warning p {
+  font-size: 13px;
+  color: #78350f;
+  margin-top: 4px;
+}
+
+/* Actions */
+.doc-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.doc-btn-back {
+  padding: 10px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+}
+.doc-btn-back:hover { color: #1a1a1a; border-color: #9ca3af; }
+
+.doc-btn-create {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #0f2e1f;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+.doc-btn-create:hover { background: #0a1f15; }
+.doc-btn-create:disabled { background: #9ca3af; cursor: not-allowed; }
+
+@media (max-width: 600px) {
+  .doc-review-form {
+    grid-template-columns: 1fr;
+  }
+}

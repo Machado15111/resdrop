@@ -1,89 +1,146 @@
+/* ═══════════════════════════════════════════════════════════════
+   LegalPage.css (Premium Design Update)
+   ═══════════════════════════════════════════════════════════════ */
+
 .legal-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 60px 20px 80px;
+  padding: 60px 24px 80px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--tl-text-dark);
 }
 
 .legal-page h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .legal-page .legal-updated {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
+  font-size: 14px;
+  color: var(--tl-text-muted);
   margin-bottom: 40px;
+  opacity: 0.8;
 }
 
 .legal-page h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-top: 36px;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-top: 48px;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+}
+
+.legal-page h3 {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-top: 32px;
   margin-bottom: 12px;
+  letter-spacing: -0.01em;
 }
 
 .legal-page p,
 .legal-page li {
-  font-size: 0.975rem;
+  font-size: 16px;
   line-height: 1.7;
-  color: var(--text-secondary);
+  color: var(--tl-text-muted);
+  margin-bottom: 16px;
 }
 
-.legal-page ul {
-  padding-left: 20px;
-  margin: 12px 0;
+.legal-page ul, 
+.legal-page ol {
+  padding-left: 24px;
+  margin: 16px 0 24px;
 }
 
 .legal-page li {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .legal-page a {
-  color: var(--color-green-700);
-  text-decoration: underline;
+  color: var(--tl-accent-gold);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+  font-weight: 500;
+}
+
+.legal-page a:hover {
+  color: var(--tl-accent-gold-hover);
+  border-bottom-color: var(--tl-accent-gold-hover);
 }
 
 /* About page specifics */
 .about-page .about-hero {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 56px;
+}
+
+.about-page .about-hero h1 {
+  font-size: 40px;
+  margin-bottom: 16px;
 }
 
 .about-page .about-hero p {
-  font-size: 1.1rem;
-  max-width: 560px;
-  margin: 16px auto 0;
+  font-size: 18px;
+  max-width: 600px;
+  margin: 0 auto;
+  color: var(--tl-text-muted);
 }
 
 .about-page .about-values {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
-  margin: 32px 0;
+  margin: 40px 0;
 }
 
 .about-page .about-value {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  padding: 24px;
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 32px;
+  box-shadow: var(--tl-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.about-page .about-value:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--tl-shadow-hover);
 }
 
 .about-page .about-value h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-top: 0;
+  margin-bottom: 12px;
 }
 
 .about-page .about-value p {
-  font-size: 0.9rem;
+  font-size: 15px;
   margin: 0;
+  line-height: 1.6;
 }
 
 @media (max-width: 600px) {
+  .legal-page {
+    padding: 40px 20px 60px;
+  }
+  
+  .legal-page h1 {
+    font-size: 28px;
+  }
+  
+  .about-page .about-hero h1 {
+    font-size: 32px;
+  }
+  
   .about-page .about-values {
     grid-template-columns: 1fr;
   }

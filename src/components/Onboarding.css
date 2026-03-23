@@ -1,19 +1,24 @@
+/* ═══════════════════════════════════════════════════════════════
+   Onboarding.css (Premium Design Update)
+   ═══════════════════════════════════════════════════════════════ */
+
 .onboarding-page {
-  padding: 40px 0 80px;
-  min-height: 70vh;
+  padding-bottom: 80px;
+  min-height: 100vh;
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  background: var(--tl-bg-page);
 }
 
 .onboarding-card {
   max-width: 520px;
-  margin: 0 auto;
-  background: #ffffff;
-  border-radius: var(--radius-2xl);
-  border: 1px solid var(--color-neutral-200);
-  padding: 32px;
-  box-shadow: var(--shadow-lg);
+  margin: 40px auto 0;
+  background: var(--tl-bg-surface);
+  border-radius: var(--tl-radius);
+  border: 1px solid var(--tl-border);
+  padding: 48px 40px;
+  box-shadow: var(--tl-shadow);
 }
 
 /* Connected progress dots */
@@ -22,41 +27,41 @@
   align-items: center;
   justify-content: center;
   gap: 0;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .progress-dot {
   width: 28px;
   height: 28px;
-  border-radius: var(--radius-full);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 700;
-  border: 2px solid var(--color-neutral-200);
-  color: var(--color-neutral-400);
-  background: #ffffff;
+  font-weight: 600;
+  border: 1px solid var(--tl-border);
+  color: var(--tl-text-muted);
+  background: var(--tl-bg-surface);
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
 
 .progress-dot.active {
-  border-color: var(--color-green-700);
-  color: var(--color-green-700);
-  background: var(--color-green-50);
+  border-color: var(--tl-bg-dark);
+  color: var(--tl-bg-dark);
+  background: var(--tl-bg-soft-green);
 }
 
 .progress-dot.done {
-  border-color: var(--color-green-700);
-  background: var(--color-green-700);
-  color: #ffffff;
+  border-color: var(--tl-bg-dark);
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
 }
 
 .progress-line {
   width: 48px;
   height: 2px;
-  background: var(--color-neutral-200);
+  background: var(--tl-border);
   border-radius: 1px;
   overflow: hidden;
 }
@@ -64,7 +69,7 @@
 .progress-line-fill {
   width: 0;
   height: 100%;
-  background: var(--color-green-700);
+  background: var(--tl-bg-dark);
   transition: width 0.4s ease;
 }
 
@@ -78,40 +83,35 @@
 }
 
 @keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* Step header — no icon circle, just text */
+/* Step header */
 .onboarding-step-header {
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
 }
 
 .onboarding-step-header h1 {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-neutral-900);
-  margin-bottom: 6px;
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
 }
 
 .onboarding-step-header p {
-  color: var(--color-neutral-500);
-  font-size: var(--text-sm);
+  color: var(--tl-text-muted);
+  font-size: 0.95rem;
 }
 
 /* Traveler type grid */
 .traveler-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .traveler-option {
@@ -120,31 +120,27 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border: 2px solid var(--color-neutral-200);
-  border-radius: var(--radius-lg);
-  background: #ffffff;
-  color: var(--color-neutral-700);
-  font-size: var(--text-sm);
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  background: var(--tl-bg-surface);
+  color: var(--tl-text-muted);
+  font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   text-align: left;
   min-height: 48px;
 }
 
 .traveler-option:hover {
-  border-color: var(--color-neutral-300);
-  background: var(--color-neutral-50);
+  border-color: var(--tl-bg-dark);
+  color: var(--tl-text-dark);
 }
 
 .traveler-option.selected {
-  border-color: var(--color-green-700);
-  background: var(--color-green-700);
-  color: #ffffff;
-}
-
-.traveler-option.selected .traveler-label {
-  color: #ffffff;
+  border-color: var(--tl-bg-dark);
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
 }
 
 .traveler-icon {
@@ -166,93 +162,94 @@
   position: absolute;
   top: 6px;
   right: 6px;
-  color: #ffffff;
+  color: var(--tl-text-light);
 }
 
-/* Email section within step 1 */
+/* Email section */
 .onboarding-email-section {
-  border-top: 1px solid var(--color-neutral-100);
-  padding-top: 16px;
+  border-top: 1px solid var(--tl-border);
+  padding-top: 24px;
 }
 
 .onboarding-email-section .form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-neutral-900);
-  margin-bottom: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 8px;
+  display: block;
 }
 
 .onboarding-email-section .form-input {
   width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  color: var(--color-neutral-900);
+  padding: 12px 14px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--tl-text-dark);
   transition: all 0.2s;
-  background: #ffffff;
+  background: var(--tl-bg-surface);
 }
 
 .onboarding-email-section .form-input:focus {
-  border-color: var(--color-green-700);
+  border-color: var(--tl-bg-dark);
   outline: none;
-  box-shadow: var(--shadow-focus);
+  box-shadow: 0 0 0 3px rgba(15, 46, 31, 0.08);
 }
 
 .form-hint {
-  font-size: var(--text-xs);
-  color: var(--color-neutral-400);
-  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--tl-text-muted);
+  margin-top: 8px;
 }
 
 /* Currency pill buttons */
 .currency-section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .currency-section .form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-neutral-900);
-  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 12px;
   display: block;
 }
 
 .currency-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .currency-pill {
-  flex: 0 0 calc(25% - 5px);
+  flex: 0 0 calc(25% - 6px);
   padding: 10px 8px;
-  border: 2px solid var(--color-neutral-200);
-  border-radius: var(--radius-full);
-  background: #ffffff;
-  color: var(--color-neutral-600);
-  font-size: 13px;
-  font-weight: 600;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  background: var(--tl-bg-surface);
+  color: var(--tl-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   text-align: center;
   white-space: nowrap;
 }
 
 .currency-pill:hover {
-  border-color: var(--color-neutral-300);
-  background: var(--color-neutral-50);
+  border-color: var(--tl-bg-dark);
+  color: var(--tl-text-dark);
 }
 
 .currency-pill.active {
-  border-color: var(--color-green-700);
-  background: var(--color-green-700);
-  color: #ffffff;
+  border-color: var(--tl-bg-dark);
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
 }
 
 /* Alerts toggle section */
 .alerts-section {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .alert-toggle-row {
@@ -260,34 +257,33 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-neutral-200);
-  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   user-select: none;
 }
 
 .alert-toggle-row:hover {
-  border-color: var(--color-neutral-300);
-  background: var(--color-neutral-50);
+  border-color: var(--tl-bg-dark);
 }
 
 .alert-toggle-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .alert-toggle-title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-neutral-900);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
 }
 
 .alert-toggle-desc {
-  font-size: 12px;
-  color: var(--color-neutral-500);
+  font-size: 0.85rem;
+  color: var(--tl-text-muted);
 }
 
 /* iOS-style toggle */
@@ -295,14 +291,14 @@
   width: 44px;
   height: 24px;
   border-radius: 12px;
-  background: var(--color-neutral-300);
+  background: var(--tl-border);
   position: relative;
   transition: background 0.25s ease;
   flex-shrink: 0;
 }
 
 .ios-toggle.on {
-  background: var(--color-green-700);
+  background: var(--tl-bg-dark);
 }
 
 .ios-toggle-knob {
@@ -322,10 +318,9 @@
 }
 
 .toggle-trust-note {
-  font-size: 11px;
-  color: var(--color-neutral-400);
-  margin-top: 8px;
-  padding-left: 2px;
+  font-size: 0.85rem;
+  color: var(--tl-text-muted);
+  margin-top: 12px;
 }
 
 /* Step 3 form */
@@ -338,19 +333,30 @@
   margin-bottom: 0;
 }
 .step3-form .form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-neutral-900);
-  margin-bottom: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 8px;
   display: block;
 }
 .step3-form .form-input {
   width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: var(--tl-text-dark);
+  background: var(--tl-bg-surface);
+}
+.step3-form .form-input:focus {
+  border-color: var(--tl-bg-dark);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 46, 31, 0.08);
 }
 .form-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 @media (max-width: 480px) {
   .form-grid-2 { grid-template-columns: 1fr; }
@@ -362,9 +368,9 @@
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-neutral-100);
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--tl-border);
 }
 
 .onboarding-cta {
@@ -391,9 +397,9 @@
 }
 
 .forgot-success p {
-  color: var(--color-neutral-600);
+  color: var(--tl-text-muted);
   margin-bottom: 24px;
-  font-size: var(--text-sm);
+  font-size: 0.95rem;
 }
 
 /* Mobile */
@@ -403,9 +409,8 @@
   }
 
   .onboarding-card {
-    padding: 24px;
+    padding: 32px 24px;
     margin: 0 16px;
-    border-radius: var(--radius-xl);
   }
 
   .traveler-grid {
@@ -426,6 +431,6 @@
   }
 
   .onboarding-step-header h1 {
-    font-size: var(--text-lg);
+    font-size: 1.25rem;
   }
 }
