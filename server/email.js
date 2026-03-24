@@ -13,6 +13,17 @@ function getResend() {
 const FROM = 'ResDrop <notifications@resdrop.app>';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com';
 
+// Security: HTML-escape user inputs before injecting into email templates
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ─── Helper ────────────────────────────────────────────────────
 export function isEmailConfigured() {
   return !!process.env.RESEND_API_KEY;
@@ -100,7 +111,7 @@ async function send(to, subject, html) {
 
 export async function sendWelcomeEmail(to, name) {
   const html = layout('Welcome to ResDrop', `
-    ${heading(`Welcome, ${name || 'Traveler'}!`)}
+    ${heading(`Welcome, ${esc(name) || 'Traveler'}!`)}
     ${p('Thanks for joining <strong>ResDrop</strong> &mdash; we\'ll keep an eye on your hotel prices so you don\'t have to.')}
     ${p('Here\'s how it works:')}
     <ol style="margin:0 0 14px 20px;color:#333;font-size:15px;line-height:1.8;">
@@ -119,13 +130,13 @@ export async function sendPriceDropAlert(to, name, booking) {
   const savings = booking.potentialSavings || (booking.originalPrice - booking.bestPrice);
   const html = layout('Price Drop Found!', `
     ${heading('Great news — price drop found!')}
-    ${p(`Hi ${name}, we found a lower price for your upcoming stay:`)}
+    ${p(`Hi ${esc(name)}, we found a lower price for your upcoming stay:`)}
     ${card([
-      ['Hotel', booking.hotelName],
-      ['Check-in', booking.checkinDate],
-      ['Check-out', booking.checkoutDate],
+      ['Hotel', esc(booking.hotelName)],
+      ['Check-in', esc(booking.checkinDate)],
+      ['Check-out', esc(booking.checkoutDate)],
       ['Original Price', `<span style="text-decoration:line-through;color:#999;">$${Number(booking.originalPrice).toFixed(2)}</span>`],
-      ['New Price', `<strong style="color:#52B788;">$${Number(booking.bestPrice).toFixed(2)}</strong> via ${booking.bestSource || 'alternative source'}`],
+      ['New Price', `<strong style="color:#52B788;">$${Number(booking.bestPrice).toFixed(2)}</strong> via ${esc(booking.bestSource) || 'alternative source'}`],
       ['Your Savings', savingsBadge(savings)],
     ])}
     ${p('Review this price drop in your dashboard and confirm the savings:')}
@@ -139,13 +150,13 @@ export async function sendSavingsConfirmed(to, name, booking, confirmation) {
   const savings = confirmation?.savings || booking.potentialSavings || 0;
   const html = layout('Savings Confirmed!', `
     ${heading('Savings confirmed! 🎉')}
-    ${p(`Congratulations ${name}, your savings have been confirmed:`)}
+    ${p(`Congratulations ${esc(name)}, your savings have been confirmed:`)}
     ${card([
-      ['Hotel', booking.hotelName],
-      ['Check-in', booking.checkinDate],
-      ['Check-out', booking.checkoutDate],
+      ['Hotel', esc(booking.hotelName)],
+      ['Check-in', esc(booking.checkinDate)],
+      ['Check-out', esc(booking.checkoutDate)],
       ['Confirmed Savings', savingsBadge(savings)],
-      ...(confirmation?.notes ? [['Notes', confirmation.notes]] : []),
+      ...(confirmation?.notes ? [['Notes', esc(confirmation.notes)]] : []),
     ])}
     ${p('Keep monitoring your other bookings for more savings opportunities.')}
     ${btn('https://resdrop.app/bookings', 'View My Bookings')}
@@ -156,7 +167,7 @@ export async function sendSavingsConfirmed(to, name, booking, confirmation) {
 export async function sendPasswordReset(to, name, resetUrl) {
   const html = layout('Reset Your Password', `
     ${heading('Password Reset')}
-    ${p(`Hi ${name || 'there'}, we received a request to reset your ResDrop password.`)}
+    ${p(`Hi ${esc(name) || 'there'}, we received a request to reset your ResDrop password.`)}
     ${p('Click the button below to set a new password:')}
     ${btn(resetUrl, 'Reset Password')}
     ${p('<em style="color:#666;font-size:13px;">This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.</em>')}
@@ -167,12 +178,12 @@ export async function sendPasswordReset(to, name, resetUrl) {
 export async function sendBookingCreated(to, name, booking) {
   const html = layout('Booking Monitoring Started', `
     ${heading('Monitoring started!')}
-    ${p(`Hi ${name || 'Traveler'}, we\'re now tracking prices for your booking:`)}
+    ${p(`Hi ${esc(name) || 'Traveler'}, we\'re now tracking prices for your booking:`)}
     ${card([
-      ['Hotel', booking.hotelName || booking.hotel_name],
-      ['Destination', booking.destination || '—'],
-      ['Check-in', booking.checkinDate || booking.checkin_date],
-      ['Check-out', booking.checkoutDate || booking.checkout_date],
+      ['Hotel', esc(booking.hotelName || booking.hotel_name)],
+      ['Destination', esc(booking.destination) || '—'],
+      ['Check-in', esc(booking.checkinDate || booking.checkin_date)],
+      ['Check-out', esc(booking.checkoutDate || booking.checkout_date)],
       ['Original Price', `$${Number(booking.originalPrice || booking.original_price).toFixed(2)}`],
     ])}
     ${p('We\'ll check prices multiple times per day and notify you as soon as we find a lower rate.')}

@@ -239,6 +239,8 @@ export default function documentRoutes(authMiddleware) {
     try {
       const doc = await db.getDocumentUpload(req.params.id);
       if (!doc) return res.status(404).json({ error: 'Document not found' });
+      // Security: Verify document belongs to the requesting user
+      if (doc.userEmail !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
 
       const bookingData = req.body;
 
@@ -298,6 +300,8 @@ export default function documentRoutes(authMiddleware) {
     try {
       const doc = await db.getDocumentUpload(req.params.id);
       if (!doc) return res.status(404).json({ error: 'Document not found' });
+      // Security: Verify document belongs to the requesting user
+      if (doc.userEmail !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
       res.json(doc);
     } catch (err) {
       console.error('[Documents] Get error:', err.message);

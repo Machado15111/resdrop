@@ -7,6 +7,11 @@ export default function savingsRoutes(authMiddleware) {
   // ─── Get alerts for a booking ─────────────────────────────
   router.get('/bookings/:id/alerts', authMiddleware, async (req, res) => {
     try {
+      // Security: Verify ownership before returning alerts
+      const booking = await db.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+
       const alerts = await db.getAlertsByBooking(req.params.id);
       res.json(alerts);
     } catch (err) {
@@ -134,6 +139,11 @@ export default function savingsRoutes(authMiddleware) {
   // ─── Get activity log for a booking ───────────────────────
   router.get('/bookings/:id/activity', authMiddleware, async (req, res) => {
     try {
+      // Security: Verify ownership before returning activity log
+      const booking = await db.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+
       const log = await db.getActivityLog('booking', req.params.id);
       res.json(log);
     } catch (err) {
@@ -145,6 +155,11 @@ export default function savingsRoutes(authMiddleware) {
   // ─── Get confirmation for a booking ───────────────────────
   router.get('/bookings/:id/confirmation', authMiddleware, async (req, res) => {
     try {
+      // Security: Verify ownership before returning confirmation
+      const booking = await db.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+
       const confirmation = await db.getConfirmationByBooking(req.params.id);
       res.json(confirmation || null);
     } catch (err) {

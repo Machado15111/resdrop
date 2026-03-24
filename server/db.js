@@ -464,7 +464,11 @@ export async function getAdminBookings({ status, search, sort = 'created_at', or
   let query = supabase.from('bookings').select('*', { count: 'exact' });
   if (status && status !== 'all') query = query.eq('status', status);
   if (search) {
-    query = query.or(`hotel_name.ilike.%${search}%,email.ilike.%${search}%,destination.ilike.%${search}%`);
+    // Security: Sanitize search to prevent PostgREST operator injection
+    const safeSearch = search.replace(/[%_\\(),.]/g, '');
+    if (safeSearch.length > 0) {
+      query = query.or(`hotel_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,destination.ilike.%${safeSearch}%`);
+    }
   }
   const validSorts = ['created_at', 'hotel_name', 'original_price', 'total_savings', 'checkin_date', 'status'];
   const sortCol = validSorts.includes(sort) ? sort : 'created_at';

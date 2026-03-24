@@ -81,12 +81,62 @@ function filterBookingResults(booking) {
 }
 
 const app = express();
+
+// ─── Security: CORS — restrict to known origins ─────────────
 app.use(cors({
   origin: process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
-    : true,  // allow all in dev
+    : ['https://resdrop.app', 'http://localhost:5173', 'http://localhost:3001'],
+  credentials: true,
 }));
-app.use(express.json());
+
+// ─── Security: Body size limit ──────────────────────────────
+app.use(express.json({ limit: '1mb' }));
+
+// ─── Security: Basic security headers ───────────────────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
+// ─── Security: Rate limiting ────────────────────────────────
+const rateLimitMap = new Map();
+function rateLimit(windowMs, max, keyFn) {
+  return (req, res, next) => {
+    const key = keyFn ? keyFn(req) : req.ip;
+    const now = Date.now();
+    if (!rateLimitMap.has(key)) {
+      rateLimitMap.set(key, { count: 1, start: now });
+      return next();
+    }
+    const entry = rateLimitMap.get(key);
+    if (now - entry.start > windowMs) {
+      rateLimitMap.set(key, { count: 1, start: now });
+      return next();
+    }
+    entry.count++;
+    if (entry.count > max) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+    next();
+  };
+}
+// Clean up rate limit map every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now - entry.start > 15 * 60 * 1000) rateLimitMap.delete(key);
+  }
+}, 5 * 60 * 1000);
+
+const authRateLimit = rateLimit(15 * 60 * 1000, 15, req => `auth:${req.ip}`);        // 15 attempts per 15 min
+const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`);     // 10 signups per hour
+const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`);        // 5 resets per hour
+const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`);  // 10 bookings per min
 
 // ─── Status Log ──────────────────────────────────────────────
 const API_MODE = isSerpApiConfigured() ? 'LIVE (SerpApi)' : isBookingApiConfigured() ? 'LIVE (Booking)' : 'SIMULATION';
@@ -348,7 +398,7 @@ async function applyBestResult(booking, results) {
 // ═══════════════════════════════════════════════════════════════
 
 // Submit a new booking for monitoring
-app.post('/api/bookings', authMiddleware, async (req, res) => {
+app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => {
   try {
     const {
       hotelName, destination, checkinDate, checkoutDate,
@@ -509,8 +559,8 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   res.json(booking);
 });
 
-// Parse a forwarded confirmation email (preview only)
-app.post('/api/parse-email', (req, res) => {
+// Parse a forwarded confirmation email (requires auth)
+app.post('/api/parse-email', authMiddleware, (req, res) => {
   const { emailContent } = req.body;
   const parsed = {
     hotelName: extractField(emailContent, 'hotel') || extractField(emailContent, 'property') || '',
@@ -593,17 +643,16 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
   res.json({ ...stats, apiMode: API_MODE });
 });
 
-// API config status endpoint
+// API config status endpoint — public info only (no secrets/IDs)
 app.get('/api/config', (req, res) => {
   res.json({
     apiMode: API_MODE,
     bookingComConfigured: isBookingApiConfigured(),
     awinConfigured: isAwinConfigured(),
     expediaConfigured: isExpediaConfigured(),
-    awinPublisherId: process.env.AWIN_AFFILIATE_ID || null,
+    // Security: Don't expose affiliate IDs or internal config to public
     sandboxMode: process.env.BOOKING_USE_SANDBOX === 'true',
     resendConfigured: isEmailConfigured(),
-    resendFrom: process.env.RESEND_FROM || 'ResDrop <noreply@resdrop.com>',
   });
 });
 
@@ -618,22 +667,22 @@ app.get('/api/hotels/search', (req, res) => {
 });
 
 // ─── AUTH & USER ROUTES ─────────────────────────────────────
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const { email, password } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
   if (!password) return res.status(400).json({ error: 'Senha obrigatoria' });
 
   const userWithPw = await db.getUserWithPassword(email);
-  if (!userWithPw) return res.status(404).json({ error: 'Usuario nao encontrado' });
+  // Security: Don't reveal whether user exists — generic error for all failures
+  if (!userWithPw) return res.status(401).json({ error: 'Credenciais invalidas' });
 
-  // Legacy user without password: set password on first login
+  // Security: Require password — no legacy passwordless backdoor
   if (!userWithPw.passwordHash) {
-    const hash = await bcrypt.hash(password, 10);
-    await db.updateUser(email, { passwordHash: hash });
-  } else {
-    const valid = await bcrypt.compare(password, userWithPw.passwordHash);
-    if (!valid) return res.status(401).json({ error: 'Senha incorreta' });
+    return res.status(401).json({ error: 'Conta requer redefinicao de senha. Use "Esqueci minha senha".' });
   }
+
+  const valid = await bcrypt.compare(password, userWithPw.passwordHash);
+  if (!valid) return res.status(401).json({ error: 'Credenciais invalidas' });
 
   await db.updateUser(email, { lastActive: new Date().toISOString() });
   await db.updateUserStats(email);
@@ -645,14 +694,19 @@ app.post('/api/auth/login', async (req, res) => {
   res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
 });
 
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
   const { email, name, password, phone, currency, country } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
   if (!password || password.length < 6) {
     return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
   }
+  // Security: Basic email format validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Email invalido' });
+  }
   const existing = await db.getUser(email);
-  if (existing) return res.status(409).json({ error: 'Usuario ja existe' });
+  // Security: Generic error to prevent account enumeration
+  if (existing) return res.status(409).json({ error: 'Nao foi possivel criar a conta. Tente fazer login ou redefinir senha.' });
 
   const passwordHash = await bcrypt.hash(password, 10);
 
@@ -693,19 +747,19 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   res.json({ ...req.user, isAdmin: req.userEmail === ADMIN_EMAIL });
 });
 
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
 
   const user = await db.getUser(email);
   if (!user) {
-    // Don't reveal if user exists
+    // Security: Don't reveal if user exists — same response either way
     return res.json({ success: true });
   }
 
   const token = crypto.randomUUID();
   await db.createPasswordReset(email.toLowerCase(), token);
-  console.log(`[Auth] Password reset token for ${email}: ${token}`);
+  // Security: Token is NOT logged — only sent via email
 
   // Fire-and-forget password reset email
   const resetUrl = `https://resdrop.app/reset-password?token=${token}`;
@@ -1124,9 +1178,16 @@ app.get('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, 
 // PUT /api/admin/bookings/:id — admin update booking
 app.put('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const updated = await db.updateBooking(req.params.id, req.body);
+    // Security: Only allow updating specific fields to prevent mass assignment
+    const allowedFields = ['status', 'notes', 'hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'originalPrice', 'bestPrice', 'totalSavings', 'potentialSavings'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+    const updated = await db.updateBooking(req.params.id, updates);
     if (!updated) return res.status(404).json({ error: 'Booking not found or update failed' });
-    await db.logActivity('booking', req.params.id, 'admin_update', req.user.email, { fields: Object.keys(req.body) });
+    await db.logActivity('booking', req.params.id, 'admin_update', req.user.email, { fields: Object.keys(updates) });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1164,9 +1225,16 @@ app.get('/api/admin/users/:email', authMiddleware, adminMiddleware, async (req, 
 // PUT /api/admin/users/:email — admin update user
 app.put('/api/admin/users/:email', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const updated = await db.updateUser(req.params.email, req.body);
+    // Security: Only allow updating specific fields to prevent mass assignment
+    const allowedFields = ['plan', 'name', 'phone', 'currency', 'active'];
+    const updates = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) updates[field] = req.body[field];
+    }
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+    const updated = await db.updateUser(req.params.email, updates);
     if (!updated) return res.status(404).json({ error: 'User not found or update failed' });
-    await db.logActivity('user', req.params.email, 'admin_update', req.user.email, { fields: Object.keys(req.body) });
+    await db.logActivity('user', req.params.email, 'admin_update', req.user.email, { fields: Object.keys(updates) });
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1187,12 +1255,17 @@ app.get('/api/admin/activity', authMiddleware, adminMiddleware, async (req, res)
   }
 });
 
-// POST /api/admin/send-email — send custom email via Resend
+// POST /api/admin/send-email — send custom email via Resend (to registered users only)
 app.post('/api/admin/send-email', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { to, subject, body } = req.body;
     if (!to || !subject || !body) {
       return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
+    }
+    // Security: Only allow sending to registered users (prevent phishing abuse)
+    const targetUser = await db.getUser(to);
+    if (!targetUser) {
+      return res.status(400).json({ error: 'Can only send emails to registered users' });
     }
     // Try to use Resend if configured
     const resendKey = process.env.RESEND_API_KEY;
