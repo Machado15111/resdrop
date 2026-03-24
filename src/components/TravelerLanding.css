@@ -960,7 +960,8 @@
   }
 
   .tl-header-actions .btn-ghost {
-    display: none; /* hide "Entrar" text, keep CTA */
+    padding: 8px 8px;
+    font-size: 0.8rem;
   }
 
   .tl-hero {
