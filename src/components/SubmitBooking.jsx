@@ -8,25 +8,11 @@ import { API } from '../api';
 const ROOM_TYPES = [
   { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
   { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
-  { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
-  { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
-  { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
   { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
-  { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
-  { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
-  { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
-  { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
-  { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
-  { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
-  { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
-  { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
-  { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
-  { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
-  { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
-  { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
-  { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
-  { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
-  { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
+  { value: 'Junior Suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
+  { value: 'Studio', pt: 'Studio', en: 'Studio' },
+  { value: 'Suite', pt: 'Suíte', en: 'Suite' },
+  { value: 'Penthouse', pt: 'Penthouse', en: 'Penthouse' },
   { value: 'Other', pt: 'Outro', en: 'Other' },
 ];
 
@@ -34,8 +20,8 @@ const PREFERENCES = [
   { value: 'sea_view', pt: 'Vista Mar', en: 'Sea View' },
   { value: 'high_floor', pt: 'Andar Alto', en: 'High Floor' },
   { value: 'lowest_category', pt: 'Categoria Mais Baixa', en: 'Lowest Category' },
-  { value: 'suite', pt: 'Su\u00edte', en: 'Suite' },
-  { value: 'junior_suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
+  { value: 'suite', pt: 'Suíte', en: 'Suite' },
+  { value: 'junior_suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
 ];
 
 function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
@@ -106,7 +92,6 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice || !form.roomType) return;
-    // If "Other" selected but no custom text, don't submit
     if (form.roomType === 'Other' && !form.roomTypeCustom.trim()) return;
     const submitData = { ...form };
     if (submitData.roomType !== 'Other') {
@@ -168,7 +153,14 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
 
   return (
     <div className="submit-page">
-      <div className="container">
+      {/* Decorative background shapes */}
+      <div className="submit-bg-shapes" aria-hidden="true">
+        <div className="submit-shape submit-shape-1" />
+        <div className="submit-shape submit-shape-2" />
+        <div className="submit-shape submit-shape-3" />
+      </div>
+
+      <div className="submit-centered">
         <button className="btn btn-ghost back-btn" onClick={onBack}>
           <IconArrowLeft size={16} />
           {t('submit.back')}
@@ -176,6 +168,11 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
 
         <div className="submit-card">
           <div className="submit-header">
+            <div className="submit-header-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
             <h1>{t('submit.title')}</h1>
             <p>{t('submit.subtitle')}</p>
           </div>
@@ -185,21 +182,21 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
               className={`mode-btn ${mode === 'form' ? 'active' : ''}`}
               onClick={() => setMode('form')}
             >
-              <IconUpload size={16} />
+              <IconUpload size={15} />
               {t('submit.manualEntry')}
             </button>
             <button
               className={`mode-btn ${mode === 'email' ? 'active' : ''}`}
               onClick={() => setMode('email')}
             >
-              <IconMail size={16} />
+              <IconMail size={15} />
               {t('submit.pasteEmail')}
             </button>
             <button
               className={`mode-btn ${mode === 'upload' ? 'active' : ''}`}
               onClick={() => setMode('upload')}
             >
-              <IconUpload size={16} />
+              <IconUpload size={15} />
               {t('submit.uploadDoc')}
             </button>
           </div>
@@ -212,7 +209,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
               <textarea
                 className="email-textarea"
                 placeholder={lang === 'pt'
-                  ? 'Exemplo:\nHotel: Grand Plaza Barcelona\nCheck-in: 2026-04-15\nCheck-out: 2026-04-19\nQuarto: Deluxe King Suite\nTotal: R$892\nConfirma\u00e7\u00e3o: CONF-ABC123\nH\u00f3spede: John Smith'
+                  ? 'Exemplo:\nHotel: Grand Plaza Barcelona\nCheck-in: 2026-04-15\nCheck-out: 2026-04-19\nQuarto: Deluxe King Suite\nTotal: R$892\nConfirmação: CONF-ABC123\nHóspede: John Smith'
                   : 'Example:\nHotel: Grand Plaza Barcelona\nCheck-in: 2026-04-15\nCheck-out: 2026-04-19\nRoom: Deluxe King Suite\nTotal: $892\nConfirmation: CONF-ABC123\nGuest: John Smith'}
                 value={emailContent}
                 onChange={(e) => setEmailContent(e.target.value)}
@@ -291,7 +288,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 </div>
               </div>
 
-              {/* Room type — REQUIRED */}
+              {/* Room type */}
               <div className="form-group">
                 <label className="form-label">{t('submit.roomType')} *</label>
                 <select
@@ -309,7 +306,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 </select>
               </div>
 
-              {/* Custom room type (when "Other" selected) */}
+              {/* Custom room type */}
               {form.roomType === 'Other' && (
                 <div className="form-group animate-in">
                   <label className="form-label">{t('submit.roomTypeCustom')} *</label>
@@ -317,7 +314,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                     className="form-input"
                     type="text"
                     name="roomTypeCustom"
-                    placeholder={lang === 'pt' ? 'Ex: Bangal\u00f4 Premium' : 'e.g., Premium Bungalow'}
+                    placeholder={lang === 'pt' ? 'Ex: Bangalô Premium' : 'e.g., Premium Bungalow'}
                     value={form.roomTypeCustom}
                     onChange={handleChange}
                     required
@@ -362,7 +359,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 </div>
               </div>
 
-              {/* Taxes included checkbox */}
+              {/* Taxes included */}
               <label className="taxes-checkbox">
                 <input
                   type="checkbox"
@@ -389,7 +386,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 </div>
               </div>
 
-              {/* Optional fields toggle */}
+              {/* Optional fields */}
               <button
                 type="button"
                 className="optional-toggle"
@@ -445,9 +442,10 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 <span>{t('submit.freeCancel')}</span>
               </div>
 
-              {error && <p className="form-error" style={{color: '#C1292E', marginBottom: '16px', textAlign: 'center', fontWeight: '500'}}>{error}</p>}
+              {error && <p className="form-error-msg">{error}</p>}
+
               <button
-                className="btn btn-primary btn-lg submit-btn"
+                className="submit-cta"
                 type="submit"
                 disabled={loading || !form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
               >
@@ -456,7 +454,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error, userEmail }) {
                 ) : (
                   <>
                     {t('submit.startMonitoring')}
-                    <IconArrowRight size={20} />
+                    <IconArrowRight size={18} />
                   </>
                 )}
               </button>
