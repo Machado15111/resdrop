@@ -287,6 +287,48 @@
 .status-red { background: #450a0a; color: var(--color-red-500); }
 .status-gray { background: #0f2e1f; color: #52b788; }
 
+/* Booking Status Badges */
+.booking-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.booking-status-monitoring {
+  background: #0c2d48;
+  color: #64b5f6;
+}
+
+.booking-status-lower {
+  background: #422006;
+  color: var(--color-amber-500);
+}
+
+.booking-status-savings {
+  background: #1a3a1a;
+  color: #81c784;
+}
+
+.booking-status-confirmed {
+  background: #052e16;
+  color: var(--color-green-400);
+}
+
+.booking-status-pending {
+  background: #3e2723;
+  color: #ffab91;
+}
+
+.booking-status-dismissed {
+  background: #1a1a2e;
+  color: #9e9e9e;
+}
+
 /* Plan badges */
 .plan-badge {
   display: inline-flex;
@@ -298,6 +340,7 @@
 }
 
 .plan-free { background: #0f2e1f; color: #95d5b2; }
+.plan-viajante { background: #1a3a2a; color: #64b5f6; }
 .plan-premium { background: #422006; color: var(--color-amber-500); }
 
 /* Tables */
@@ -318,6 +361,15 @@
   border-bottom: 1px solid #1b4332;
 }
 
+.admin-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.admin-table th.sortable:hover {
+  color: #d8f3dc;
+}
+
 .admin-table td {
   padding: 10px 12px;
   color: #d8f3dc;
@@ -334,8 +386,393 @@
   color: #d8f3dc;
 }
 
+.admin-table-nested {
+  margin-top: 8px;
+}
+
+.admin-table-nested th,
+.admin-table-nested td {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table-info {
+  padding: 8px 0;
+  font-size: 12px;
+  color: #52b788;
+}
+
+.text-truncate {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .text-danger {
   color: var(--color-red-500) !important;
+}
+
+.text-savings {
+  color: var(--color-green-400) !important;
+  font-weight: 600;
+}
+
+/* ─── Search Bar ───────────────────────────────────────── */
+.admin-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #0a1a14;
+  border: 1px solid #1b4332;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+
+.admin-search-bar:focus-within {
+  border-color: #2d6a4f;
+}
+
+.admin-search-bar svg {
+  color: #52b788;
+  flex-shrink: 0;
+}
+
+.admin-search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #d8f3dc;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.admin-search-bar input::placeholder {
+  color: #52b788;
+}
+
+/* ─── Filter Pills ─────────────────────────────────────── */
+.admin-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.filter-label {
+  font-size: 12px;
+  color: #52b788;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.filter-pill {
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #1b4332;
+  background: transparent;
+  color: #95d5b2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-pill:hover {
+  background: #1b4332;
+  color: #d8f3dc;
+}
+
+.filter-pill.active {
+  background: var(--color-green-700);
+  color: white;
+  border-color: var(--color-green-600);
+}
+
+/* ─── Booking Rows (clickable) ─────────────────────────── */
+.admin-booking-row {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-booking-row:hover td {
+  background: #122e20 !important;
+}
+
+/* ─── Detail Modal (slide-in panel) ────────────────────── */
+.admin-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.admin-detail-modal {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 560px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #0f2e1f;
+  border-left: 1px solid #1b4332;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.25s ease;
+  overflow: hidden;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.admin-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #1b4332;
+  flex-shrink: 0;
+}
+
+.admin-detail-header h3 {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 18px;
+}
+
+.admin-detail-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.admin-detail-section {
+  margin-bottom: 24px;
+}
+
+.admin-detail-section h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #b7e4c7;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1b4332;
+}
+
+.admin-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.admin-detail-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #0a1a14;
+  font-size: 12px;
+}
+
+.detail-time {
+  color: #52b788;
+  flex-shrink: 0;
+  width: 150px;
+}
+
+.detail-action {
+  color: #d8f3dc;
+  font-weight: 600;
+}
+
+.detail-actor {
+  color: #95d5b2;
+  margin-left: auto;
+}
+
+/* ─── Actions ──────────────────────────────────────────── */
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-danger {
+  background: #450a0a !important;
+  color: var(--color-red-500) !important;
+  border: 1px solid #7f1d1d;
+}
+
+.btn-danger:hover {
+  background: #7f1d1d !important;
+}
+
+.admin-status-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-status-edit select {
+  background: #0a1a14;
+  color: #d8f3dc;
+  border: 1px solid #1b4332;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.admin-status-edit select:focus {
+  border-color: #2d6a4f;
+}
+
+/* ─── Pagination ───────────────────────────────────────── */
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 20px 0 8px;
+}
+
+.admin-pagination button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #1b4332;
+  background: transparent;
+  color: #95d5b2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-pagination button:hover:not(:disabled) {
+  background: #1b4332;
+  color: #d8f3dc;
+}
+
+.admin-pagination button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.admin-pagination span {
+  font-size: 13px;
+  color: #52b788;
+}
+
+/* ─── Email Compose ────────────────────────────────────── */
+.admin-email-compose {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.email-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.email-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #95d5b2;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.email-field input,
+.email-field textarea {
+  background: #0a1a14;
+  border: 1px solid #1b4332;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #d8f3dc;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+
+.email-field input:focus,
+.email-field textarea:focus {
+  border-color: #2d6a4f;
+}
+
+.email-field input::placeholder,
+.email-field textarea::placeholder {
+  color: #52b788;
+}
+
+.email-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* ─── Activity Action Badge ────────────────────────────── */
+.activity-action-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #1b4332;
+  color: #b7e4c7;
+}
+
+/* ─── User Detail Expanded Row ─────────────────────────── */
+.admin-user-detail-row td {
+  background: #0a1a14 !important;
+  padding: 16px 20px !important;
+}
+
+.admin-user-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-user-expanded h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b7e4c7;
+  margin-bottom: 8px;
 }
 
 /* Info Box */
@@ -424,6 +861,15 @@
 .affiliate-logo {
   font-size: 36px;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: #1b4332;
+  border-radius: 8px;
+  font-weight: 800;
+  color: #d8f3dc;
 }
 
 .affiliate-header h3 {
@@ -488,6 +934,10 @@
   .admin-kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .admin-detail-modal {
+    width: 480px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -515,5 +965,19 @@
   .admin-table th,
   .admin-table td {
     padding: 8px 6px;
+  }
+  .admin-detail-modal {
+    width: 100vw;
+    max-width: 100vw;
+  }
+  .admin-filter-pills {
+    gap: 6px;
+  }
+  .filter-pill {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .text-truncate {
+    max-width: 100px;
   }
 }

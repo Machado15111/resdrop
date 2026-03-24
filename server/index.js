@@ -51,6 +51,15 @@ import {
 import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
+import {
+  isEmailConfigured,
+  sendWelcomeEmail,
+  sendPriceDropAlert,
+  sendSavingsConfirmed,
+  sendPasswordReset,
+  sendBookingCreated,
+  sendAdminNotification,
+} from './email.js';
 
 // Blocked/unreliable sources — filtered from all results (including cached)
 const BLOCKED_SOURCES_DISPLAY = ['oyo', 'oyorooms', 'elmisti', 'el misti', 'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling'];
@@ -97,6 +106,11 @@ if (isExpediaConfigured()) {
   console.log('[RepriceHQ] Expedia affiliate: configured ✓');
 } else {
   console.log('[RepriceHQ] Expedia affiliate: not configured (set EXPEDIA_AWIN_ADVERTISER_ID in .env)');
+}
+if (isEmailConfigured()) {
+  console.log('[RepriceHQ] Email (Resend): configured ✓');
+} else {
+  console.log('[RepriceHQ] Email (Resend): not configured (set RESEND_API_KEY in .env)');
 }
 
 // ─── Plan definitions ────────────────────────────────────────
@@ -261,6 +275,9 @@ async function applyBestResult(booking, results) {
         message: alertMessage,
         savings: diff,
       });
+
+      // Fire-and-forget price drop email
+      sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking).catch(() => {});
     } else if (diff === 0) {
       alertType = 'price_same';
       alertMessage = `➡️ Preco estavel: R$${currentPrice} via ${bestExact.source}`;
@@ -402,6 +419,9 @@ app.post('/api/bookings', authMiddleware, async (req, res) => {
     if (!created) {
       return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
     }
+
+    // Fire-and-forget booking created email
+    sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created).catch(() => {});
 
     res.status(201).json(created);
   } catch (err) {
@@ -582,6 +602,8 @@ app.get('/api/config', (req, res) => {
     expediaConfigured: isExpediaConfigured(),
     awinPublisherId: process.env.AWIN_AFFILIATE_ID || null,
     sandboxMode: process.env.BOOKING_USE_SANDBOX === 'true',
+    resendConfigured: isEmailConfigured(),
+    resendFrom: process.env.RESEND_FROM || 'ResDrop <noreply@resdrop.com>',
   });
 });
 
@@ -653,6 +675,11 @@ app.post('/api/auth/signup', async (req, res) => {
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
+
+  // Fire-and-forget emails
+  sendWelcomeEmail(email, name || 'Guest').catch(() => {});
+  sendAdminNotification('New User Signup', `<p><strong>${name || 'Guest'}</strong> (${email}) just signed up.</p>`).catch(() => {});
+
   res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
 });
 
@@ -679,6 +706,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   const token = crypto.randomUUID();
   await db.createPasswordReset(email.toLowerCase(), token);
   console.log(`[Auth] Password reset token for ${email}: ${token}`);
+
+  // Fire-and-forget password reset email
+  const resetUrl = `https://resdrop.app/reset-password?token=${token}`;
+  sendPasswordReset(email, user.name, resetUrl).catch(() => {});
 
   res.json({ success: true });
 });
@@ -1053,6 +1084,140 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
     total: allUsers.length,
     users: allUsers,
   });
+});
+
+// ─── Admin: Bookings management ─────────────────────────────
+
+// GET /api/admin/bookings — all bookings with filtering/sorting/pagination
+app.get('/api/admin/bookings', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { status, search, sort, order, page, limit } = req.query;
+    const result = await db.getAdminBookings({
+      status: status || undefined,
+      search: search || undefined,
+      sort: sort || 'created_at',
+      order: order || 'desc',
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 50,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/bookings/:id — single booking with fare_alerts + activity_log
+app.get('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const booking = await db.getBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    const [fareAlerts, activityLog] = await Promise.all([
+      db.getAlertsByBooking(req.params.id),
+      db.getActivityLog('booking', req.params.id),
+    ]);
+    res.json({ booking, fareAlerts, activityLog });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/bookings/:id — admin update booking
+app.put('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const updated = await db.updateBooking(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Booking not found or update failed' });
+    await db.logActivity('booking', req.params.id, 'admin_update', req.user.email, { fields: Object.keys(req.body) });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/bookings/:id — admin delete booking
+app.delete('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const booking = await db.getBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    await db.logActivity('booking', booking.id, 'admin_delete', req.user.email, { hotelName: booking.hotelName, email: booking.email });
+    const success = await db.deleteBooking(req.params.id);
+    if (!success) return res.status(500).json({ error: 'Failed to delete booking' });
+    // Update user stats after deletion
+    if (booking.email) await db.updateUserStats(booking.email);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/users/:email — single user with bookings
+app.get('/api/admin/users/:email', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const user = await db.getUser(req.params.email);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const bookings = await db.getBookingsByEmail(req.params.email);
+    res.json({ user, bookings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/users/:email — admin update user
+app.put('/api/admin/users/:email', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const updated = await db.updateUser(req.params.email, req.body);
+    if (!updated) return res.status(404).json({ error: 'User not found or update failed' });
+    await db.logActivity('user', req.params.email, 'admin_update', req.user.email, { fields: Object.keys(req.body) });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/activity — global activity log
+app.get('/api/admin/activity', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { entityType, action } = req.query;
+    const log = await db.getGlobalActivityLog(200, {
+      entityType: entityType || undefined,
+      action: action || undefined,
+    });
+    res.json({ log });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/send-email — send custom email via Resend
+app.post('/api/admin/send-email', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { to, subject, body } = req.body;
+    if (!to || !subject || !body) {
+      return res.status(400).json({ error: 'Missing required fields: to, subject, body' });
+    }
+    // Try to use Resend if configured
+    const resendKey = process.env.RESEND_API_KEY;
+    if (!resendKey) {
+      return res.status(503).json({ error: 'Email service (Resend) not configured. Set RESEND_API_KEY.' });
+    }
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || 'ResDrop <noreply@resdrop.com>',
+        to: [to],
+        subject,
+        html: body.replace(/\n/g, '<br>'),
+      }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ error: result.message || 'Failed to send email' });
+    }
+    await db.logActivity('email', to, 'admin_send_email', req.user.email, { subject });
+    res.json({ success: true, id: result.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── Email parsing helpers ───────────────────────────────────

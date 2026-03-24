@@ -434,6 +434,48 @@ export async function getActivityLog(entityType, entityId) {
   return (data || []).map(toCamel);
 }
 
+export async function getGlobalActivityLog(limit = 200, filters = {}) {
+  let query = supabase
+    .from('activity_log')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (filters.entityType) query = query.eq('entity_type', filters.entityType);
+  if (filters.action) query = query.eq('action', filters.action);
+  query = query.limit(limit);
+  const { data, error } = await query;
+  if (error) console.error('[DB] getGlobalActivityLog:', error.message);
+  return (data || []).map(toCamel);
+}
+
+export async function deleteBooking(id) {
+  // Delete related fare_alerts first
+  await supabase.from('fare_alerts').delete().eq('booking_id', id);
+  // Delete related savings_confirmations
+  await supabase.from('savings_confirmations').delete().eq('booking_id', id);
+  // Delete related activity_log
+  await supabase.from('activity_log').delete().eq('entity_id', id).eq('entity_type', 'booking');
+  // Delete the booking
+  const { error } = await supabase.from('bookings').delete().eq('id', id);
+  if (error) { console.error('[DB] deleteBooking:', error.message); return false; }
+  return true;
+}
+
+export async function getAdminBookings({ status, search, sort = 'created_at', order = 'desc', page = 1, limit = 50 } = {}) {
+  let query = supabase.from('bookings').select('*', { count: 'exact' });
+  if (status && status !== 'all') query = query.eq('status', status);
+  if (search) {
+    query = query.or(`hotel_name.ilike.%${search}%,email.ilike.%${search}%,destination.ilike.%${search}%`);
+  }
+  const validSorts = ['created_at', 'hotel_name', 'original_price', 'total_savings', 'checkin_date', 'status'];
+  const sortCol = validSorts.includes(sort) ? sort : 'created_at';
+  query = query.order(sortCol, { ascending: order === 'asc' });
+  const from = (page - 1) * limit;
+  query = query.range(from, from + limit - 1);
+  const { data, count, error } = await query;
+  if (error) console.error('[DB] getAdminBookings:', error.message);
+  return { bookings: (data || []).map(toCamel), total: count || 0, page, limit };
+}
+
 // ─── Special Fare Cases ─────────────────────────────────────
 
 export async function createSpecialFare(fareCase) {
