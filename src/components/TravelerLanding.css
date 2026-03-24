@@ -226,7 +226,8 @@
 
 /* ─── HERO ─── */
 .tl-hero {
-  padding: 180px 24px 100px;
+  padding: 100px 24px;
+  padding-top: 180px; /* fixed header (80px) + 100px breathing room */
   background: var(--tl-bg-page);
   text-align: center;
 }
@@ -752,7 +753,7 @@
   font-size: 0.85rem;
 }
 
-/* ─── MOBILE RESPONSIVENESS ─── */
+/* ─── RESPONSIVE: TABLET ─── */
 @media (max-width: 1024px) {
   .tl-hero h1 { font-size: 3.2rem; }
   .tl-trust-grid { grid-template-columns: repeat(2, 1fr); }
@@ -763,18 +764,220 @@
   .tl-pricing-card.highlight { transform: none; }
 }
 
+/* ─── RESPONSIVE: MOBILE ─── */
 @media (max-width: 768px) {
-  .tl-page section { padding: 64px 20px; }
+  .tl-page section { padding: 56px 20px; }
+  .tl-page section.tl-hero { padding-top: 130px; }
+
+  /* ── Header ── */
   .tl-header-nav { display: none; }
-  .tl-hero { padding: 140px 20px 64px; }
-  .tl-hero h1 { font-size: 2.5rem; }
-  .tl-hero p { font-size: 1.15rem; }
-  .tl-hero-actions { flex-direction: column; width: 100%; }
-  .tl-hero-actions .btn { width: 100%; }
-  .tl-hero-trust { flex-direction: column; gap: 16px; align-items: center; }
+
+  .tl-header-wrapper .container {
+    height: 64px;
+    padding: 0 16px;
+  }
+
+  .tl-header-logo {
+    font-size: 1.25rem;
+    gap: 6px;
+  }
+
+  .tl-header-logo svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .tl-header-actions {
+    gap: 10px;
+  }
+
+  .tl-header-actions .btn {
+    padding: 9px 16px;
+    font-size: 0.85rem;
+  }
+
+  .tl-header-actions .btn-ghost {
+    padding: 9px 10px;
+    font-size: 0.85rem;
+  }
+
+  .tl-lang-toggle {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* ── Hero ── */
+  .tl-hero {
+    padding-top: 130px; /* mobile header (64px) + 66px breathing room */
+    padding-bottom: 56px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .tl-hero-pill {
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    margin-bottom: 20px;
+  }
+
+  .tl-hero h1 {
+    font-size: 2.1rem;
+    letter-spacing: -0.025em;
+    margin-bottom: 18px;
+    line-height: 1.15;
+  }
+
+  .tl-hero p {
+    font-size: 1.05rem;
+    margin-bottom: 32px;
+    line-height: 1.6;
+    max-width: 100%;
+  }
+
+  .tl-hero-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+
+  .tl-hero-actions .btn {
+    width: 100%;
+    padding: 15px 24px;
+    font-size: 1rem;
+    border-radius: 10px;
+    justify-content: center;
+  }
+
+  .tl-hero-trust {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+
+  /* ── Trust Strip ── */
+  .tl-trust-strip {
+    padding: 32px 20px;
+  }
+
+  .tl-trust-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .tl-trust-item span {
+    font-size: 0.85rem;
+  }
+
+  /* ── Savings ── */
   .tl-savings-grid { grid-template-columns: 1fr; }
+
+  .tl-savings-card {
+    padding: 24px;
+  }
+
+  /* ── How it works ── */
   .tl-how-grid { grid-template-columns: 1fr; }
+
+  .tl-how-step {
+    padding: 24px 20px;
+  }
+
+  .tl-how-note {
+    font-size: 0.88rem;
+    padding: 14px 18px;
+  }
+
+  /* ── Section Headers ── */
+  .tl-page .section-header {
+    margin-bottom: 40px;
+  }
+
+  .tl-page .section-header h2 {
+    font-size: 1.75rem;
+  }
+
+  /* ── FAQ ── */
   .tl-faq-grid { grid-template-columns: 1fr; gap: 24px; }
-  .tl-footer-grid { grid-template-columns: 1fr; gap: 40px; }
-  .tl-cta h2 { font-size: 2.25rem; }
+
+  /* ── CTA ── */
+  .tl-cta {
+    padding: 72px 20px;
+  }
+
+  .tl-cta h2 {
+    font-size: 1.85rem;
+    line-height: 1.2;
+  }
+
+  .tl-cta p {
+    font-size: 1.05rem;
+  }
+
+  .tl-cta .btn {
+    width: 100%;
+    padding: 15px 24px;
+    border-radius: 10px;
+  }
+
+  /* ── Footer ── */
+  .tl-footer {
+    padding: 56px 20px 32px;
+  }
+
+  .tl-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    margin-bottom: 36px;
+  }
+
+  .tl-footer-bottom {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  /* ── Pricing ── */
+  .tl-pricing-card {
+    padding: 32px 24px;
+  }
+
+  .tl-pricing-price {
+    font-size: 2.8rem;
+  }
+}
+
+/* ─── RESPONSIVE: SMALL PHONES ─── */
+@media (max-width: 400px) {
+  .tl-header-wrapper .container {
+    padding: 0 12px;
+  }
+
+  .tl-header-actions .btn-primary {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .tl-header-actions .btn-ghost {
+    display: none; /* hide "Entrar" text, keep CTA */
+  }
+
+  .tl-hero {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .tl-hero h1 {
+    font-size: 1.85rem;
+  }
+
+  .tl-hero p {
+    font-size: 0.98rem;
+  }
+
+  .tl-page section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }

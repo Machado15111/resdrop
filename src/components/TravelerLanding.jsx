@@ -89,7 +89,7 @@ export default function TravelerLanding() {
       <section className="tl-hero">
         <div className="tl-hero-content">
           <div className="tl-hero-pill">
-            <Icons.ShieldAlert /> {pt ? 'Funciona para tarifas reembolsáveis' : 'Works for refundable rates'}
+            <Icons.ShieldAlert /> {pt ? 'Funciona apenas para tarifas reembolsáveis' : 'Works only for refundable rates'}
           </div>
           <h1>{pt ? 'Reserve seu hotel normalmente. Se o preço cair, você fica sabendo.' : 'Book your hotel as usual. If the price drops, you\'ll know.'}</h1>
           <p>{pt ? 'O ResDrop monitora tarifas reembolsáveis em mais de 20 plataformas e avisa quando encontra uma opção equivalente mais barata, para você reservar novamente e economizar.' : 'ResDrop monitors refundable rates across 20+ platforms and alerts you when it finds a cheaper equivalent option, so you can rebook and save.'}</p>
