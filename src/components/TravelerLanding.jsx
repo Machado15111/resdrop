@@ -89,10 +89,10 @@ export default function TravelerLanding() {
       <section className="tl-hero">
         <div className="tl-hero-content">
           <div className="tl-hero-pill">
-            <Icons.ShieldAlert /> {pt ? 'Funciona apenas para tarifas reembolsáveis' : 'Works only for refundable rates'}
+            <Icons.ShieldAlert /> {pt ? 'Exclusivo para reservas com cancelamento gratuito' : 'Exclusive for free cancellation bookings'}
           </div>
-          <h1>{pt ? 'Reserve seu hotel normalmente. Se o preço cair, você fica sabendo.' : 'Book your hotel as usual. If the price drops, you\'ll know.'}</h1>
-          <p>{pt ? 'O ResDrop monitora tarifas reembolsáveis em mais de 20 plataformas e avisa quando encontra uma opção equivalente mais barata, para você reservar novamente e economizar.' : 'ResDrop monitors refundable rates across 20+ platforms and alerts you when it finds a cheaper equivalent option, so you can rebook and save.'}</p>
+          <h1>{pt ? 'Monitore sua reserva e economize quando o preço cair' : 'Monitor your booking and save when the price drops'}</h1>
+          <p>{pt ? 'Continuamos acompanhando sua reserva após a confirmação para identificar quedas relevantes de preço.' : 'We keep tracking your booking after confirmation to identify relevant price drops.'}</p>
 
           <div className="tl-hero-actions">
             <Link to="/signup" className="btn btn-primary">{pt ? 'Começar grátis' : 'Start free'}</Link>
@@ -135,8 +135,8 @@ export default function TravelerLanding() {
       <section id="economia" className="tl-savings">
         <div className="container">
           <div className="section-header">
-            <h2>{pt ? 'Oportunidades reais. Economia palpável.' : 'Real opportunities. Tangible savings.'}</h2>
-            <p className="muted">{pt ? 'Exemplos reais de como flutuações de inventário criam oportunidades únicas para nossos usuários entre a data da reserva e o check-in.' : 'Real examples of how inventory fluctuations create unique opportunities for our users between booking date and check-in.'}</p>
+            <h2>{pt ? 'Oportunidades reais encontradas entre a reserva e o check-in' : 'Real opportunities found between booking and check-in'}</h2>
+            <p className="muted">{pt ? 'Exemplos reais de como flutuações de inventário criam oportunidades únicas para nossos usuários.' : 'Real examples of how inventory fluctuations create unique opportunities for our users.'}</p>
             <p style={{fontSize: '0.95rem', margin: '-10px 0 0 0', fontStyle: 'italic'}}>{pt ? 'Apenas para reservas com cancelamento grátis.' : 'Only for free cancellation bookings.'}</p>
           </div>
 
@@ -256,8 +256,8 @@ export default function TravelerLanding() {
       <section id="como-funciona" className="tl-how">
         <div className="container">
           <div className="section-header">
-            <h2>{pt ? 'Elegância na simplicidade' : 'Elegance in simplicity'}</h2>
-            <p className="muted">{pt ? 'Um processo desenhado para minimizar seu esforço e maximizar suas vantagens.' : 'A process designed to minimize your effort and maximize your advantage.'}</p>
+            <h2>{pt ? 'Em poucos passos, sua reserva passa a ser monitorada' : 'In a few steps, your booking is monitored'}</h2>
+            <p className="muted">{pt ? 'Um processo simples para acompanhar sua reserva e identificar oportunidades de economia sem esforço manual.' : 'A simple process to track your booking and identify savings opportunities without manual effort.'}</p>
           </div>
 
           <div className="tl-how-grid">
