@@ -28,30 +28,48 @@ function normalize(str) {
 }
 
 /**
- * Check if two hotel names refer to the same property
- * Uses multiple strategies: exact, contains, word overlap
+ * Check if two hotel names refer to the same property.
+ * STRICT matching to prevent wrong hotel substitutions:
+ *   - Exact word match only (no substring: "grand" won't match "grandview")
+ *   - Requires 70%+ overlap of significant words
+ *   - Minimum 2 word matches required
+ *   - Single-word names require exact match
  */
 function isHotelNameMatch(resultName, bookingName) {
   const a = normalize(resultName);
   const b = normalize(bookingName);
 
-  // Direct containment (either direction)
+  // Identical after normalization
+  if (a === b) return true;
+
+  // Direct containment — only when the full name is contained
+  // (catches "Hilton Copacabana" inside "Hilton Copacabana Rio de Janeiro")
   if (a.includes(b) || b.includes(a)) return true;
 
-  // Word overlap — if 2+ significant words match, likely same hotel
-  const stopWords = new Set(['hotel', 'resort', 'spa', 'suites', 'inn', 'the', 'de', 'do', 'da', 'e', 'a', 'o']);
+  // Word overlap — strict: exact word match only, 70% threshold
+  const stopWords = new Set([
+    'hotel', 'resort', 'spa', 'suites', 'inn', 'hostel', 'pousada', 'lodge',
+    'the', 'de', 'do', 'da', 'dos', 'das', 'e', 'a', 'o', 'em', 'por', 'na', 'no',
+    'and', 'by', 'at', 'in', 'of',
+  ]);
   const wordsA = a.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
   const wordsB = b.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
 
+  // If either name has no significant words after filtering, cannot match
+  if (wordsA.length === 0 || wordsB.length === 0) return false;
+
   let overlap = 0;
   for (const w of wordsA) {
-    if (wordsB.some(wb => wb.includes(w) || w.includes(wb))) overlap++;
+    // Exact word match only — no substring matching
+    if (wordsB.some(wb => wb === w)) overlap++;
   }
 
-  // If ≥2 significant words match, or if one name only has 1 significant word and it matches
+  // Require minimum 2 overlapping words
+  if (overlap < 2) return false;
+
+  // Require 70%+ overlap of the shorter name's significant words
   const minWords = Math.min(wordsA.length, wordsB.length);
-  if (minWords <= 1) return overlap >= 1;
-  return overlap >= 2;
+  return overlap / minWords >= 0.7;
 }
 
 /**
@@ -156,8 +174,10 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
       const freeCancellation = detectFreeCancellation(p);
 
-      const savings = isMatch ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
-      const savingsPercent = isMatch && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+      // STRICT: savings only when hotel matches AND room type is compatible AND source is trusted
+      const validComparison = isMatch && roomTypeMatch && trusted;
+      const savings = validComparison ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
+      const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
       const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
 
       results.push({
@@ -175,7 +195,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
         totalPrice: totalRate,
         savings: savings > 0 ? savings : 0,
         savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
-        hasDrop: isMatch && savings > 0,
+        hasDrop: validComparison && savings > 0,
         freeCancellation,
         breakfastIncluded: false,
         lastChecked: new Date().toISOString(),
@@ -189,9 +209,8 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       });
     }
 
-    // Filter out untrusted sources from user-facing results
-    const trustedResults = results.filter(r => r.isTrustedSource);
-    const finalResults = trustedResults.length > 0 ? trustedResults : results;
+    // STRICT: only show trusted sources — never fall back to untrusted
+    const finalResults = results.filter(r => r.isTrustedSource);
 
     // Sort by: confidenceScore desc, then free cancellation first, then price asc
     finalResults.sort((a, b) => {
@@ -201,7 +220,8 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     });
 
     const exactCount = finalResults.filter(r => r.isExactMatch).length;
-    console.log(`[SerpApi] Detail page: ${finalResults.length} vendor prices (${results.length - finalResults.length} filtered), ${exactCount} exact matches`);
+    const filteredCount = results.length - finalResults.length;
+    console.log(`[SerpApi] Detail page: ${finalResults.length} trusted vendor prices (${filteredCount} untrusted filtered), ${exactCount} exact matches`);
     return finalResults;
   }
 
@@ -279,9 +299,8 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     });
   }
 
-  // Filter out untrusted sources from user-facing results
-  const trustedResults = results.filter(r => r.isTrustedSource);
-  const finalResults = trustedResults.length > 0 ? trustedResults : results;
+  // STRICT: only show trusted sources — never fall back to untrusted
+  const finalResults = results.filter(r => r.isTrustedSource);
 
   // Sort by: confidenceScore desc, free cancellation first, then price asc
   finalResults.sort((a, b) => {
@@ -292,7 +311,8 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
 
   const exactCount = finalResults.filter(r => r.isExactMatch).length;
   const altCount = finalResults.filter(r => !r.isExactMatch).length;
-  console.log(`[SerpApi] Matches: ${exactCount} exact, ${altCount} alternatives (${results.length - finalResults.length} filtered)`);
+  const filteredCount = results.length - finalResults.length;
+  console.log(`[SerpApi] Matches: ${exactCount} exact, ${altCount} alternatives (${filteredCount} untrusted filtered)`);
 
   return finalResults;
 }
@@ -303,14 +323,17 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
  * Matched case-insensitively against source/vendor names and URLs.
  */
 const BLOCKED_SOURCES = [
-  'oyo',
-  'oyorooms',
-  'elmisti',
-  'el misti',
-  'hostel-bb',
-  'hotel-bb',
-  'hostelclub',
-  'hostelling',
+  // Budget/unreliable brands
+  'oyo', 'oyorooms', 'elmisti', 'el misti',
+  'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling',
+  // Aggregators (not direct booking sources)
+  'hotelscombined', 'triverna',
+  // Low-trust / thin-content / known problematic
+  'ostrovok', 'destinia', 'zenhotels', 'snaptravel',
+  'stayforlong', 'amoma', 'getaroom',
+  'prestigia', 'hotelopia', 'ratehawk',
+  'roomdi', 'findhotel', 'hotellook',
+  'booked.net', 'lookfor', 'hotelurbano',
 ];
 
 // ── Room Type Normalization ─────────────────────────────────────────
@@ -364,16 +387,21 @@ export function normalizeRoomType(roomTypeStr) {
 
 /**
  * Check if two room types are compatible for price comparison.
- * Returns true if they belong to the same category, or if either is OTHER (unknown).
- * Incompatible pairs (e.g. SUITE vs STANDARD) return false.
+ * STRICT: if one side is known and the other is unknown, we do NOT assume match.
+ * This prevents comparing a Suite booking against an unknown/unspecified result.
+ * Only returns true when both are the same known category, or both are unknown.
  */
 export function isRoomTypeCompatible(roomTypeA, roomTypeB) {
   const catA = normalizeRoomType(roomTypeA);
   const catB = normalizeRoomType(roomTypeB);
 
-  // If either is unknown, we can't confirm but we don't block the match
-  if (catA === ROOM_TYPE_CATEGORIES.OTHER || catB === ROOM_TYPE_CATEGORIES.OTHER) return true;
+  // Both unknown — allow comparison but caller should flag as unconfirmed
+  if (catA === ROOM_TYPE_CATEGORIES.OTHER && catB === ROOM_TYPE_CATEGORIES.OTHER) return true;
 
+  // One known, one unknown — do NOT assume match
+  if (catA === ROOM_TYPE_CATEGORIES.OTHER || catB === ROOM_TYPE_CATEGORIES.OTHER) return false;
+
+  // Both known — must be same category
   return catA === catB;
 }
 
@@ -415,19 +443,21 @@ const HIDDEN_SOURCES = ['google', 'google hotels', 'google (direct)'];
 
 /**
  * Determine whether a source name belongs to a trusted OTA or hotel brand.
+ * STRICT: only sources explicitly in TRUSTED_SOURCES are trusted.
+ * No auto-trust for "direto"/"direct" labels — those can be fabricated
+ * from unknown URLs by the detectSource fallback.
  */
 export function isTrustedSource(sourceName) {
   const lower = (sourceName || '').toLowerCase();
   // Check against hidden sources first
   if (HIDDEN_SOURCES.some(h => lower === h || lower.includes(h))) return false;
-  // Check trusted list
+  // Check trusted list — exact match
   if (TRUSTED_SOURCES.has(lower)) return true;
   // Partial match — covers "Booking.com", "Expedia.com.br", "Hilton (Direto)", etc.
   for (const trusted of TRUSTED_SOURCES) {
     if (lower.includes(trusted)) return true;
   }
-  // Hotel direct sites (detected by id suffix) are considered trusted
-  if (lower.includes('direto') || lower.includes('direct')) return true;
+  // No auto-trust for generic "direct"/"direto" labels
   return false;
 }
 
@@ -596,15 +626,15 @@ function detectSource(prop, link) {
   if (url.includes('housi.com')) return { name: 'Housi (Direto)', logo: '🏠', id: 'housi_direct' };
   if (url.includes('atlanticahotels')) return { name: 'Atlantica (Direto)', logo: '🏨', id: 'atlantica_direct' };
 
-  // Generic: if URL exists, it's a direct/independent hotel site
+  // Generic fallback: unknown URL — do NOT label as "hotel direct" or trusted
+  // These will be filtered out by isTrustedSource() check
   if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
     try {
       const hostname = new URL(link).hostname.replace('www.', '');
       const brand = hostname.split('.')[0];
-      const displayName = brand.charAt(0).toUpperCase() + brand.slice(1);
-      return { name: `${displayName} (Direto)`, logo: '🏨', id: 'hotel_direct' };
+      return { name: brand, logo: '🌐', id: `unknown_${brand}` };
     } catch {
-      return { name: 'Site do Hotel', logo: '🏨', id: 'hotel_direct' };
+      return { name: 'Unknown', logo: '🌐', id: 'unknown' };
     }
   }
 

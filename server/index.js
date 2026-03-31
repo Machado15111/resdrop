@@ -63,7 +63,16 @@ import {
 } from './email.js';
 
 // Blocked/unreliable sources — filtered from all results (including cached)
-const BLOCKED_SOURCES_DISPLAY = ['oyo', 'oyorooms', 'elmisti', 'el misti', 'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling'];
+const BLOCKED_SOURCES_DISPLAY = [
+  'oyo', 'oyorooms', 'elmisti', 'el misti',
+  'hostel-bb', 'hotel-bb', 'hostelclub', 'hostelling',
+  'hotelscombined', 'triverna',
+  'ostrovok', 'destinia', 'zenhotels', 'snaptravel',
+  'stayforlong', 'amoma', 'getaroom',
+  'prestigia', 'hotelopia', 'ratehawk',
+  'roomdi', 'findhotel', 'hotellook',
+  'booked.net', 'lookfor', 'hotelurbano',
+];
 
 function filterBlockedResults(results) {
   if (!Array.isArray(results)) return results;
@@ -269,114 +278,166 @@ async function searchPrices(booking, options = {}) {
 }
 
 // ─── Helper: update booking with best result ─────────────────
+// STRICT comparison rules:
+//   - Only exact hotel matches with trusted sources are considered
+//   - Room type must be compatible (or both unknown)
+//   - Refundability must not be mismatched
+//   - Never claim savings on non-comparable rates
 async function applyBestResult(booking, results) {
   booking.lastChecked = new Date().toISOString();
   booking.latestResults = results;
   booking.checkCount = (booking.checkCount || 0) + 1;
 
-  const exactMatches = results.filter(r => r.isExactMatch);
+  // STRICT filtering: require exact hotel match + trusted source + room type compatible
+  const comparableMatches = results.filter(r =>
+    r.isExactMatch && r.isTrustedSource && r.roomTypeMatch
+  );
   const alternatives = results.filter(r => !r.isExactMatch);
   booking.alternatives = alternatives.slice(0, 5);
 
-  if (exactMatches.length > 0) {
-    const bestExact = exactMatches[0]; // sorted by price ascending
-    const currentPrice = bestExact.totalPrice;
+  if (comparableMatches.length > 0) {
+    // Further filter: check refundability compatibility
+    // If booking is non-refundable, don't compare to refundable (different product)
+    // If booking is refundable, don't compare to non-refundable (worse product)
+    const bookingRefundable = booking.cancellationPolicy
+      ? ['free_cancellation', 'fully_refundable', 'refundable'].includes(booking.cancellationPolicy)
+      : null; // unknown
 
-    // Handle per-night rate: convert to total for comparison
-    let effectiveOriginal = booking.originalPrice;
-    if (booking.rateType === 'per_night') {
-      const checkin = new Date(booking.checkinDate);
-      const checkout = new Date(booking.checkoutDate);
-      const nights = Math.max(1, Math.round((checkout - checkin) / (1000 * 60 * 60 * 24)));
-      effectiveOriginal = booking.originalPrice * nights;
-    }
-
-    const diff = Math.round((effectiveOriginal - currentPrice) * 100) / 100;
-
-    // Always record price history
-    if (!booking.priceHistory) booking.priceHistory = [];
-    booking.priceHistory.push({
-      date: new Date().toISOString(),
-      price: currentPrice,
-      source: bestExact.source,
+    const fullyComparable = comparableMatches.filter(r => {
+      // If we don't know booking's refundability, allow all matches (but log as unconfirmed)
+      if (bookingRefundable === null) return true;
+      // If we don't know result's refundability, allow but flag
+      if (r.freeCancellation === undefined || r.freeCancellation === null) return true;
+      // Both known — must match
+      return bookingRefundable === r.freeCancellation;
     });
 
-    // Keep JSONB alerts for backward compat, but also write to fare_alerts table
-    if (!booking.alerts) booking.alerts = [];
+    const bestMatch = fullyComparable.length > 0
+      ? fullyComparable.sort((a, b) => a.totalPrice - b.totalPrice)[0]
+      : null;
 
-    let alertType, alertMessage;
+    if (bestMatch) {
+      const currentPrice = bestMatch.totalPrice;
 
-    if (diff > 0) {
-      // PRICE DROP — set as potential savings (NOT confirmed yet)
-      if (!booking.bestPrice || currentPrice < booking.bestPrice) {
-        booking.bestPrice = currentPrice;
-        booking.bestSource = bestExact.source;
-        booking.potentialSavings = diff;
-        // Only set lower_fare_found if not already confirmed
-        if (booking.status !== 'confirmed_savings') {
-          booking.status = 'lower_fare_found';
-        }
+      // Handle per-night rate: convert to total for comparison
+      let effectiveOriginal = booking.originalPrice;
+      if (booking.rateType === 'per_night') {
+        const checkin = new Date(booking.checkinDate);
+        const checkout = new Date(booking.checkoutDate);
+        const nights = Math.max(1, Math.round((checkout - checkin) / (1000 * 60 * 60 * 24)));
+        effectiveOriginal = booking.originalPrice * nights;
       }
-      alertType = 'price_drop';
-      alertMessage = `📉 Price drop: R$${currentPrice} via ${bestExact.source} — savings R$${diff}`;
-      booking.alerts.push({
-        id: generateId(),
+
+      const diff = Math.round((effectiveOriginal - currentPrice) * 100) / 100;
+
+      // Always record price history
+      if (!booking.priceHistory) booking.priceHistory = [];
+      booking.priceHistory.push({
         date: new Date().toISOString(),
-        type: alertType,
-        message: alertMessage,
-        savings: diff,
+        price: currentPrice,
+        source: bestMatch.source,
       });
 
-      // Fire-and-forget price drop email
-      sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking).catch(() => {});
-    } else if (diff === 0) {
-      alertType = 'price_same';
-      alertMessage = `➡️ Price stable: R$${currentPrice} via ${bestExact.source}`;
-      booking.alerts.push({
-        id: generateId(),
-        date: new Date().toISOString(),
-        type: alertType,
-        message: alertMessage,
-        savings: 0,
-      });
+      // Keep JSONB alerts for backward compat, but also write to fare_alerts table
+      if (!booking.alerts) booking.alerts = [];
+
+      let alertType, alertMessage;
+
+      if (diff > 0) {
+        // PRICE DROP — comparable product confirmed, set as potential savings
+        if (!booking.bestPrice || currentPrice < booking.bestPrice) {
+          booking.bestPrice = currentPrice;
+          booking.bestSource = bestMatch.source;
+          booking.potentialSavings = diff;
+          // Only set lower_fare_found if not already confirmed
+          if (booking.status !== 'confirmed_savings') {
+            booking.status = 'lower_fare_found';
+          }
+        }
+        alertType = 'price_drop';
+        alertMessage = `📉 Price drop: R$${currentPrice} via ${bestMatch.source} — savings R$${diff}`;
+        booking.alerts.push({
+          id: generateId(),
+          date: new Date().toISOString(),
+          type: alertType,
+          message: alertMessage,
+          savings: diff,
+        });
+
+        // Fire-and-forget price drop email
+        sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking).catch(() => {});
+      } else if (diff === 0) {
+        alertType = 'price_same';
+        alertMessage = `➡️ Price stable: R$${currentPrice} via ${bestMatch.source}`;
+        booking.alerts.push({
+          id: generateId(),
+          date: new Date().toISOString(),
+          type: alertType,
+          message: alertMessage,
+          savings: 0,
+        });
+      } else {
+        alertType = 'price_increase';
+        alertMessage = `📈 Price up: R$${currentPrice} via ${bestMatch.source} (+R$${Math.abs(diff)})`;
+        booking.alerts.push({
+          id: generateId(),
+          date: new Date().toISOString(),
+          type: alertType,
+          message: alertMessage,
+          savings: 0,
+        });
+      }
+
+      // Write to fare_alerts table
+      try {
+        await db.createFareAlert({
+          bookingId: booking.id,
+          type: alertType,
+          message: alertMessage,
+          savings: diff > 0 ? diff : 0,
+          currentPrice,
+          source: bestMatch.source,
+        });
+      } catch (err) {
+        console.error('[applyBestResult] Failed to create fare alert:', err.message);
+      }
+
+      // Log to activity_log
+      try {
+        await db.logActivity({
+          entityType: 'booking',
+          entityId: booking.id,
+          action: alertType === 'price_drop' ? 'lower_fare_found' : 'price_checked',
+          actorEmail: 'system',
+          details: { currentPrice, originalPrice: effectiveOriginal, diff, source: bestMatch.source, comparable: true },
+        });
+      } catch (err) {
+        console.error('[applyBestResult] Failed to log activity:', err.message);
+      }
     } else {
-      alertType = 'price_increase';
-      alertMessage = `📈 Price up: R$${currentPrice} via ${bestExact.source} (+R$${Math.abs(diff)})`;
+      // Results exist but none are fully comparable (refundability mismatch)
+      console.log(`[applyBestResult] ${comparableMatches.length} room-matched results but none pass refundability check — no savings claimed`);
+      if (!booking.alerts) booking.alerts = [];
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
-        type: alertType,
-        message: alertMessage,
+        type: 'price_check',
+        message: '🔍 Prices found but not comparable (different cancellation policy)',
         savings: 0,
       });
     }
-
-    // Write to fare_alerts table
-    try {
-      await db.createFareAlert({
-        bookingId: booking.id,
-        type: alertType,
-        message: alertMessage,
-        savings: diff > 0 ? diff : 0,
-        currentPrice,
-        source: bestExact.source,
-      });
-    } catch (err) {
-      console.error('[applyBestResult] Failed to create fare alert:', err.message);
-    }
-
-    // Log to activity_log
-    try {
-      await db.logActivity({
-        entityType: 'booking',
-        entityId: booking.id,
-        action: alertType === 'price_drop' ? 'lower_fare_found' : 'price_checked',
-        actorEmail: 'system',
-        details: { currentPrice, originalPrice: effectiveOriginal, diff, source: bestExact.source },
-      });
-    } catch (err) {
-      console.error('[applyBestResult] Failed to log activity:', err.message);
-    }
+  } else if (results.filter(r => r.isExactMatch).length > 0) {
+    // Hotel matched but room type or trust check failed — log but don't claim savings
+    console.log(`[applyBestResult] Hotel matched but room/trust check failed — no savings claimed`);
+    if (!booking.priceHistory) booking.priceHistory = [];
+    if (!booking.alerts) booking.alerts = [];
+    booking.alerts.push({
+      id: generateId(),
+      date: new Date().toISOString(),
+      type: 'price_check',
+      message: '🔍 Prices checked — no comparable rates found for your room type',
+      savings: 0,
+    });
   }
 
   // Persist to Supabase
