@@ -671,6 +671,7 @@
   font-size: 16px;
   line-height: 1.6;
   color: #6B7280;
+  text-align: center;
 }
 .tl-portals-grid {
   display: grid;
