@@ -1501,112 +1501,360 @@ async function findDuplicateBooking(email, hotelName, checkinDate, checkoutDate)
   );
 }
 
-// ─── Email parsing helpers ───────────────────────────────────
-function extractField(text, key) {
+// ─── Email/confirmation parsing engine ──────────────────────
+// Handles both single-line (key: value) and multiline (LABEL\nvalue) formats
+// common in real hotel confirmations from Booking.com, Expedia, Rosewood, etc.
+
+/**
+ * Look ahead after a label to find the value on the next non-empty line.
+ * Handles: "ROOM TYPE\n\nDeluxe Room" and "Room Type: Deluxe Room"
+ */
+function extractMultiline(text, labelPattern) {
   if (!text) return null;
-  const patterns = [
-    new RegExp(`${key}[:\\s]+([^\\n,]+)`, 'i'),
-    new RegExp(`${key}[:\\s]*"([^"]+)"`, 'i'),
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) return m[1].trim();
-  }
+  const re = new RegExp(`${labelPattern}[:\\s]*\\n+\\s*([^\\n]{2,80})`, 'im');
+  const m = text.match(re);
+  if (m) return m[1].trim();
+  // Also try same-line: "Room Type: Deluxe Room"
+  const reSameLine = new RegExp(`${labelPattern}[:\\s]+([^\\n,]{2,80})`, 'i');
+  const m2 = text.match(reSameLine);
+  if (m2) return m2[1].trim();
   return null;
 }
 
-function extractDate(text, key) {
-  if (!text) return null;
-  // ISO format: 2024-03-15
-  const m = text.match(new RegExp(`${key}[:\\s]*(\\d{4}-\\d{2}-\\d{2})`, 'i'));
-  if (m) return m[1];
-  // English format: March 15, 2024
-  const m2 = text.match(new RegExp(`${key}[:\\s]*(\\w+ \\d{1,2},?\\s*\\d{4})`, 'i'));
-  if (m2) {
-    try { return new Date(m2[1]).toISOString().split('T')[0]; }
-    catch { return null; }
-  }
-  // DD/MM/YYYY or DD-MM-YYYY format (common in BR/EU)
-  const m3 = text.match(new RegExp(`${key}[:\\s]*(\\d{1,2})[/\\-](\\d{1,2})[/\\-](\\d{4})`, 'i'));
-  if (m3) {
-    const [, day, month, year] = m3;
-    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  }
-  return null;
-}
-
-function extractPrice(text) {
-  if (!text) return null;
-  // $123.45
-  const m = text.match(/\$\s*([\d,]+\.?\d*)/);
-  if (m) return parseFloat(m[1].replace(',', ''));
-  // R$ 1.234,56 (Brazilian format)
-  const mBR = text.match(/R\$\s*([\d.]+,\d{2})/);
-  if (mBR) return parseFloat(mBR[1].replace(/\./g, '').replace(',', '.'));
-  // 123.45 USD/BRL/EUR
-  const m2 = text.match(/([\d,]+\.?\d*)\s*(?:USD|usd|dollars|BRL|EUR|eur)/);
-  if (m2) return parseFloat(m2[1].replace(',', ''));
-  // €123.45
-  const mEUR = text.match(/€\s*([\d,]+\.?\d*)/);
-  if (mEUR) return parseFloat(mEUR[1].replace(',', ''));
-  return null;
-}
-
-// Extract confirmation number with improved patterns
-function extractConfirmationNumber(text) {
+/**
+ * Extract hotel name — handles many confirmation formats:
+ *   - "your stay at Hotel Name"
+ *   - "Hotel: Hotel Name"
+ *   - "confirm your stay with us at Hotel Name"
+ *   - "YOUR STAY\n\nHotel Name\n\nAddress"
+ */
+function extractHotelName(text) {
   if (!text) return { value: null, confidence: 0 };
   const patterns = [
-    // Explicit labels in EN/PT/ES
-    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.95 },
-    { re: /(?:booking|reserva)\s*(?:id|#|number|número|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.9 },
-    { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.9 },
-    { re: /(?:código|code)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.8 },
-    { re: /(?:confirmação|confirmacion)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.85 },
-    { re: /(?:reference|ref|referência)[:\s]*#?\s*([A-Z0-9\-]{4,20})/i, confidence: 0.8 },
-    { re: /(?:itinerary|itinerário)\s*(?:#|number)?[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.75 },
+    // "confirm your stay ... at Hotel Name"
+    { re: /(?:confirm|confirmar)\s+(?:your|sua)\s+(?:stay|reserva|estadia)\s+(?:with us\s+)?(?:at|no|na|em)\s+([^\n.]{3,80})/i, confidence: 0.9 },
+    // "your stay at Hotel Name" / "sua estadia no Hotel Name"
+    { re: /(?:your|sua)\s+(?:stay|reservation|booking|reserva|estadia)\s+(?:at|in|no|na|em)\s+([^\n.]{3,80})/i, confidence: 0.9 },
+    // "reservation at Hotel Name" / "booking at Hotel Name"
+    { re: /(?:reservation|booking|reserva)\s+(?:at|for|para|no|na|em)\s+([^\n.]{3,80})/i, confidence: 0.85 },
+    // "confirmation for Hotel Name"
+    { re: /(?:confirmation|confirmação|confirmacion)\s+(?:for|para|de|-)?\s*([^\n.]{3,80})/i, confidence: 0.85 },
+    // "YOUR STAY\n\nHotel Name" (multiline label-value)
+    { re: /YOUR\s+STAY\s*\n+\s*([^\n]{3,80})/i, confidence: 0.85 },
+    // "welcoming you ... at Hotel Name" / "welcome to Hotel Name"
+    { re: /(?:welcoming you|welcome)\s+(?:to|at)\s+([^\n.]{3,80})/i, confidence: 0.8 },
+    // Same-line labels: "Hotel: Name" / "Property: Name"
+    { re: /(?:hotel|property|propriedade|nome do hotel|hotel name)[:\s]+([^\n,]{3,80})/i, confidence: 0.8 },
+    // Multiline "HOTEL\nName" or "PROPERTY NAME\nValue"
+    { re: /(?:HOTEL|PROPERTY|ACCOMMODATION)\s*(?:NAME)?\s*\n+\s*([^\n]{3,80})/i, confidence: 0.75 },
   ];
   for (const { re, confidence } of patterns) {
     const m = text.match(re);
-    if (m) return { value: m[1].trim(), confidence };
-  }
-  return { value: null, confidence: 0 };
-}
-
-// Extract room type with improved patterns
-function extractRoomType(text) {
-  if (!text) return { value: null, confidence: 0 };
-  const patterns = [
-    { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)[:\s]+([^\n,]{3,50})/i, confidence: 0.9 },
-    { re: /(?:room|quarto|habitación|chambre)[:\s]+([^\n,]{3,50})/i, confidence: 0.75 },
-    { re: /(?:category|categoria|catégorie)[:\s]+([^\n,]{3,50})/i, confidence: 0.7 },
-  ];
-  for (const { re, confidence } of patterns) {
-    const m = text.match(re);
-    if (m) return { value: m[1].trim(), confidence };
-  }
-  // Check for common room type keywords anywhere in text
-  const keywords = [
-    'Suite', 'Deluxe', 'Superior', 'Standard', 'Executive', 'Junior Suite',
-    'King Room', 'Queen Room', 'Double Room', 'Single Room', 'Twin Room',
-    'Presidential', 'Ocean View', 'Garden View', 'Pool View',
-  ];
-  for (const kw of keywords) {
-    if (text.toLowerCase().includes(kw.toLowerCase())) {
-      return { value: kw, confidence: 0.5 };
+    if (m) {
+      let name = m[1].trim();
+      // Clean trailing punctuation, addresses, and noise
+      name = name.replace(/[,.]$/, '').trim();
+      // Remove trailing phrases like "is confirmed!", "has been confirmed", etc.
+      name = name.replace(/\s+(?:is|has been|was)\s+(?:confirmed|booked|reserved)[!.]*/i, '').trim();
+      name = name.replace(/[!?]$/, '').trim();
+      // Don't accept if it looks like an address or generic text
+      if (name.length > 3 && name.length < 100 && !/^\d/.test(name)) {
+        return { value: name, confidence };
+      }
     }
   }
   return { value: null, confidence: 0 };
 }
 
-// Extract cancellation policy
+/**
+ * Extract dates — handles multiline labels, English prose dates, ISO, DD/MM/YYYY.
+ * "CHECK-IN\n\nMar 9, 2026, 4:00pm" → "2026-03-09"
+ */
+function extractDate(text, key) {
+  if (!text) return null;
+
+  // Build patterns for both same-line and multiline
+  const keyPattern = key.replace('-', '[\\s-]*');
+  const patterns = [
+    // Same-line ISO: "Check-in: 2026-03-09"
+    new RegExp(`${keyPattern}[:\\s]*(\\d{4}-\\d{2}-\\d{2})`, 'i'),
+    // Multiline ISO: "CHECK-IN\n\n2026-03-09"
+    new RegExp(`${keyPattern}\\s*\\n+\\s*(\\d{4}-\\d{2}-\\d{2})`, 'im'),
+    // Same-line English: "Check-in: Mar 9, 2026"
+    new RegExp(`${keyPattern}[:\\s]*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\w*\\s+\\d{1,2},?\\s*\\d{4})`, 'i'),
+    // Multiline English: "CHECK-IN\n\nMar 9, 2026, 4:00pm"
+    new RegExp(`${keyPattern}\\s*\\n+\\s*((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\w*\\s+\\d{1,2},?\\s*\\d{4})`, 'im'),
+    // Same-line DD/MM/YYYY: "Check-in: 09/03/2026"
+    new RegExp(`${keyPattern}[:\\s]*(\\d{1,2})[/\\-](\\d{1,2})[/\\-](\\d{4})`, 'i'),
+    // Multiline DD/MM/YYYY: "CHECK-IN\n\n09/03/2026"
+    new RegExp(`${keyPattern}\\s*\\n+\\s*(\\d{1,2})[/\\-](\\d{1,2})[/\\-](\\d{4})`, 'im'),
+  ];
+
+  // Try ISO first
+  for (const p of patterns.slice(0, 2)) {
+    const m = text.match(p);
+    if (m) return m[1];
+  }
+  // Try English date format
+  for (const p of patterns.slice(2, 4)) {
+    const m = text.match(p);
+    if (m) {
+      try {
+        const dateStr = m[1].replace(/,\s*\d{1,2}:\d{2}\s*(?:am|pm)?$/i, ''); // strip time
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      } catch { /* continue */ }
+    }
+  }
+  // Try DD/MM/YYYY
+  for (const p of patterns.slice(4, 6)) {
+    const m = text.match(p);
+    if (m) {
+      const parts = m.slice(1);
+      if (parts.length >= 3) {
+        const [day, month, year] = parts;
+        const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+        if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract price — handles all major currency formats:
+ *   € 5.800,00 (European), R$ 1.234,56 (Brazilian), $1,234.56 (US), 1234.56 EUR
+ */
+function extractPrice(text) {
+  if (!text) return null;
+
+  // Look for total/amount labels first (most reliable)
+  const totalPatterns = [
+    // "TOTAL (TAX INCLUDED)\n\n€ 5.800,00" — multiline
+    /(?:TOTAL|VALOR\s*TOTAL|AMOUNT|MONTANTE|IMPORTE)(?:\s*\([^)]*\))?\s*\n+\s*[€$R]\$?\s*([\d.,]+)/im,
+    // "Total: € 5.800,00" or "Total: R$ 1.234,56" — same line
+    /(?:total|valor\s*total|amount|montante|importe)(?:\s*\([^)]*\))?[:\s]+[€$R]\$?\s*([\d.,]+)/i,
+    // "TOTAL (TAX INCLUDED)\n\n5.800,00 EUR"
+    /(?:TOTAL|VALOR\s*TOTAL|AMOUNT)(?:\s*\([^)]*\))?\s*\n+\s*([\d.,]+)\s*(?:EUR|USD|BRL|GBP)/im,
+  ];
+  for (const p of totalPatterns) {
+    const m = text.match(p);
+    if (m) {
+      const price = parseEuropeanPrice(m[1]);
+      if (price > 0) return price;
+    }
+  }
+
+  // Currency-specific patterns (any occurrence)
+  const currencyPatterns = [
+    // € with European format: € 5.800,00 or €5800,00
+    { re: /€\s*([\d.]+,\d{2})/, parse: parseEuropeanPrice },
+    // R$ with Brazilian format: R$ 1.234,56
+    { re: /R\$\s*([\d.]+,\d{2})/, parse: parseEuropeanPrice },
+    // $ with US format: $1,234.56
+    { re: /\$\s*([\d,]+\.\d{2})/, parse: s => parseFloat(s.replace(/,/g, '')) },
+    // Number + currency code: 5800.00 EUR
+    { re: /([\d.,]+)\s*(?:EUR|USD|BRL|GBP)/i, parse: parseEuropeanPrice },
+    // Generic $ or €: $123 or €123
+    { re: /[€$]\s*([\d.,]+)/, parse: parseEuropeanPrice },
+  ];
+  for (const { re, parse } of currencyPatterns) {
+    const m = text.match(re);
+    if (m) {
+      const price = parse(m[1]);
+      if (price > 0) return price;
+    }
+  }
+  return null;
+}
+
+/** Parse European number format: 5.800,00 → 5800.00, 1.234,56 → 1234.56 */
+function parseEuropeanPrice(str) {
+  if (!str) return 0;
+  str = str.trim();
+  // European: dots as thousands, comma as decimal (5.800,00)
+  if (str.includes(',') && str.includes('.') && str.lastIndexOf(',') > str.lastIndexOf('.')) {
+    return parseFloat(str.replace(/\./g, '').replace(',', '.'));
+  }
+  // Brazilian/European: comma only as decimal (800,00)
+  if (str.includes(',') && !str.includes('.')) {
+    return parseFloat(str.replace(',', '.'));
+  }
+  // US: commas as thousands (1,234.56)
+  if (str.includes(',') && str.includes('.') && str.lastIndexOf('.') > str.lastIndexOf(',')) {
+    return parseFloat(str.replace(/,/g, ''));
+  }
+  // Plain number
+  return parseFloat(str.replace(/[^\d.]/g, ''));
+}
+
+/**
+ * Extract confirmation number — handles multiline labels:
+ *   "CONFIRMATION NO.\n\n96521SG009883"
+ */
+function extractConfirmationNumber(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    // Multiline: "CONFIRMATION NO.\n\n96521SG009883"
+    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.95 },
+    // Same-line: "Confirmation #: ABC123"
+    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.95 },
+    // Multiline: "BOOKING ID\n\nABC123"
+    { re: /(?:booking|reserva)\s*(?:id|#|number|número|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.9 },
+    // Same-line: "Booking ID: ABC123"
+    { re: /(?:booking|reserva)\s*(?:id|#|number|número|no\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.9 },
+    // Multiline: "RESERVATION NO.\n\nABC123"
+    { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.9 },
+    // Same-line: "Reservation #: ABC123"
+    { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.9 },
+    // "Código: ABC123" / "Code: ABC123"
+    { re: /(?:código|code)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.8 },
+    // "Reference: ABC123"
+    { re: /(?:reference|ref|referência)[:\s]*#?\s*([A-Z0-9][\w\-]{3,25})/i, confidence: 0.8 },
+    // "Itinerary: ABC123"
+    { re: /(?:itinerary|itinerário)\s*(?:#|number)?[:\s]*([A-Z0-9][\w\-]{3,25})/i, confidence: 0.75 },
+    // Filename pattern: "#9086691708156"
+    { re: /#\s*(\d{10,20})/i, confidence: 0.7 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const val = m[1].trim();
+      // Reject if it's a common false positive
+      if (/^(TYPE|ROOM|NAME|DATE|NO)$/i.test(val)) continue;
+      return { value: val, confidence };
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+/**
+ * Extract room type — handles multiline:
+ *   "ROOM TYPE\n\nDeluxe Room"
+ */
+function extractRoomType(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    // Multiline: "ROOM TYPE\n\nDeluxe Room"
+    { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.9 },
+    // Same-line: "Room Type: Deluxe Room"
+    { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)[:\s]+([^\n,]{3,50})/i, confidence: 0.9 },
+    // Multiline: "CATEGORY\n\nDeluxe"
+    { re: /(?:category|categoria|catégorie)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.7 },
+    // Same-line: "Category: Deluxe"
+    { re: /(?:category|categoria|catégorie)[:\s]+([^\n,]{3,50})/i, confidence: 0.7 },
+    // Same-line: "Room: Deluxe Room"
+    { re: /(?:room|quarto|habitación|chambre)[:\s]+([^\n,]{3,50})/i, confidence: 0.65 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const val = m[1].trim();
+      // Reject labels that got captured as values
+      if (/^(TYPE|DETAILS|BOOKED|NUMBER|NAME|RATE|NIGHT)$/i.test(val)) continue;
+      if (val.length > 2 && val.length < 60) {
+        return { value: val, confidence };
+      }
+    }
+  }
+  // Keyword fallback — look for known room type names in context
+  const keywords = [
+    { kw: 'Junior Suite', confidence: 0.55 },
+    { kw: 'Deluxe Room', confidence: 0.55 },
+    { kw: 'Deluxe Suite', confidence: 0.55 },
+    { kw: 'Superior Room', confidence: 0.55 },
+    { kw: 'Standard Room', confidence: 0.5 },
+    { kw: 'Executive Suite', confidence: 0.55 },
+    { kw: 'King Room', confidence: 0.5 },
+    { kw: 'Queen Room', confidence: 0.5 },
+    { kw: 'Double Room', confidence: 0.5 },
+    { kw: 'Single Room', confidence: 0.5 },
+    { kw: 'Twin Room', confidence: 0.5 },
+    { kw: 'Presidential Suite', confidence: 0.55 },
+    { kw: 'Ocean View', confidence: 0.5 },
+    { kw: 'Garden View', confidence: 0.5 },
+    { kw: 'Pool View', confidence: 0.5 },
+  ];
+  for (const { kw, confidence } of keywords) {
+    if (text.toLowerCase().includes(kw.toLowerCase())) {
+      return { value: kw, confidence };
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+/**
+ * Extract guest name — handles multiline labels and title prefixes
+ */
+function extractGuestName(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    // Multiline: "NAME\n\nMr. THOMAS GROSSE"
+    { re: /(?:^|\n)\s*(?:GUEST\s*)?NAME\s*\n+\s*((?:Mr|Mrs|Ms|Sr|Sra)\.?\s+[A-Z][A-Za-záàâãéèêíïóôõöúçñ\s]{2,60})/m, confidence: 0.85 },
+    // "Dear Mr. THOMAS GROSSE,"
+    { re: /(?:Dear|Prezado|Prezada)\s+((?:Mr|Mrs|Ms|Sr|Sra)\.?\s+[A-Z][A-Za-záàâãéèêíïóôõöúçñ\s]{2,60})/i, confidence: 0.85 },
+    // Same-line: "Guest: John Smith" / "Guest name: John Smith" / "Name: John Smith"
+    { re: /(?:guest\s*name|guest|hóspede|nome|name)[: \t]+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:[ \t]+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,4})/i, confidence: 0.7 },
+    // Title prefix anywhere: "Mr. JOHN SMITH"
+    { re: /(?:Mr|Mrs|Ms|Sr|Sra)\.?\s+([A-Z][A-Z\s]{3,40})/m, confidence: 0.6 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      let name = m[1].trim().replace(/[,.]$/, '');
+      // Clean up "Mr." prefix for storage
+      name = name.replace(/^(?:Mr|Mrs|Ms|Sr|Sra)\.?\s+/i, '').trim();
+      if (name.length > 2 && name.length < 80) {
+        return { value: name, confidence };
+      }
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+/**
+ * Extract destination/city from address or explicit labels
+ */
+function extractDestination(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    // Explicit labels same-line
+    { re: /(?:destination|destino|city|cidade|location|localização)[:\s]+([^\n,]{3,60})/i, confidence: 0.7 },
+    // Address line with city, country: "38 Sentier Jardin Alpin, Courchevel, France"
+    { re: /\d+\s+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})\s*\d{4,6}/i, confidence: 0.65 },
+    // Address with city, country (no postal code): "Street, City, Country"
+    { re: /\d+\s+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})$/im, confidence: 0.6 },
+    // "in City, Country" or "in City"
+    { re: /\b(?:in|em)\s+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:de|do|da|di)\s+)?[A-Za-záàâãéèêíïóôõöúçñ]*),?\s*([A-Z][a-záàâãéèêíïóôõöúçñ]+)?/i, confidence: 0.5 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      // If we matched city + country from address
+      if (m[2]) {
+        return { value: `${m[1].trim()}, ${m[2].trim()}`, confidence };
+      }
+      const val = m[1].trim();
+      // Reject false positives (generic words, tax text, etc.)
+      if (val.length > 2 && val.length < 80 && !/tax|fee|charge|penalty|policy/i.test(val)) {
+        return { value: val, confidence };
+      }
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+/**
+ * Extract cancellation policy
+ */
 function extractCancellationPolicy(text) {
   if (!text) return { value: null, confidence: 0 };
   const patterns = [
-    { re: /(?:free\s*cancellation|cancelamento\s*gratuito|cancelación\s*gratuita)(?:\s+(?:until|até|antes\s+de|before)\s+([^\n.]{5,40}))?/i, confidence: 0.9, type: 'free_cancellation' },
+    { re: /(?:fully\s*non[\s-]*refundable|becomes fully non[\s-]*refundable)/i, confidence: 0.9, type: 'non_refundable' },
     { re: /(?:non[\s-]*refundable|não[\s-]*reembolsável|no[\s-]*reembolsable)/i, confidence: 0.9, type: 'non_refundable' },
+    { re: /(?:free\s*cancellation|cancelamento\s*gratuito|cancelación\s*gratuita)(?:\s+(?:until|até|antes\s+de|before)\s+([^\n.]{5,40}))?/i, confidence: 0.9, type: 'free_cancellation' },
     { re: /(?:fully\s*refundable|totalmente\s*reembolsável)/i, confidence: 0.85, type: 'fully_refundable' },
-    { re: /(?:refundable|reembolsável|reembolsable)/i, confidence: 0.7, type: 'refundable' },
+    { re: /(?:deposit.*(?:forfeited|non[\s-]*refundable))/i, confidence: 0.85, type: 'non_refundable' },
     { re: /(?:cancellation|cancelamento|cancelación)\s*(?:policy|política)[:\s]+([^\n]{5,80})/i, confidence: 0.8, type: 'policy_text' },
   ];
   for (const { re, confidence, type } of patterns) {
@@ -1619,43 +1867,130 @@ function extractCancellationPolicy(text) {
   return { value: null, confidence: 0 };
 }
 
-// Parse email with confidence scoring per field
+/**
+ * Extract number of guests/adults/children
+ */
+function extractGuests(text) {
+  if (!text) return { adults: null, children: null, total: null };
+  // "2 Adults" / "2 Adultos"
+  const adultsMatch = text.match(/(\d+)\s*(?:adults?|adultos?)/i);
+  const childrenMatch = text.match(/(\d+)\s*(?:child(?:ren)?|crianças?|niños?)/i);
+  const guestsMatch = text.match(/(\d{1,2})\s*(?:guests?|hóspedes?)/i) ||
+                       text.match(/(?:guests?|hóspedes?|huéspedes?)[: \t]*(\d{1,2})\b/i);
+  const adultsCount = adultsMatch ? parseInt(adultsMatch[1]) : null;
+  const childrenCount = childrenMatch ? parseInt(childrenMatch[1]) : null;
+  const guestsCount = guestsMatch ? parseInt(guestsMatch[1]) : null;
+  return {
+    adults: adultsCount && adultsCount <= 20 ? adultsCount : null,
+    children: childrenCount && childrenCount <= 20 ? childrenCount : null,
+    total: (guestsCount && guestsCount <= 20) ? guestsCount : (adultsCount && adultsCount <= 20 ? adultsCount : null),
+  };
+}
+
+/**
+ * Detect booking platform/OTA from email content
+ */
+function detectBookingPlatform(text) {
+  if (!text) return null;
+  const platforms = [
+    { re: /booking\.com/i, name: 'Booking.com' },
+    { re: /expedia/i, name: 'Expedia' },
+    { re: /hotels\.com/i, name: 'Hotels.com' },
+    { re: /agoda/i, name: 'Agoda' },
+    { re: /airbnb/i, name: 'Airbnb' },
+    { re: /rosewood/i, name: 'Rosewood (Direct)' },
+    { re: /hilton/i, name: 'Hilton (Direct)' },
+    { re: /marriott/i, name: 'Marriott (Direct)' },
+    { re: /accor|all\.accor/i, name: 'Accor (Direct)' },
+    { re: /hyatt/i, name: 'Hyatt (Direct)' },
+    { re: /ihg|intercontinental/i, name: 'IHG (Direct)' },
+    { re: /trip\.com/i, name: 'Trip.com' },
+    { re: /decolar/i, name: 'Decolar' },
+    { re: /priceline/i, name: 'Priceline' },
+  ];
+  for (const { re, name } of platforms) {
+    if (re.test(text)) return name;
+  }
+  return null;
+}
+
+/**
+ * Try to infer city from hotel name by removing brand prefixes.
+ * "Grand Hyatt Rio de Janeiro" → "Rio de Janeiro"
+ * "Rosewood Courchevel Le Jardin Alpin" → "Courchevel"
+ */
+function inferCityFromHotelName(name) {
+  if (!name) return null;
+  const brands = [
+    'Grand Hyatt', 'Park Hyatt', 'Andaz', 'Hyatt Regency', 'Hyatt',
+    'Rosewood', 'Four Seasons', 'Ritz-Carlton', 'The Ritz-Carlton',
+    'St\\. Regis', 'W Hotel', 'Waldorf Astoria', 'Conrad',
+    'Mandarin Oriental', 'Peninsula', 'Aman', 'Belmond',
+    'Fairmont', 'Sofitel', 'Raffles', 'Shangri-La',
+    'InterContinental', 'JW Marriott', 'Marriott', 'Hilton',
+    'Westin', 'Sheraton', 'Le Méridien', 'Renaissance',
+    'Hotel', 'Resort', 'Palace', 'The',
+  ];
+  let rest = name;
+  for (const brand of brands) {
+    const re = new RegExp(`^${brand}\\s+`, 'i');
+    rest = rest.replace(re, '');
+  }
+  // Take first word(s) as city — stop at common suffixes like "Le", "The", "Resort"
+  const cityMatch = rest.match(/^([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:de|do|da|di|del|des)\s+[A-Z][a-záàâãéèêíïóôõöúçñ]+)*)/);
+  if (cityMatch && cityMatch[1].length > 2) return cityMatch[1];
+  return null;
+}
+
+/**
+ * Main parser: extract all booking fields from confirmation text.
+ * Handles multiline formats, European/Brazilian pricing, and real OTA layouts.
+ */
 function parseEmailContent(text) {
   if (!text) return { parsed: {}, fieldConfidence: {} };
 
-  const hotelName = extractField(text, 'hotel') || extractField(text, 'property') || extractField(text, 'nome do hotel') || '';
-  const destination = extractField(text, 'destination') || extractField(text, 'city') || extractField(text, 'location') || extractField(text, 'cidade') || extractField(text, 'destino') || '';
+  const hotel = extractHotelName(text);
+  let dest = extractDestination(text);
+  // Fallback: try to infer city from hotel name (e.g., "Grand Hyatt Rio de Janeiro" → "Rio de Janeiro")
+  if (!dest.value && hotel.value) {
+    const cityFromName = inferCityFromHotelName(hotel.value);
+    if (cityFromName) dest = { value: cityFromName, confidence: 0.4 };
+  }
   const checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'entrada') || '';
   const checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
   const originalPrice = extractPrice(text) || 0;
-  const guestName = extractField(text, 'guest') || extractField(text, 'name') || extractField(text, 'hóspede') || extractField(text, 'nome') || '';
-
+  const guest = extractGuestName(text);
   const confirmation = extractConfirmationNumber(text);
   const roomTypeResult = extractRoomType(text);
   const cancellationResult = extractCancellationPolicy(text);
+  const guests = extractGuests(text);
+  const platform = detectBookingPlatform(text);
 
   const fieldConfidence = {
-    hotelName: hotelName ? 0.8 : 0,
-    destination: destination ? 0.7 : 0,
+    hotelName: hotel.confidence,
+    destination: dest.confidence,
     checkinDate: checkinDate ? 0.85 : 0,
     checkoutDate: checkoutDate ? 0.85 : 0,
     originalPrice: originalPrice ? 0.8 : 0,
-    guestName: guestName ? 0.7 : 0,
+    guestName: guest.confidence,
     confirmationNumber: confirmation.confidence,
     roomType: roomTypeResult.confidence,
     cancellationPolicy: cancellationResult.confidence,
   };
 
   const parsed = {
-    hotelName,
-    destination,
+    hotelName: hotel.value || '',
+    destination: dest.value || '',
     checkinDate,
     checkoutDate,
     roomType: roomTypeResult.value || null,
     originalPrice,
     confirmationNumber: confirmation.value || null,
-    guestName,
+    guestName: guest.value || '',
     cancellationPolicy: cancellationResult.value || null,
+    numAdults: guests.adults,
+    numGuests: guests.total,
+    bookingPlatform: platform,
   };
 
   return { parsed, fieldConfidence };
@@ -1682,7 +2017,8 @@ const distPath = join(__dirname, '..', 'dist');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
   // SPA fallback — all non-API routes serve index.html
-  app.get('*', (req, res) => {
+  // Express 5 requires named parameter syntax instead of bare '*'
+  app.get('/{*splat}', (req, res) => {
     if (!req.path.startsWith('/api')) {
       res.sendFile(join(distPath, 'index.html'));
     }
