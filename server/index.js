@@ -51,6 +51,7 @@ import {
 import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
+import inboundEmailRoutes from './routes/inbound-email.js';
 import {
   isEmailConfigured,
   sendWelcomeEmail,
@@ -317,7 +318,7 @@ async function applyBestResult(booking, results) {
         }
       }
       alertType = 'price_drop';
-      alertMessage = `📉 Preco caiu: R$${currentPrice} via ${bestExact.source} — economia potencial R$${diff}`;
+      alertMessage = `📉 Price drop: R$${currentPrice} via ${bestExact.source} — savings R$${diff}`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
@@ -330,7 +331,7 @@ async function applyBestResult(booking, results) {
       sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking).catch(() => {});
     } else if (diff === 0) {
       alertType = 'price_same';
-      alertMessage = `➡️ Preco estavel: R$${currentPrice} via ${bestExact.source}`;
+      alertMessage = `➡️ Price stable: R$${currentPrice} via ${bestExact.source}`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
@@ -340,7 +341,7 @@ async function applyBestResult(booking, results) {
       });
     } else {
       alertType = 'price_increase';
-      alertMessage = `📈 Preco subiu: R$${currentPrice} via ${bestExact.source} (+R$${Math.abs(diff)})`;
+      alertMessage = `📈 Price up: R$${currentPrice} via ${bestExact.source} (+R$${Math.abs(diff)})`;
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
@@ -406,16 +407,28 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       guestName, confirmationNumber,
       rateType, roomTypeCustom,
       preferences, taxesIncluded,
+      rawSource, parseMethod,
     } = req.body;
 
-    if (!hotelName || !checkinDate || !checkoutDate || !originalPrice) {
-      return res.status(400).json({ error: 'Missing required fields: hotelName, checkinDate, checkoutDate, originalPrice' });
+    // Validate booking data
+    const validation = validateBookingData({ hotelName, checkinDate, checkoutDate, originalPrice, confirmationNumber, roomType, guestName, destination });
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        errors: validation.errors,
+        warnings: validation.warnings,
+        missingFields: validation.missingFields,
+      });
     }
-    if (new Date(checkoutDate) <= new Date(checkinDate)) {
-      return res.status(400).json({ error: 'Check-out must be after check-in' });
-    }
-    if (parseFloat(originalPrice) <= 0) {
-      return res.status(400).json({ error: 'Price must be greater than zero' });
+
+    // Duplicate detection
+    const duplicate = await findDuplicateBooking(req.userEmail, hotelName, checkinDate, checkoutDate);
+    if (duplicate) {
+      return res.status(409).json({
+        error: 'duplicate_booking',
+        message: 'A booking with the same hotel, check-in, and check-out dates already exists.',
+        existingBookingId: duplicate.id,
+      });
     }
 
     // Validate plan limit using authenticated user
@@ -429,6 +442,10 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       });
     }
 
+    // Determine status based on completeness — NEVER auto-generate confirmation or room type
+    const optionalMissing = validation.missingFields.filter(f => !['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'].includes(f));
+    const status = optionalMissing.length > 0 ? 'needs_review' : 'monitoring';
+
     const id = generateId();
     const booking = {
       id,
@@ -436,12 +453,13 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       destination: destination || '',
       checkinDate,
       checkoutDate,
-      roomType: roomType || 'Standard Room',
+      roomType: roomType || null,
       originalPrice: parseFloat(originalPrice),
-      guestName: guestName || req.user.name || 'Guest',
-      confirmationNumber: confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
+      guestName: guestName || req.user.name || null,
+      confirmationNumber: confirmationNumber || null,
       email: req.userEmail,
-      status: 'monitoring',
+      status,
+      missingFields: optionalMissing.length > 0 ? optionalMissing : null,
       createdAt: new Date().toISOString(),
       lastChecked: null,
       bestPrice: null,
@@ -453,6 +471,8 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       ].filter(Boolean).join(' | '),
       rateType: rateType || 'total',
       roomTypeCustom: roomTypeCustom || null,
+      rawSource: rawSource || null,
+      parseMethod: parseMethod || 'manual',
       priceHistory: [
         {
           date: new Date().toISOString(),
@@ -519,7 +539,12 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
 
-  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType'];
+  // Validate status if provided
+  if (req.body.status && !VALID_BOOKING_STATUSES.includes(req.body.status)) {
+    return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_BOOKING_STATUSES.join(', ')}` });
+  }
+
+  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType', 'status', 'cancellationPolicy'];
   const changes = [];
   const updates = {};
 
@@ -534,6 +559,18 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
     const changeHistory = [...(booking.changeHistory || []), ...changes];
     updates.changeHistory = changeHistory;
     updates.updatedAt = new Date().toISOString();
+
+    // If previously needs_review and key fields are being filled in, recalculate missingFields
+    if (booking.status === 'needs_review') {
+      const merged = { ...booking, ...updates };
+      const recheck = validateBookingData(merged);
+      const optionalMissing = recheck.missingFields.filter(f => !['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'].includes(f));
+      updates.missingFields = optionalMissing.length > 0 ? optionalMissing : null;
+      // Auto-promote to monitoring if all fields filled and no explicit status change
+      if (optionalMissing.length === 0 && !req.body.status) {
+        updates.status = 'monitoring';
+      }
+    }
 
     // Recalculate savings if originalPrice changed
     if (changes.some(c => c.field === 'originalPrice')) {
@@ -562,17 +599,10 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
 // Parse a forwarded confirmation email (requires auth)
 app.post('/api/parse-email', authMiddleware, (req, res) => {
   const { emailContent } = req.body;
-  const parsed = {
-    hotelName: extractField(emailContent, 'hotel') || extractField(emailContent, 'property') || '',
-    destination: extractField(emailContent, 'destination') || extractField(emailContent, 'city') || extractField(emailContent, 'location') || '',
-    checkinDate: extractDate(emailContent, 'check-in') || extractDate(emailContent, 'checkin') || extractDate(emailContent, 'arrival') || '',
-    checkoutDate: extractDate(emailContent, 'check-out') || extractDate(emailContent, 'checkout') || extractDate(emailContent, 'departure') || '',
-    roomType: extractField(emailContent, 'room') || extractField(emailContent, 'accommodation') || 'Standard Room',
-    originalPrice: extractPrice(emailContent) || 0,
-    confirmationNumber: extractField(emailContent, 'confirmation') || extractField(emailContent, 'booking') || extractField(emailContent, 'reservation') || '',
-    guestName: extractField(emailContent, 'guest') || extractField(emailContent, 'name') || '',
-  };
-  res.json(parsed);
+  if (!emailContent) return res.status(400).json({ error: 'emailContent is required' });
+
+  const { parsed, fieldConfidence } = parseEmailContent(emailContent);
+  res.json({ ...parsed, fieldConfidence });
 });
 
 // Email-to-booking workflow: forward email → auto-create booking
@@ -580,29 +610,32 @@ app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
   const { rawEmail } = req.body;
   if (!rawEmail) return res.status(400).json({ error: 'rawEmail is required' });
 
-  const parsed = {
-    hotelName: extractField(rawEmail, 'hotel') || extractField(rawEmail, 'property') || '',
-    destination: extractField(rawEmail, 'destination') || extractField(rawEmail, 'city') || extractField(rawEmail, 'location') || '',
-    checkinDate: extractDate(rawEmail, 'check-in') || extractDate(rawEmail, 'checkin') || extractDate(rawEmail, 'arrival') || '',
-    checkoutDate: extractDate(rawEmail, 'check-out') || extractDate(rawEmail, 'checkout') || extractDate(rawEmail, 'departure') || '',
-    roomType: extractField(rawEmail, 'room') || 'Standard Room',
-    originalPrice: extractPrice(rawEmail) || 0,
-    confirmationNumber: extractField(rawEmail, 'confirmation') || extractField(rawEmail, 'booking number') || '',
-    guestName: extractField(rawEmail, 'guest') || extractField(rawEmail, 'name') || '',
-  };
+  const { parsed, fieldConfidence } = parseEmailContent(rawEmail);
 
-  const missing = [];
-  if (!parsed.hotelName) missing.push('hotelName');
-  if (!parsed.checkinDate) missing.push('checkinDate');
-  if (!parsed.checkoutDate) missing.push('checkoutDate');
-  if (!parsed.originalPrice) missing.push('originalPrice');
+  // Validate required fields
+  const validation = validateBookingData(parsed);
 
-  if (missing.length > 0) {
+  if (!validation.valid) {
     return res.status(422).json({
       status: 'incomplete',
       parsed,
-      missing,
-      message: `Could not extract: ${missing.join(', ')}. Please review and complete manually.`,
+      fieldConfidence,
+      errors: validation.errors,
+      missingFields: validation.missingFields,
+      warnings: validation.warnings,
+      message: `Could not extract: ${validation.missingFields.filter(f => ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'].includes(f)).join(', ')}. Please review and complete manually.`,
+    });
+  }
+
+  // Duplicate detection
+  const duplicate = await findDuplicateBooking(req.userEmail, parsed.hotelName, parsed.checkinDate, parsed.checkoutDate);
+  if (duplicate) {
+    return res.status(409).json({
+      error: 'duplicate_booking',
+      message: 'A booking with the same hotel, check-in, and check-out dates already exists.',
+      existingBookingId: duplicate.id,
+      parsed,
+      fieldConfidence,
     });
   }
 
@@ -612,14 +645,28 @@ app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
     return res.status(403).json({ error: 'plan_limit', parsed });
   }
 
+  // Determine status — NEVER auto-generate confirmation or room type
+  const optionalMissing = validation.missingFields.filter(f => !['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'].includes(f));
+  const status = optionalMissing.length > 0 ? 'needs_review' : 'monitoring';
+
   const id = generateId();
   const booking = {
     id,
-    ...parsed,
-    email: req.userEmail,
+    hotelName: parsed.hotelName,
+    destination: parsed.destination || '',
+    checkinDate: parsed.checkinDate,
+    checkoutDate: parsed.checkoutDate,
+    roomType: parsed.roomType || null,
     originalPrice: parseFloat(parsed.originalPrice),
-    confirmationNumber: parsed.confirmationNumber || `CONF-${id.slice(0, 8).toUpperCase()}`,
-    status: 'monitoring',
+    guestName: parsed.guestName || null,
+    confirmationNumber: parsed.confirmationNumber || null,
+    cancellationPolicy: parsed.cancellationPolicy || null,
+    email: req.userEmail,
+    status,
+    missingFields: optionalMissing.length > 0 ? optionalMissing : null,
+    fieldConfidence,
+    rawSource: rawEmail,
+    parseMethod: 'email_paste',
     createdAt: new Date().toISOString(),
     source: 'email_forward',
     lastChecked: null,
@@ -633,7 +680,10 @@ app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
   };
 
   const created = await db.createBooking(booking);
-  res.status(201).json({ status: 'created', booking: created, parsed });
+  if (!created) {
+    return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
+  }
+  res.status(201).json({ status: 'created', booking: created, parsed, fieldConfidence });
 });
 
 // Get stats summary (always filtered by authenticated user)
@@ -1293,6 +1343,103 @@ app.post('/api/admin/send-email', authMiddleware, adminMiddleware, async (req, r
   }
 });
 
+// ─── Booking Validation ──────────────────────────────────────
+const VALID_BOOKING_STATUSES = [
+  'received', 'processing', 'needs_review', 'monitoring',
+  'lower_fare_found', 'savings_found', 'confirmed_savings',
+  'dismissed', 'expired',
+];
+
+function validateBookingData(data) {
+  const errors = [];
+  const warnings = [];
+  const missingFields = [];
+
+  // Required fields
+  if (!data.hotelName || !data.hotelName.trim()) {
+    errors.push('hotelName is required');
+    missingFields.push('hotelName');
+  }
+  if (!data.checkinDate) {
+    errors.push('checkinDate is required');
+    missingFields.push('checkinDate');
+  }
+  if (!data.checkoutDate) {
+    errors.push('checkoutDate is required');
+    missingFields.push('checkoutDate');
+  }
+  if (data.originalPrice === undefined || data.originalPrice === null || data.originalPrice === '' || data.originalPrice === 0) {
+    errors.push('originalPrice is required and must be greater than zero');
+    missingFields.push('originalPrice');
+  }
+
+  // Date format and logic validation
+  if (data.checkinDate && data.checkoutDate) {
+    const checkin = new Date(data.checkinDate);
+    const checkout = new Date(data.checkoutDate);
+
+    if (isNaN(checkin.getTime())) {
+      errors.push('checkinDate is not a valid date');
+    }
+    if (isNaN(checkout.getTime())) {
+      errors.push('checkoutDate is not a valid date');
+    }
+    if (!isNaN(checkin.getTime()) && !isNaN(checkout.getTime())) {
+      if (checkout <= checkin) {
+        errors.push('checkoutDate must be after checkinDate');
+      }
+      // Allow checkin up to 1 day in the past (timezone tolerance)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      if (checkin < yesterday) {
+        warnings.push('checkinDate is in the past');
+      }
+    }
+  }
+
+  // Price validation
+  if (data.originalPrice !== undefined && data.originalPrice !== null && data.originalPrice !== '') {
+    const price = parseFloat(data.originalPrice);
+    if (isNaN(price)) {
+      errors.push('originalPrice must be a valid number');
+    } else if (price <= 0) {
+      errors.push('originalPrice must be greater than zero');
+    }
+  }
+
+  // Optional field warnings
+  if (!data.confirmationNumber) missingFields.push('confirmationNumber');
+  if (!data.roomType) missingFields.push('roomType');
+  if (!data.guestName) missingFields.push('guestName');
+  if (!data.destination) missingFields.push('destination');
+
+  const valid = errors.length === 0;
+  return { valid, errors, warnings, missingFields };
+}
+
+// Normalize hotel name for duplicate detection
+function normalizeHotelName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Check for duplicate booking
+async function findDuplicateBooking(email, hotelName, checkinDate, checkoutDate) {
+  const existing = await db.getBookingsByEmail(email);
+  const normalizedName = normalizeHotelName(hotelName);
+  return existing.find(b =>
+    normalizeHotelName(b.hotelName) === normalizedName &&
+    b.checkinDate === checkinDate &&
+    b.checkoutDate === checkoutDate &&
+    !['expired', 'dismissed'].includes(b.status)
+  );
+}
+
 // ─── Email parsing helpers ───────────────────────────────────
 function extractField(text, key) {
   if (!text) return null;
@@ -1309,23 +1456,148 @@ function extractField(text, key) {
 
 function extractDate(text, key) {
   if (!text) return null;
+  // ISO format: 2024-03-15
   const m = text.match(new RegExp(`${key}[:\\s]*(\\d{4}-\\d{2}-\\d{2})`, 'i'));
   if (m) return m[1];
+  // English format: March 15, 2024
   const m2 = text.match(new RegExp(`${key}[:\\s]*(\\w+ \\d{1,2},?\\s*\\d{4})`, 'i'));
   if (m2) {
     try { return new Date(m2[1]).toISOString().split('T')[0]; }
     catch { return null; }
+  }
+  // DD/MM/YYYY or DD-MM-YYYY format (common in BR/EU)
+  const m3 = text.match(new RegExp(`${key}[:\\s]*(\\d{1,2})[/\\-](\\d{1,2})[/\\-](\\d{4})`, 'i'));
+  if (m3) {
+    const [, day, month, year] = m3;
+    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
   }
   return null;
 }
 
 function extractPrice(text) {
   if (!text) return null;
+  // $123.45
   const m = text.match(/\$\s*([\d,]+\.?\d*)/);
   if (m) return parseFloat(m[1].replace(',', ''));
-  const m2 = text.match(/([\d,]+\.?\d*)\s*(?:USD|usd|dollars|BRL|R\$)/);
+  // R$ 1.234,56 (Brazilian format)
+  const mBR = text.match(/R\$\s*([\d.]+,\d{2})/);
+  if (mBR) return parseFloat(mBR[1].replace(/\./g, '').replace(',', '.'));
+  // 123.45 USD/BRL/EUR
+  const m2 = text.match(/([\d,]+\.?\d*)\s*(?:USD|usd|dollars|BRL|EUR|eur)/);
   if (m2) return parseFloat(m2[1].replace(',', ''));
+  // €123.45
+  const mEUR = text.match(/€\s*([\d,]+\.?\d*)/);
+  if (mEUR) return parseFloat(mEUR[1].replace(',', ''));
   return null;
+}
+
+// Extract confirmation number with improved patterns
+function extractConfirmationNumber(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    // Explicit labels in EN/PT/ES
+    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.95 },
+    { re: /(?:booking|reserva)\s*(?:id|#|number|número|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.9 },
+    { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.9 },
+    { re: /(?:código|code)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.8 },
+    { re: /(?:confirmação|confirmacion)[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.85 },
+    { re: /(?:reference|ref|referência)[:\s]*#?\s*([A-Z0-9\-]{4,20})/i, confidence: 0.8 },
+    { re: /(?:itinerary|itinerário)\s*(?:#|number)?[:\s]*([A-Z0-9\-]{4,20})/i, confidence: 0.75 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) return { value: m[1].trim(), confidence };
+  }
+  return { value: null, confidence: 0 };
+}
+
+// Extract room type with improved patterns
+function extractRoomType(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)[:\s]+([^\n,]{3,50})/i, confidence: 0.9 },
+    { re: /(?:room|quarto|habitación|chambre)[:\s]+([^\n,]{3,50})/i, confidence: 0.75 },
+    { re: /(?:category|categoria|catégorie)[:\s]+([^\n,]{3,50})/i, confidence: 0.7 },
+  ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) return { value: m[1].trim(), confidence };
+  }
+  // Check for common room type keywords anywhere in text
+  const keywords = [
+    'Suite', 'Deluxe', 'Superior', 'Standard', 'Executive', 'Junior Suite',
+    'King Room', 'Queen Room', 'Double Room', 'Single Room', 'Twin Room',
+    'Presidential', 'Ocean View', 'Garden View', 'Pool View',
+  ];
+  for (const kw of keywords) {
+    if (text.toLowerCase().includes(kw.toLowerCase())) {
+      return { value: kw, confidence: 0.5 };
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+// Extract cancellation policy
+function extractCancellationPolicy(text) {
+  if (!text) return { value: null, confidence: 0 };
+  const patterns = [
+    { re: /(?:free\s*cancellation|cancelamento\s*gratuito|cancelación\s*gratuita)(?:\s+(?:until|até|antes\s+de|before)\s+([^\n.]{5,40}))?/i, confidence: 0.9, type: 'free_cancellation' },
+    { re: /(?:non[\s-]*refundable|não[\s-]*reembolsável|no[\s-]*reembolsable)/i, confidence: 0.9, type: 'non_refundable' },
+    { re: /(?:fully\s*refundable|totalmente\s*reembolsável)/i, confidence: 0.85, type: 'fully_refundable' },
+    { re: /(?:refundable|reembolsável|reembolsable)/i, confidence: 0.7, type: 'refundable' },
+    { re: /(?:cancellation|cancelamento|cancelación)\s*(?:policy|política)[:\s]+([^\n]{5,80})/i, confidence: 0.8, type: 'policy_text' },
+  ];
+  for (const { re, confidence, type } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const detail = m[1]?.trim() || null;
+      return { value: type === 'policy_text' ? detail : type, detail, confidence };
+    }
+  }
+  return { value: null, confidence: 0 };
+}
+
+// Parse email with confidence scoring per field
+function parseEmailContent(text) {
+  if (!text) return { parsed: {}, fieldConfidence: {} };
+
+  const hotelName = extractField(text, 'hotel') || extractField(text, 'property') || extractField(text, 'nome do hotel') || '';
+  const destination = extractField(text, 'destination') || extractField(text, 'city') || extractField(text, 'location') || extractField(text, 'cidade') || extractField(text, 'destino') || '';
+  const checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'entrada') || '';
+  const checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
+  const originalPrice = extractPrice(text) || 0;
+  const guestName = extractField(text, 'guest') || extractField(text, 'name') || extractField(text, 'hóspede') || extractField(text, 'nome') || '';
+
+  const confirmation = extractConfirmationNumber(text);
+  const roomTypeResult = extractRoomType(text);
+  const cancellationResult = extractCancellationPolicy(text);
+
+  const fieldConfidence = {
+    hotelName: hotelName ? 0.8 : 0,
+    destination: destination ? 0.7 : 0,
+    checkinDate: checkinDate ? 0.85 : 0,
+    checkoutDate: checkoutDate ? 0.85 : 0,
+    originalPrice: originalPrice ? 0.8 : 0,
+    guestName: guestName ? 0.7 : 0,
+    confirmationNumber: confirmation.confidence,
+    roomType: roomTypeResult.confidence,
+    cancellationPolicy: cancellationResult.confidence,
+  };
+
+  const parsed = {
+    hotelName,
+    destination,
+    checkinDate,
+    checkoutDate,
+    roomType: roomTypeResult.value || null,
+    originalPrice,
+    confirmationNumber: confirmation.value || null,
+    guestName,
+    cancellationPolicy: cancellationResult.value || null,
+  };
+
+  return { parsed, fieldConfidence };
 }
 
 // ─── Mount savings confirmation routes ───────────────────────
@@ -1336,6 +1608,9 @@ app.use('/api', specialFaresRoutes(authMiddleware, adminMiddleware));
 
 // ─── Mount document upload routes ────────────────────────────
 app.use('/api', documentRoutes(authMiddleware));
+
+// ─── Mount inbound email webhook (public) + address endpoint (auth) ─
+app.use('/api', inboundEmailRoutes(authMiddleware));
 
 // ─── Scheduler paused — searches only via manual "Atualizar" button ─
 console.log('[Scheduler] Paused — price checks run manually via "Atualizar"');

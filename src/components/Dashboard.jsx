@@ -138,6 +138,9 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
 
 function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, isPast, bookingState }) {
   const statusMap = {
+    received: { label: t('dash.received'), cls: 'status-pending' },
+    processing: { label: t('dash.processing'), cls: 'status-pending' },
+    needs_review: { label: t('dash.needsReview'), cls: 'status-warning' },
     savings_found: { label: t('dash.savingsFound'), cls: 'status-success' },
     lower_fare_found: { label: t('savings.lowerFareFound'), cls: 'status-success' },
     confirmed_savings: { label: t('savings.confirmedBadge'), cls: 'status-confirmed' },
@@ -182,14 +185,19 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
               <span className="dbc-price-label">{t('dash.bestFound')}</span>
               <span className="dbc-price accent">R${booking.bestPrice.toLocaleString('pt-BR')}</span>
             </div>
-            <span className="badge badge-success">{t('common.save')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
+            <span className="badge badge-success">{t('dash.lowerRateFound')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
           </div>
         ) : booking.status === 'confirmed_savings' && booking.totalSavings > 0 ? (
           <div className="dbc-savings-info">
             <span className="badge badge-confirmed">{t('savings.confirmedBadge')} R${booking.totalSavings.toFixed(0)}</span>
           </div>
         ) : (
-          <span className="badge badge-info">{t('dash.monitoringStatus')}</span>
+          <div className="dbc-monitoring-active">
+            <span className="badge badge-info">{t('dash.monitoringActive')}</span>
+            {booking.lastChecked && (
+              <span className="dbc-last-check">{t('dash.lastCheck')} {new Date(booking.lastChecked).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            )}
+          </div>
         )}
       </div>
 

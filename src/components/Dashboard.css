@@ -364,6 +364,17 @@
   color: var(--tl-text-muted);
 }
 
+.status-pending {
+  background: rgba(15, 46, 31, 0.05);
+  color: var(--tl-text-muted);
+  font-style: italic;
+}
+
+.status-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 /* ─── PRICING COLUMN ─── */
 .dbc-pricing {
   display: flex;
@@ -425,6 +436,41 @@
 .badge-info {
   background: var(--tl-bg-soft-green);
   color: var(--tl-bg-dark);
+}
+
+/* ─── MONITORING ACTIVE INDICATOR ─── */
+.dbc-monitoring-active {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.dbc-last-check {
+  font-size: 11px;
+  color: var(--tl-text-muted);
+  opacity: 0.7;
+}
+
+/* Subtle pulse animation on monitoring badge */
+.dbc-monitoring-active .badge-info {
+  position: relative;
+}
+
+.dbc-monitoring-active .badge-info::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tl-bg-dark);
+  margin-right: 6px;
+  animation: monitorPulse 2s ease-in-out infinite;
+}
+
+@keyframes monitorPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 
 /* ─── ACTION BUTTONS ─── */

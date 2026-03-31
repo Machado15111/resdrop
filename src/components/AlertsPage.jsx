@@ -42,6 +42,33 @@ function AlertsPage() {
     return <span className="alert-icon alert-icon-default"><IconBell size={16} /></span>;
   };
 
+  // Translate alert messages for both languages
+  // Handles old PT messages and new EN messages
+  const translateAlert = (message, type) => {
+    try {
+      // Extract price, source, and diff from either PT or EN format
+      const priceMatch = message.match(/R\$([\d,.]+)\s+via\s+(.+?)(?:\s+[—\-–(]|$)/);
+      const diffMatch = message.match(/R\$([\d,.]+)\)?$/);
+
+      if (priceMatch) {
+        const price = priceMatch[1];
+        const source = priceMatch[2].trim();
+        const diff = diffMatch ? diffMatch[1] : '';
+
+        if (lang === 'pt') {
+          if (type === 'price_drop') return `📉 Preço caiu: R$${price} via ${source} — economia potencial R$${diff}`;
+          if (type === 'price_same') return `➡️ Preço estável: R$${price} via ${source}`;
+          if (type === 'price_increase') return `📈 Preço subiu: R$${price} via ${source} (+R$${diff})`;
+        } else {
+          if (type === 'price_drop') return `📉 Price dropped: R$${price} via ${source} — potential savings R$${diff}`;
+          if (type === 'price_same') return `➡️ Price stable: R$${price} via ${source}`;
+          if (type === 'price_increase') return `📈 Price went up: R$${price} via ${source} (+R$${diff})`;
+        }
+      }
+    } catch {}
+    return message;
+  };
+
   if (loading) return null;
 
   return (
@@ -74,7 +101,7 @@ function AlertsPage() {
                     <IconHotel size={14} />
                     <span>{alert.hotelName}</span>
                   </div>
-                  <p className="alert-message">{alert.message}</p>
+                  <p className="alert-message">{translateAlert(alert.message, alert.type)}</p>
                   <span className="alert-date">
                     {new Date(alert.date).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
                       day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',

@@ -89,20 +89,20 @@ export default function TravelerLanding() {
       <section className="tl-hero">
         <div className="tl-hero-content">
           <div className="tl-hero-pill">
-            <Icons.ShieldAlert /> {pt ? 'Exclusivo para reservas com cancelamento gratuito' : 'Exclusive for free cancellation bookings'}
+            <Icons.ShieldAlert /> {pt ? 'Funciona com reservas com cancelamento gratuito' : 'Works with free cancellation bookings'}
           </div>
-          <h1>{pt ? 'Monitore sua reserva e economize quando o preço cair' : 'Monitor your booking and save when the price drops'}</h1>
-          <p>{pt ? 'Continuamos acompanhando sua reserva após a confirmação para identificar quedas relevantes de preço.' : 'We keep tracking your booking after confirmation to identify relevant price drops.'}</p>
+          <h1>{pt ? 'Sua reserva de hotel pode estar custando mais do que deveria' : 'Your hotel booking may be costing more than it should'}</h1>
+          <p>{pt ? 'Preços de hotéis mudam após a reserva. O ResDrop monitora essas variações e avisa quando encontra uma tarifa menor para que você decida o que fazer.' : 'Hotel prices change after you book. ResDrop monitors these changes and alerts you when it finds a lower rate — so you can decide what to do.'}</p>
 
           <div className="tl-hero-actions">
-            <Link to="/signup" className="btn btn-primary">{pt ? 'Começar grátis' : 'Start free'}</Link>
-            <a href="#como-funciona" className="btn btn-outline">{pt ? 'Ver como funciona' : 'See how it works'}</a>
+            <Link to="/signup" className="btn btn-primary">{pt ? 'Começar gratuitamente' : 'Get started free'}</Link>
+            <a href="#como-funciona" className="btn btn-outline">{pt ? 'Como funciona' : 'How it works'}</a>
           </div>
 
           <div className="tl-hero-trust">
-            <span><Icons.Check /> {pt ? 'Monitoramento 24/7' : '24/7 Monitoring'}</span>
-            <span><Icons.Check /> {pt ? 'Mais de 20 plataformas' : '20+ platforms'}</span>
-            <span><Icons.Check /> {pt ? 'Você continua no controle' : 'You stay in control'}</span>
+            <span><Icons.Check /> {pt ? 'Monitoramento contínuo' : 'Continuous monitoring'}</span>
+            <span><Icons.Check /> {pt ? 'Sem acesso a dados financeiros' : 'No financial data access'}</span>
+            <span><Icons.Check /> {pt ? 'Você decide cada passo' : 'You decide every step'}</span>
           </div>
         </div>
       </section>
@@ -117,15 +117,15 @@ export default function TravelerLanding() {
             </div>
             <div className="tl-trust-item">
               <Icons.Bell />
-              <span>{pt ? 'Alertas em tempo real' : 'Real-time alerts'}</span>
+              <span>{pt ? 'Alertas quando o preço cai' : 'Alerts when prices drop'}</span>
             </div>
             <div className="tl-trust-item">
               <Icons.Shield />
-              <span>{pt ? 'Sem mudanças automáticas' : 'No automatic changes'}</span>
+              <span>{pt ? 'Nenhuma alteração automática na sua reserva' : 'No automatic changes to your booking'}</span>
             </div>
             <div className="tl-trust-item">
               <Icons.CreditCard />
-              <span>{pt ? 'Ideal para tarifas flexíveis' : 'Ideal for flexible rates'}</span>
+              <span>{pt ? 'Apenas para reservas com cancelamento grátis' : 'Only for free cancellation bookings'}</span>
             </div>
           </div>
         </div>
@@ -135,9 +135,9 @@ export default function TravelerLanding() {
       <section id="economia" className="tl-savings">
         <div className="container">
           <div className="section-header">
-            <h2>{pt ? 'Oportunidades reais encontradas entre a reserva e o check-in' : 'Real opportunities found between booking and check-in'}</h2>
-            <p className="muted">{pt ? 'Exemplos reais de como flutuações de inventário criam oportunidades únicas para nossos usuários.' : 'Real examples of how inventory fluctuations create unique opportunities for our users.'}</p>
-            <p style={{fontSize: '0.95rem', margin: '-10px 0 0 0', fontStyle: 'italic'}}>{pt ? 'Apenas para reservas com cancelamento grátis.' : 'Only for free cancellation bookings.'}</p>
+            <h2>{pt ? 'Variações reais encontradas entre a reserva e o check-in' : 'Real price changes found between booking and check-in'}</h2>
+            <p className="muted">{pt ? 'Exemplos de como flutuações de inventário criam oportunidades para nossos usuários. Resultados variam conforme disponibilidade e condições de mercado.' : 'Examples of how inventory fluctuations create opportunities for our users. Results vary based on availability and market conditions.'}</p>
+            <p className="tl-refundable-note"><Icons.ShieldAlert /> {pt ? 'Válido apenas para reservas com cancelamento gratuito.' : 'Valid only for free cancellation bookings.'}</p>
           </div>
 
           <div className="tl-savings-grid">
@@ -151,7 +151,7 @@ export default function TravelerLanding() {
                 <span className="new">R$ 4.250</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">R$ 1.150 (-21%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -169,7 +169,7 @@ export default function TravelerLanding() {
                 <span className="new">R$ 9.800</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">R$ 2.700 (-21%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -187,7 +187,7 @@ export default function TravelerLanding() {
                 <span className="new">R$ 2.950</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">R$ 850 (-22%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -205,7 +205,7 @@ export default function TravelerLanding() {
                 <span className="new">€ 790</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">€ 160 (-16%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -223,7 +223,7 @@ export default function TravelerLanding() {
                 <span className="new">US$ 1.480</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">US$ 370 (-20%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -241,7 +241,7 @@ export default function TravelerLanding() {
                 <span className="new">US$ 380</span>
               </div>
               <div className="tl-savings-result">
-                <span className="tl-savings-result-label">{pt ? 'Economia encontrada' : 'Savings found'}</span>
+                <span className="tl-savings-result-label">{pt ? 'Diferença identificada' : 'Difference found'}</span>
                 <span className="tl-savings-result-value">US$ 70 (-15%)</span>
               </div>
               <div className="tl-savings-reason">
@@ -256,35 +256,35 @@ export default function TravelerLanding() {
       <section id="como-funciona" className="tl-how">
         <div className="container">
           <div className="section-header">
-            <h2>{pt ? 'Em poucos passos, sua reserva passa a ser monitorada' : 'In a few steps, your booking is monitored'}</h2>
-            <p className="muted">{pt ? 'Um processo simples para acompanhar sua reserva e identificar oportunidades de economia sem esforço manual.' : 'A simple process to track your booking and identify savings opportunities without manual effort.'}</p>
+            <h2>{pt ? 'Como o ResDrop funciona' : 'How ResDrop works'}</h2>
+            <p className="muted">{pt ? 'Um processo simples. Você adiciona sua reserva com cancelamento gratuito e nós acompanhamos o mercado por você.' : 'A simple process. You add your free cancellation booking and we track the market for you.'}</p>
           </div>
 
           <div className="tl-how-grid">
             <div className="tl-how-step">
               <div className="tl-how-number">1</div>
-              <h3>{pt ? 'Envie sua reserva' : 'Submit your booking'}</h3>
-              <p>{pt ? 'Reserve sua tarifa reembolsável no site que preferir e adicione-a no ResDrop.' : 'Book your refundable rate on any site and add it to ResDrop.'}</p>
+              <h3>{pt ? 'Adicione sua reserva' : 'Add your booking'}</h3>
+              <p>{pt ? 'Faça sua reserva com cancelamento gratuito normalmente e adicione os dados no ResDrop — manualmente ou colando o email de confirmação.' : 'Make your free cancellation booking as usual and add the details to ResDrop — manually or by pasting the confirmation email.'}</p>
             </div>
             <div className="tl-how-step">
               <div className="tl-how-number">2</div>
-              <h3>{pt ? 'Monitoramos 24/7' : 'We monitor 24/7'}</h3>
-              <p>{pt ? 'Varreremos dezenas de plataformas comparando o mesmo hotel e tipo de quarto continuamente.' : 'We scan dozens of platforms comparing the same hotel and room type continuously.'}</p>
+              <h3>{pt ? 'Monitoramos o mercado' : 'We monitor the market'}</h3>
+              <p>{pt ? 'Comparamos tarifas em dezenas de plataformas para o mesmo hotel, datas e tipo de quarto, de forma contínua.' : 'We compare rates across dozens of platforms for the same hotel, dates, and room type — continuously.'}</p>
             </div>
             <div className="tl-how-step">
               <div className="tl-how-number">3</div>
-              <h3>{pt ? 'Avisamos da queda' : 'We alert the drop'}</h3>
-              <p>{pt ? 'Você recebe um alerta assim que o preço cair de forma vantajosa em uma plataforma confiável.' : 'You get an alert as soon as the price drops on a trusted platform.'}</p>
+              <h3>{pt ? 'Você recebe um alerta' : 'You get an alert'}</h3>
+              <p>{pt ? 'Se identificarmos uma tarifa menor em uma plataforma confiável, enviamos um alerta com os detalhes.' : 'If we identify a lower rate on a trusted platform, we send you an alert with the details.'}</p>
             </div>
             <div className="tl-how-step">
               <div className="tl-how-number">4</div>
-              <h3>{pt ? 'Você escolhe' : 'You decide'}</h3>
-              <p>{pt ? 'A decisão de refazer a reserva para economizar é totalmente sua. Nós apenas avisamos.' : 'The decision to rebook and save is entirely yours. We just notify you.'}</p>
+              <h3>{pt ? 'Você decide o próximo passo' : 'You decide the next step'}</h3>
+              <p>{pt ? 'Analise a oportunidade, faça a nova reserva se fizer sentido e só cancele a original após confirmar a nova.' : 'Review the opportunity, make the new booking if it makes sense, and only cancel the original after confirming the new one.'}</p>
             </div>
           </div>
 
           <div className="tl-how-note">
-            <strong>{pt ? 'Transparência total:' : 'Full transparency:'}</strong> {pt ? 'O ResDrop apenas monitora e alerta a oportunidade. A decisão final e o controle são seus.' : 'ResDrop only monitors and alerts the opportunity. The final decision and control are yours.'}
+            <Icons.Shield /> <strong>{pt ? 'Importante:' : 'Important:'}</strong> {pt ? 'O ResDrop é uma plataforma de monitoramento e alertas. Não fazemos alterações na sua reserva e não acessamos dados financeiros. Toda ação é sua.' : 'ResDrop is a monitoring and alerting platform. We do not make changes to your booking and do not access financial data. Every action is yours.'}
           </div>
         </div>
       </section>
@@ -294,8 +294,8 @@ export default function TravelerLanding() {
         <div className="container">
           <div className="tl-split-section">
             <div className="tl-image-block">
-              <h2>{pt ? 'Por que os preços variam tanto depois da reserva?' : 'Why do prices change so much after booking?'}</h2>
-              <p className="muted" style={{ marginBottom: '32px' }}>{pt ? 'A precificação hoteleira é dinâmica. O que parece ser o menor preço garantido na segunda-feira pode não ser na quinta. O ResDrop transforma essa volatilidade na sua vantagem financeira, e sem risco, já que sua tarifa original é reembolsável.' : 'Hotel pricing is dynamic. What seems like the lowest guaranteed price on Monday may not be on Thursday. ResDrop turns this volatility into your financial advantage — risk-free, since your original rate is refundable.'}</p>
+              <h2>{pt ? 'Por que os preços variam depois da reserva?' : 'Why do prices change after booking?'}</h2>
+              <p className="muted" style={{ marginBottom: '32px' }}>{pt ? 'A precificação hoteleira é dinâmica. A tarifa que você pagou na segunda pode não ser a melhor na quinta. O ResDrop acompanha essas variações para você, e como sua reserva tem cancelamento gratuito, você pode avaliar se vale trocar.' : 'Hotel pricing is dynamic. The rate you paid on Monday might not be the best by Thursday. ResDrop tracks these changes for you, and since your booking has free cancellation, you can evaluate whether it\'s worth switching.'}</p>
             </div>
 
             <div className="tl-reasons-list">
@@ -320,6 +320,159 @@ export default function TravelerLanding() {
                   <p className="muted">{pt ? 'Para evitar prejuízo, os hotéis ativam promoções agressivas caso a ocupação não esteja conforme a meta atingindo os dias finais.' : 'To avoid losses, hotels activate aggressive promotions when occupancy falls short of targets in the final days.'}</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 7.25 WHERE WE SEARCH — OTA PORTALS */}
+      <section className="tl-portals">
+        <div className="container">
+          <h2>{pt ? 'Comparamos tarifas nas maiores plataformas' : 'We compare rates across major platforms'}</h2>
+          <p className="tl-portals-sub">{pt
+            ? 'Monitoramos automaticamente as principais plataformas de reserva para identificar quando uma tarifa mais baixa está disponível para o seu hotel.'
+            : 'We automatically monitor the top booking platforms to identify when a lower rate becomes available for your hotel.'}</p>
+          <div className="tl-portals-grid">
+            {[
+              { name: 'Booking.com', domain: 'booking.com' },
+              { name: 'Expedia', domain: 'expedia.com' },
+              { name: 'Hotels.com', domain: 'hotels.com' },
+              { name: 'Agoda', domain: 'agoda.com' },
+              { name: 'Trip.com', domain: 'trip.com' },
+              { name: 'Priceline', domain: 'priceline.com' },
+              { name: 'Trivago', domain: 'trivago.com' },
+              { name: 'Kayak', domain: 'kayak.com' },
+              { name: 'HotelsCombined', domain: 'hotelscombined.com' },
+              { name: 'Google Hotels', domain: 'google.com' },
+            ].map(portal => (
+              <div key={portal.name} className="tl-portal-item">
+                <img
+                  src={`https://logo.clearbit.com/${portal.domain}`}
+                  alt={portal.name}
+                  className="tl-portal-logo"
+                  loading="lazy"
+                  onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                />
+                <div className="tl-portal-fallback" style={{ display: 'none' }}>
+                  {portal.name[0]}
+                </div>
+                <span className="tl-portal-name">{portal.name}</span>
+              </div>
+            ))}
+          </div>
+          <p className="tl-portals-note">{pt
+            ? 'Resultados filtrados por fontes confiáveis. Não incluímos revendedores ou fontes não verificadas.'
+            : 'Results filtered by trusted sources. We do not include resellers or unverified sources.'}</p>
+        </div>
+      </section>
+
+      {/* 7.5 SPECIAL FARES — CONCIERGE SERVICE */}
+      <section className="tl-special-fares">
+        <div className="container">
+          <div className="tl-sf-layout">
+            <div className="tl-sf-content">
+              <div className="tl-sf-badge">{pt ? 'Novo' : 'New'}</div>
+              <h2>{pt ? 'ResDrop Special Fares' : 'ResDrop Special Fares'}</h2>
+              <p className="tl-sf-lead">{pt
+                ? 'Encontramos tarifas exclusivas que nem sempre estão disponíveis nas plataformas tradicionais. Um concierge dedicado cuida de tudo para você.'
+                : 'We find exclusive rates that aren\'t always available on traditional platforms. A dedicated concierge handles everything for you.'
+              }</p>
+
+              <div className="tl-sf-steps">
+                <div className="tl-sf-step">
+                  <div className="tl-sf-step-num">1</div>
+                  <div>
+                    <h4>{pt ? 'Identificamos a oportunidade' : 'We identify the opportunity'}</h4>
+                    <p>{pt ? 'Nosso sistema encontra uma tarifa especial para o seu hotel, mesmas datas e tipo de quarto.' : 'Our system finds a special rate for your hotel, same dates and room type.'}</p>
+                  </div>
+                </div>
+                <div className="tl-sf-step">
+                  <div className="tl-sf-step-num">2</div>
+                  <div>
+                    <h4>{pt ? 'Você analisa e aprova' : 'You review and approve'}</h4>
+                    <p>{pt ? 'Apresentamos a tarifa encontrada com todos os detalhes. Você decide se deseja prosseguir.' : 'We present the rate found with all details. You decide whether to proceed.'}</p>
+                  </div>
+                </div>
+                <div className="tl-sf-step">
+                  <div className="tl-sf-step-num">3</div>
+                  <div>
+                    <h4>{pt ? 'Nosso concierge efetua a reserva' : 'Our concierge books for you'}</h4>
+                    <p>{pt ? 'Após sua aprovação, nosso concierge realiza a nova reserva. Só então você cancela a original.' : 'After your approval, our concierge makes the new booking. Only then you cancel the original.'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="tl-sf-trust-points">
+                <div className="tl-sf-trust-item">
+                  <Icons.Shield />
+                  <span>{pt ? 'Seus dados são tratados com sigilo e protocolos de segurança' : 'Your data is handled with confidentiality and security protocols'}</span>
+                </div>
+                <div className="tl-sf-trust-item">
+                  <Icons.CreditCard />
+                  <span>{pt ? 'Não armazenamos dados de cartão de crédito' : 'We do not store credit card data'}</span>
+                </div>
+                <div className="tl-sf-trust-item">
+                  <Icons.Eye />
+                  <span>{pt ? 'Processo transparente — você acompanha cada etapa' : 'Transparent process — you follow every step'}</span>
+                </div>
+              </div>
+
+              <p className="tl-sf-disclaimer">{pt
+                ? 'O serviço de Special Fares é um serviço de concierge. A disponibilidade de tarifas especiais depende de condições de mercado e não é garantida para todas as reservas.'
+                : 'Special Fares is a concierge service. The availability of special rates depends on market conditions and is not guaranteed for every booking.'
+              }</p>
+            </div>
+
+            <div className="tl-sf-visual">
+              <div className="tl-sf-card-demo">
+                <div className="tl-sf-card-label">{pt ? 'Exemplo de Special Fare' : 'Special Fare example'}</div>
+                <div className="tl-sf-card-hotel">Hotel Fasano São Paulo</div>
+                <div className="tl-sf-card-room">Deluxe King · 3 {pt ? 'noites' : 'nights'}</div>
+                <div className="tl-sf-card-prices">
+                  <div className="tl-sf-card-original">
+                    <span className="tl-sf-price-label">{pt ? 'Sua tarifa atual' : 'Your current rate'}</span>
+                    <span className="tl-sf-price-old">R$ 5.400</span>
+                  </div>
+                  <div className="tl-sf-card-special">
+                    <span className="tl-sf-price-label">{pt ? 'Special Fare encontrada' : 'Special Fare found'}</span>
+                    <span className="tl-sf-price-new">R$ 3.890</span>
+                  </div>
+                </div>
+                <div className="tl-sf-card-saving">
+                  <span>{pt ? 'Economia potencial' : 'Potential savings'}</span>
+                  <span className="tl-sf-saving-value">R$ 1.510 (-28%)</span>
+                </div>
+                <div className="tl-sf-card-tag">
+                  <Icons.Shield /> {pt ? 'Reserva via concierge dedicado' : 'Booked via dedicated concierge'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. TRUST & PRIVACY */}
+      <section className="tl-trust-section">
+        <div className="container">
+          <div className="section-header">
+            <h2>{pt ? 'Transparência e segurança' : 'Transparency and security'}</h2>
+            <p className="muted">{pt ? 'Projetado para que você tenha total controle e clareza sobre como o serviço funciona.' : 'Designed so you have full control and clarity on how the service works.'}</p>
+          </div>
+          <div className="tl-trust-cards">
+            <div className="tl-trust-card">
+              <div className="tl-trust-card-icon"><Icons.Shield /></div>
+              <h4>{pt ? 'Sem acesso a dados financeiros' : 'No financial data access'}</h4>
+              <p>{pt ? 'Não solicitamos cartão de crédito, conta bancária ou credenciais de pagamento. Trabalhamos apenas com os dados da reserva.' : 'We don\'t request credit cards, bank accounts, or payment credentials. We only work with booking data.'}</p>
+            </div>
+            <div className="tl-trust-card">
+              <div className="tl-trust-card-icon"><Icons.Eye /></div>
+              <h4>{pt ? 'Monitoramento, não execução' : 'Monitoring, not execution'}</h4>
+              <p>{pt ? 'O ResDrop monitora e alerta. Não cancelamos, não reservamos e não alteramos nada em seu nome. A ação é sempre sua.' : 'ResDrop monitors and alerts. We don\'t cancel, book, or change anything on your behalf. The action is always yours.'}</p>
+            </div>
+            <div className="tl-trust-card">
+              <div className="tl-trust-card-icon"><Icons.CreditCard /></div>
+              <h4>{pt ? 'Apenas reservas reembolsáveis' : 'Refundable bookings only'}</h4>
+              <p>{pt ? 'O serviço é projetado exclusivamente para reservas com cancelamento gratuito. Reservas não reembolsáveis não se beneficiam do monitoramento.' : 'The service is designed exclusively for free cancellation bookings. Non-refundable bookings do not benefit from monitoring.'}</p>
             </div>
           </div>
         </div>
@@ -382,25 +535,33 @@ export default function TravelerLanding() {
         <div className="container">
           <div className="section-header">
             <h2>{pt ? 'Perguntas Frequentes' : 'Frequently Asked Questions'}</h2>
-            <p className="muted">{pt ? 'Tudo o que você precisa saber sobre nosso serviço de monitoramento inteligente.' : 'Everything you need to know about our intelligent monitoring service.'}</p>
+            <p className="muted">{pt ? 'Dúvidas comuns sobre o serviço de monitoramento do ResDrop.' : 'Common questions about ResDrop\'s monitoring service.'}</p>
           </div>
 
           <div className="tl-faq-grid">
             <div className="tl-faq-item">
-              <h4>{pt ? 'O ResDrop faz uma nova reserva automaticamente?' : 'Does ResDrop rebook automatically?'}</h4>
-              <p>{pt ? 'Não. Nós apenas enviamos o alerta indicando onde encontrar a tarifa mais barata. O controle total e o processo de refazer a reserva continuam sendo exclusivamente seus, garantindo sua segurança.' : 'No. We only send an alert indicating where to find the cheaper rate. Full control and the rebooking process remain exclusively yours, ensuring your safety.'}</p>
+              <h4>{pt ? 'O ResDrop faz alguma alteração na minha reserva?' : 'Does ResDrop make any changes to my booking?'}</h4>
+              <p>{pt ? 'Não. O ResDrop é uma plataforma de monitoramento e alertas. Nós apenas avisamos quando encontramos uma tarifa menor. Toda decisão e ação é exclusivamente sua.' : 'No. ResDrop is a monitoring and alerting platform. We only notify you when we find a lower rate. Every decision and action is exclusively yours.'}</p>
             </div>
             <div className="tl-faq-item">
-              <h4>{pt ? 'Precisa ser tarifa reembolsável?' : 'Does it need to be a refundable rate?'}</h4>
-              <p>{pt ? 'Sim. Se você reservar uma tarifa "não reembolsável", você não poderá cancelar a primeira sem pagar multa, o que inviabiliza o ganho. Funciona perfeitamente apenas para reservas com o cancelamento grátis.' : 'Yes. If you book a non-refundable rate, you can\'t cancel without a penalty, making savings impossible. It works perfectly only for free cancellation bookings.'}</p>
+              <h4>{pt ? 'Por que precisa ser uma reserva com cancelamento grátis?' : 'Why does it need to be a free cancellation booking?'}</h4>
+              <p>{pt ? 'Para aproveitar uma tarifa menor, você precisaria cancelar a reserva original sem custos. Se a reserva for não reembolsável, a multa de cancelamento pode eliminar qualquer vantagem. Por isso, o serviço funciona apenas com reservas reembolsáveis.' : 'To take advantage of a lower rate, you would need to cancel the original booking at no cost. If the booking is non-refundable, the cancellation penalty could eliminate any advantage. That\'s why the service works only with refundable bookings.'}</p>
             </div>
             <div className="tl-faq-item">
               <h4>{pt ? 'Como vocês comparam as tarifas?' : 'How do you compare rates?'}</h4>
-              <p>{pt ? 'Nosso algoritmo rastreia o exato mesmo hotel, mesmas datas, mesmo tipo de quarto e políticas de cancelamento equivalentes ao redor de mais de 20 plataformas mundiais de hospedagem.' : 'Our algorithm tracks the exact same hotel, same dates, same room type, and equivalent cancellation policies across 20+ global booking platforms.'}</p>
+              <p>{pt ? 'Nosso sistema rastreia o mesmo hotel, mesmas datas e tipo de quarto equivalente em mais de 20 plataformas de hospedagem. Comparamos tarifas com políticas de cancelamento similares.' : 'Our system tracks the same hotel, same dates, and equivalent room type across 20+ booking platforms. We compare rates with similar cancellation policies.'}</p>
             </div>
             <div className="tl-faq-item">
-              <h4>{pt ? 'Preciso cancelar minha reserva atual antes?' : 'Do I need to cancel my current booking first?'}</h4>
-              <p>{pt ? 'Jamais cancele a reserva atual antes de garantir a nova. Quando receber nosso alerta, faça a nova reserva com a tarifa promocional e, somente após a confirmação dela, cancele a anterior no site onde comprou.' : 'Never cancel your current booking before securing the new one. When you receive our alert, make the new booking at the lower rate and only after confirmation, cancel the original on the site where you booked.'}</p>
+              <h4>{pt ? 'Devo cancelar minha reserva atual antes de refazer?' : 'Should I cancel my current booking before rebooking?'}</h4>
+              <p>{pt ? 'Nunca. Primeiro, faça a nova reserva com a tarifa menor. Somente após a confirmação da nova reserva, cancele a original no site onde foi feita. Isso garante que você nunca fique sem hospedagem.' : 'Never. First, make the new booking at the lower rate. Only after the new booking is confirmed, cancel the original on the site where it was made. This ensures you never end up without accommodation.'}</p>
+            </div>
+            <div className="tl-faq-item">
+              <h4>{pt ? 'Vocês acessam meus dados financeiros ou de pagamento?' : 'Do you access my financial or payment data?'}</h4>
+              <p>{pt ? 'Não. O ResDrop não solicita e não tem acesso a dados de cartão de crédito, conta bancária ou credenciais de pagamento. Trabalhamos apenas com as informações da reserva que você compartilha conosco.' : 'No. ResDrop does not request and does not have access to credit card data, bank accounts, or payment credentials. We only work with the booking information you share with us.'}</p>
+            </div>
+            <div className="tl-faq-item">
+              <h4>{pt ? 'O ResDrop garante economia em todas as reservas?' : 'Does ResDrop guarantee savings on every booking?'}</h4>
+              <p>{pt ? 'Não. O mercado hoteleiro é dinâmico e nem sempre os preços caem. O ResDrop monitora e alerta oportunidades quando elas surgem, mas não há garantia de que uma tarifa menor será encontrada para cada reserva.' : 'No. The hotel market is dynamic and prices don\'t always drop. ResDrop monitors and alerts opportunities when they arise, but there is no guarantee that a lower rate will be found for every booking.'}</p>
             </div>
           </div>
         </div>
@@ -409,9 +570,10 @@ export default function TravelerLanding() {
       {/* 11. FINAL CTA */}
       <section className="tl-cta">
         <div className="container">
-          <h2>{pt ? 'Comece a monitorar sua próxima reserva' : 'Start monitoring your next booking'}</h2>
-          <p>{pt ? 'Reserve normalmente e deixe o ResDrop avisar se o preço cair. O mercado flutua; o seu custo não precisa flutuar junto.' : 'Book as usual and let ResDrop alert you if the price drops. The market fluctuates; your cost doesn\'t have to.'}</p>
-          <Link to="/signup" className="btn btn-gold">{pt ? 'Começar grátis hoje' : 'Start free today'}</Link>
+          <h2>{pt ? 'Adicione sua próxima reserva e deixe o ResDrop acompanhar' : 'Add your next booking and let ResDrop keep watch'}</h2>
+          <p>{pt ? 'Reserve com cancelamento gratuito e ative o monitoramento. Se o preço cair, você será o primeiro a saber.' : 'Book with free cancellation and activate monitoring. If the price drops, you\'ll be the first to know.'}</p>
+          <Link to="/signup" className="btn btn-gold">{pt ? 'Criar conta gratuita' : 'Create free account'}</Link>
+          <p className="tl-cta-disclaimer">{pt ? 'Serviço de monitoramento e alertas. Resultados variam conforme disponibilidade.' : 'Monitoring and alerting service. Results vary based on availability.'}</p>
         </div>
       </section>
 
@@ -421,7 +583,8 @@ export default function TravelerLanding() {
           <div className="tl-footer-grid">
             <div className="tl-footer-brand">
               <Link to="/" className="logo"><Icons.ResDropLogo /> ResDrop</Link>
-              <p>{pt ? 'Monitoramento inteligente de tarifas de hotel para quem valoriza seu dinheiro e gosta de viajar tranquilo.' : 'Intelligent hotel rate monitoring for those who value their money and love to travel stress-free.'}</p>
+              <p>{pt ? 'Plataforma de monitoramento de tarifas hoteleiras. Acompanhamos variações de preço e alertamos oportunidades para reservas com cancelamento gratuito.' : 'Hotel rate monitoring platform. We track price changes and alert opportunities for free cancellation bookings.'}</p>
+              <p className="tl-footer-compliance">{pt ? 'Serviço de monitoramento e alertas. Não garantimos resultados específicos. Não acessamos dados financeiros.' : 'Monitoring and alerting service. We do not guarantee specific results. We do not access financial data.'}</p>
             </div>
 
             <div>

@@ -469,12 +469,19 @@
   background: var(--tl-bg-surface);
   border: 1px solid var(--tl-border);
   border-radius: 8px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 0.95rem;
   color: var(--tl-text-muted);
   left: 50%;
   position: relative;
   transform: translateX(-50%);
+}
+
+.tl-how-note svg {
+  flex-shrink: 0;
+  color: var(--tl-bg-dark);
 }
 
 /* ─── WHY PRICES DROP / BENEFITS ─── */
@@ -645,6 +652,366 @@
   flex-shrink: 0;
 }
 
+/* ─── OTA PORTALS SECTION ─── */
+.tl-portals {
+  padding: 80px 0;
+  background: var(--tl-bg-page, #FAF9F6);
+  text-align: center;
+}
+.tl-portals h2 {
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--tl-bg-dark, #0F2E1F);
+  margin: 0 0 12px;
+}
+.tl-portals-sub {
+  max-width: 600px;
+  margin: 0 auto 40px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #6B7280;
+}
+.tl-portals-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  max-width: 800px;
+  margin: 0 auto 32px;
+}
+.tl-portal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+.tl-portal-item:hover {
+  border-color: var(--tl-accent-gold, #CBA052);
+  box-shadow: 0 4px 16px rgba(203, 160, 82, 0.1);
+  transform: translateY(-2px);
+}
+.tl-portal-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.tl-portal-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--tl-bg-dark, #0F2E1F);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+.tl-portal-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+  line-height: 1.3;
+}
+.tl-portals-note {
+  font-size: 13px;
+  color: #9CA3AF;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .tl-portals { padding: 60px 0; }
+  .tl-portals-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .tl-portal-item { padding: 14px 8px; }
+  .tl-portal-logo { width: 28px; height: 28px; }
+  .tl-portal-name { font-size: 11px; }
+}
+@media (max-width: 480px) {
+  .tl-portals-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── SPECIAL FARES SECTION ─── */
+.tl-special-fares {
+  background: var(--tl-bg-surface);
+  border-top: 1px solid var(--tl-border);
+}
+
+.tl-sf-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 64px;
+  align-items: start;
+}
+
+.tl-sf-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  background: var(--tl-accent-gold);
+  color: var(--tl-text-light);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.tl-sf-content h2 {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+}
+
+.tl-sf-lead {
+  font-size: 1.15rem;
+  color: var(--tl-text-muted);
+  margin-bottom: 40px;
+  max-width: 560px;
+}
+
+.tl-sf-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 36px;
+}
+
+.tl-sf-step {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tl-sf-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tl-sf-step h4 {
+  font-size: 1.05rem;
+  margin-bottom: 4px;
+}
+
+.tl-sf-step p {
+  font-size: 0.95rem;
+  color: var(--tl-text-muted);
+  margin-bottom: 0;
+}
+
+.tl-sf-trust-points {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.tl-sf-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--tl-text-muted);
+}
+
+.tl-sf-trust-item svg {
+  color: var(--tl-bg-dark);
+  flex-shrink: 0;
+}
+
+.tl-sf-disclaimer {
+  font-size: 0.82rem !important;
+  color: var(--tl-text-muted) !important;
+  opacity: 0.7;
+  line-height: 1.5;
+  max-width: 520px;
+}
+
+/* Special Fares demo card */
+.tl-sf-visual {
+  position: sticky;
+  top: 120px;
+}
+
+.tl-sf-card-demo {
+  background: var(--tl-bg-page);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 32px;
+  box-shadow: var(--tl-shadow);
+}
+
+.tl-sf-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tl-accent-gold);
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.tl-sf-card-hotel {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  margin-bottom: 4px;
+}
+
+.tl-sf-card-room {
+  font-size: 0.95rem;
+  color: var(--tl-text-muted);
+  margin-bottom: 28px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--tl-border);
+}
+
+.tl-sf-card-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tl-sf-price-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--tl-text-muted);
+  margin-bottom: 4px;
+}
+
+.tl-sf-price-old {
+  font-size: 1.1rem;
+  text-decoration: line-through;
+  color: var(--tl-text-muted);
+}
+
+.tl-sf-price-new {
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--tl-bg-dark);
+  line-height: 1;
+}
+
+.tl-sf-card-saving {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--tl-bg-soft-green);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--tl-bg-dark);
+}
+
+.tl-sf-saving-value {
+  font-weight: 600;
+}
+
+.tl-sf-card-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--tl-text-muted);
+  font-style: italic;
+}
+
+.tl-sf-card-tag svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ─── REFUNDABLE NOTE ─── */
+.tl-refundable-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--tl-bg-dark);
+  font-weight: 500;
+  margin-top: -4px;
+  font-style: normal;
+}
+
+/* ─── TRUST & PRIVACY SECTION ─── */
+.tl-trust-section {
+  background: var(--tl-bg-page);
+}
+
+.tl-trust-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+.tl-trust-card {
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 36px 28px;
+  text-align: center;
+}
+
+.tl-trust-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--tl-bg-soft-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  color: var(--tl-bg-dark);
+}
+
+.tl-trust-card h4 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.tl-trust-card p {
+  font-size: 0.95rem;
+  margin-bottom: 0;
+  line-height: 1.6;
+}
+
+/* ─── CTA DISCLAIMER ─── */
+.tl-cta-disclaimer {
+  font-size: 0.85rem !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  margin-top: 24px !important;
+  margin-bottom: 0 !important;
+}
+
+/* ─── FOOTER COMPLIANCE ─── */
+.tl-footer-compliance {
+  font-size: 0.8rem !important;
+  color: rgba(255, 255, 255, 0.4) !important;
+  margin-top: -8px !important;
+  line-height: 1.5;
+}
+
 /* ─── FAQ ─── */
 .tl-faq {
   background: var(--tl-bg-page);
@@ -760,6 +1127,8 @@
   .tl-savings-grid { grid-template-columns: repeat(2, 1fr); }
   .tl-how-grid { grid-template-columns: repeat(2, 1fr); }
   .tl-split-section { grid-template-columns: 1fr; gap: 48px; }
+  .tl-sf-layout { grid-template-columns: 1fr; gap: 40px; }
+  .tl-trust-cards { grid-template-columns: 1fr 1fr; }
   .tl-pricing-grid { grid-template-columns: 1fr; gap: 24px; max-width: 500px; margin: 0 auto; }
   .tl-pricing-card.highlight { transform: none; }
 }
@@ -896,6 +1265,21 @@
 
   .tl-page .section-header h2 {
     font-size: 1.75rem;
+  }
+
+  /* ── Special Fares ── */
+  .tl-sf-layout { grid-template-columns: 1fr; gap: 32px; }
+  .tl-sf-content h2 { font-size: 1.75rem; }
+  .tl-sf-lead { font-size: 1.02rem; margin-bottom: 28px; }
+  .tl-sf-visual { position: static; }
+  .tl-sf-card-demo { padding: 24px; }
+  .tl-sf-price-new { font-size: 1.6rem; }
+
+  /* ── Trust Cards ── */
+  .tl-trust-cards { grid-template-columns: 1fr; gap: 20px; }
+
+  .tl-trust-card {
+    padding: 28px 24px;
   }
 
   /* ── FAQ ── */

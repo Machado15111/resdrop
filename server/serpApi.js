@@ -123,6 +123,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     const reviews = data.reviews || 0;
     const isMatch = isHotelNameMatch(hotelName, booking.hotelName);
 
+    // Room type from the booking for comparison
+    const bookingRoomType = booking.roomType || '';
+
     // Combine prices and featured_prices, dedup by source name
     const allPrices = [...(data.prices || []), ...(data.featured_prices || [])];
     const seen = new Set();
@@ -144,8 +147,18 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       // Skip blocked/unreliable sources (unless hotel itself is that brand)
       if (isBlockedSource(sourceName, link, booking.hotelName)) continue;
 
+      // Skip Google aggregator results — not bookable
+      if (isHiddenSource(sourceName)) continue;
+
+      // Trust and room type checks
+      const trusted = isTrustedSource(source.name);
+      const resultRoomType = p.room_type || p.room_name || '';
+      const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
+      const freeCancellation = detectFreeCancellation(p);
+
       const savings = isMatch ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
       const savingsPercent = isMatch && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+      const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
 
       results.push({
         source: source.name,
@@ -153,12 +166,17 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
         sourceId: source.id,
         hotelName,
         isExactMatch: isMatch,
+        roomType: resultRoomType || undefined,
+        roomTypeCategory: normalizeRoomType(resultRoomType),
+        roomTypeMatch,
+        isTrustedSource: trusted,
+        confidenceScore,
         pricePerNight: perNight,
         totalPrice: totalRate,
         savings: savings > 0 ? savings : 0,
         savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
         hasDrop: isMatch && savings > 0,
-        freeCancellation: false,
+        freeCancellation,
         breakfastIncluded: false,
         lastChecked: new Date().toISOString(),
         isReal: true,
@@ -171,12 +189,20 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       });
     }
 
-    // Sort by price (cheapest first)
-    results.sort((a, b) => a.totalPrice - b.totalPrice);
+    // Filter out untrusted sources from user-facing results
+    const trustedResults = results.filter(r => r.isTrustedSource);
+    const finalResults = trustedResults.length > 0 ? trustedResults : results;
 
-    const exactCount = results.filter(r => r.isExactMatch).length;
-    console.log(`[SerpApi] Detail page: ${results.length} vendor prices, ${exactCount} exact matches`);
-    return results;
+    // Sort by: confidenceScore desc, then free cancellation first, then price asc
+    finalResults.sort((a, b) => {
+      if (b.confidenceScore !== a.confidenceScore) return b.confidenceScore - a.confidenceScore;
+      if (a.freeCancellation !== b.freeCancellation) return a.freeCancellation ? -1 : 1;
+      return a.totalPrice - b.totalPrice;
+    });
+
+    const exactCount = finalResults.filter(r => r.isExactMatch).length;
+    console.log(`[SerpApi] Detail page: ${finalResults.length} vendor prices (${results.length - finalResults.length} filtered), ${exactCount} exact matches`);
+    return finalResults;
   }
 
   // ── FORMAT B: Search Results List ───────────────────────────
@@ -187,6 +213,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
   }
 
   console.log(`[SerpApi] Found ${properties.length} properties`);
+
+  // Room type from the booking for comparison
+  const bookingRoomType = booking.roomType || '';
 
   for (const prop of properties.slice(0, 15)) {
     const name = prop.name || 'Unknown Hotel';
@@ -204,12 +233,23 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     // Skip blocked/unreliable sources (unless hotel itself is that brand)
     if (isBlockedSource(source.name, link, booking.hotelName)) continue;
 
+    // Skip Google aggregator results — not bookable
+    if (isHiddenSource(source.name)) continue;
+
     // Check if this is the same hotel the user booked
     const isMatch = isHotelNameMatch(name, booking.hotelName);
 
-    // Savings only apply for exact matches
-    const savings = isMatch ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
-    const savingsPercent = isMatch && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+    // Room type and trust checks
+    const trusted = isTrustedSource(source.name);
+    const resultRoomType = prop.room_type || prop.room_name || prop.type || '';
+    const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
+    const freeCancellation = detectFreeCancellation(prop);
+
+    // Savings only apply for exact matches with compatible room types
+    const validComparison = isMatch && roomTypeMatch;
+    const savings = validComparison ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
+    const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
+    const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
 
     results.push({
       source: source.name,
@@ -217,12 +257,17 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       sourceId: source.id,
       hotelName: name,
       isExactMatch: isMatch,
+      roomType: resultRoomType || undefined,
+      roomTypeCategory: normalizeRoomType(resultRoomType),
+      roomTypeMatch,
+      isTrustedSource: trusted,
+      confidenceScore,
       pricePerNight: perNight,
       totalPrice: totalRate,
       savings: savings > 0 ? savings : 0,
       savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
-      hasDrop: isMatch && savings > 0,
-      freeCancellation: prop.amenities?.includes('Free cancellation') || false,
+      hasDrop: validComparison && savings > 0,
+      freeCancellation,
       breakfastIncluded: prop.amenities?.includes('Breakfast') || prop.amenities?.includes('Free breakfast') || false,
       lastChecked: new Date().toISOString(),
       isReal: true,
@@ -234,18 +279,22 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     });
   }
 
-  // Sort: exact matches first (by price), then alternatives (by price)
-  results.sort((a, b) => {
-    if (a.isExactMatch && !b.isExactMatch) return -1;
-    if (!a.isExactMatch && b.isExactMatch) return 1;
+  // Filter out untrusted sources from user-facing results
+  const trustedResults = results.filter(r => r.isTrustedSource);
+  const finalResults = trustedResults.length > 0 ? trustedResults : results;
+
+  // Sort by: confidenceScore desc, free cancellation first, then price asc
+  finalResults.sort((a, b) => {
+    if (b.confidenceScore !== a.confidenceScore) return b.confidenceScore - a.confidenceScore;
+    if (a.freeCancellation !== b.freeCancellation) return a.freeCancellation ? -1 : 1;
     return a.totalPrice - b.totalPrice;
   });
 
-  const exactCount = results.filter(r => r.isExactMatch).length;
-  const altCount = results.filter(r => !r.isExactMatch).length;
-  console.log(`[SerpApi] Matches: ${exactCount} exact, ${altCount} alternatives`);
+  const exactCount = finalResults.filter(r => r.isExactMatch).length;
+  const altCount = finalResults.filter(r => !r.isExactMatch).length;
+  console.log(`[SerpApi] Matches: ${exactCount} exact, ${altCount} alternatives (${results.length - finalResults.length} filtered)`);
 
-  return results;
+  return finalResults;
 }
 
 /**
@@ -263,6 +312,188 @@ const BLOCKED_SOURCES = [
   'hostelclub',
   'hostelling',
 ];
+
+// ── Room Type Normalization ─────────────────────────────────────────
+// Maps common room name variations to canonical categories for comparison.
+// This prevents false savings from comparing different room types
+// (e.g. Suite vs Standard).
+
+export const ROOM_TYPE_CATEGORIES = {
+  STANDARD: 'STANDARD',
+  SUPERIOR: 'SUPERIOR',
+  DELUXE: 'DELUXE',
+  SUITE: 'SUITE',
+  JUNIOR_SUITE: 'JUNIOR_SUITE',
+  EXECUTIVE: 'EXECUTIVE',
+  PENTHOUSE: 'PENTHOUSE',
+  STUDIO: 'STUDIO',
+  FAMILY: 'FAMILY',
+  OTHER: 'OTHER',
+};
+
+/**
+ * Keywords mapped to room type categories, checked in priority order.
+ * More specific patterns come first to avoid false matches
+ * (e.g., "junior suite" before "suite").
+ */
+const ROOM_TYPE_PATTERNS = [
+  { keywords: ['penthouse'], category: ROOM_TYPE_CATEGORIES.PENTHOUSE },
+  { keywords: ['junior suite', 'jr suite', 'jr. suite'], category: ROOM_TYPE_CATEGORIES.JUNIOR_SUITE },
+  { keywords: ['suite'], category: ROOM_TYPE_CATEGORIES.SUITE },
+  { keywords: ['executive', 'exec'], category: ROOM_TYPE_CATEGORIES.EXECUTIVE },
+  { keywords: ['deluxe', 'dlx'], category: ROOM_TYPE_CATEGORIES.DELUXE },
+  { keywords: ['superior', 'sup'], category: ROOM_TYPE_CATEGORIES.SUPERIOR },
+  { keywords: ['family', 'familia'], category: ROOM_TYPE_CATEGORIES.FAMILY },
+  { keywords: ['studio', 'estudio'], category: ROOM_TYPE_CATEGORIES.STUDIO },
+  { keywords: ['standard', 'classic', 'classico', 'basico', 'basic', 'economy', 'economico'], category: ROOM_TYPE_CATEGORIES.STANDARD },
+];
+
+/**
+ * Normalize a room type string to a canonical category.
+ * Returns the category string or OTHER if no confident match.
+ */
+export function normalizeRoomType(roomTypeStr) {
+  if (!roomTypeStr) return ROOM_TYPE_CATEGORIES.OTHER;
+  const lower = roomTypeStr.toLowerCase().trim();
+
+  for (const { keywords, category } of ROOM_TYPE_PATTERNS) {
+    if (keywords.some(kw => lower.includes(kw))) return category;
+  }
+  return ROOM_TYPE_CATEGORIES.OTHER;
+}
+
+/**
+ * Check if two room types are compatible for price comparison.
+ * Returns true if they belong to the same category, or if either is OTHER (unknown).
+ * Incompatible pairs (e.g. SUITE vs STANDARD) return false.
+ */
+export function isRoomTypeCompatible(roomTypeA, roomTypeB) {
+  const catA = normalizeRoomType(roomTypeA);
+  const catB = normalizeRoomType(roomTypeB);
+
+  // If either is unknown, we can't confirm but we don't block the match
+  if (catA === ROOM_TYPE_CATEGORIES.OTHER || catB === ROOM_TYPE_CATEGORIES.OTHER) return true;
+
+  return catA === catB;
+}
+
+// ── Source Trust Filtering ──────────────────────────────────────────
+// Only show results from known, reliable OTAs and hotel brand direct sites.
+// Google aggregator results are kept internally but hidden from users.
+
+const TRUSTED_SOURCES = new Set([
+  'booking.com',
+  'expedia',
+  'hotels.com',
+  'hoteis.com',
+  'agoda',
+  'trip.com',
+  'priceline',
+  'traveluro',
+  'orbitz',
+  'kayak',
+  'trivago',
+  'decolar',
+  'hurb',
+  'travelocity',
+  // Hotel brand direct sites
+  'accor',
+  'hilton',
+  'marriott',
+  'ihg',
+  'hyatt',
+  'wyndham',
+  'melia',
+  'meliá',
+]);
+
+/**
+ * Sources that should never appear in user-facing results.
+ * Google's own aggregated price is not a bookable source.
+ */
+const HIDDEN_SOURCES = ['google', 'google hotels', 'google (direct)'];
+
+/**
+ * Determine whether a source name belongs to a trusted OTA or hotel brand.
+ */
+export function isTrustedSource(sourceName) {
+  const lower = (sourceName || '').toLowerCase();
+  // Check against hidden sources first
+  if (HIDDEN_SOURCES.some(h => lower === h || lower.includes(h))) return false;
+  // Check trusted list
+  if (TRUSTED_SOURCES.has(lower)) return true;
+  // Partial match — covers "Booking.com", "Expedia.com.br", "Hilton (Direto)", etc.
+  for (const trusted of TRUSTED_SOURCES) {
+    if (lower.includes(trusted)) return true;
+  }
+  // Hotel direct sites (detected by id suffix) are considered trusted
+  if (lower.includes('direto') || lower.includes('direct')) return true;
+  return false;
+}
+
+/**
+ * Check if a source is a Google aggregator that should be hidden from users.
+ */
+function isHiddenSource(sourceName) {
+  const lower = (sourceName || '').toLowerCase();
+  return HIDDEN_SOURCES.some(h => lower === h || lower.includes(h));
+}
+
+// ── Free Cancellation Detection ─────────────────────────────────────
+
+/**
+ * Detect free cancellation from SerpApi result data.
+ * Checks multiple fields where cancellation info may appear.
+ */
+function detectFreeCancellation(item) {
+  // Direct amenities check
+  if (item.amenities) {
+    const amenities = Array.isArray(item.amenities) ? item.amenities : [item.amenities];
+    for (const a of amenities) {
+      const lower = (a || '').toLowerCase();
+      if (lower.includes('free cancellation') || lower.includes('cancelamento gratuito') || lower.includes('cancelamento gratis')) {
+        return true;
+      }
+    }
+  }
+  // Check rate features or deal description
+  const desc = (item.deal_description || item.deal || '').toLowerCase();
+  if (desc.includes('free cancellation') || desc.includes('cancelamento gratuito')) return true;
+  // Check the rate_features field (some SerpApi responses include this)
+  if (item.rate_features) {
+    const features = Array.isArray(item.rate_features) ? item.rate_features : [item.rate_features];
+    for (const f of features) {
+      const lower = (f || '').toLowerCase();
+      if (lower.includes('free cancellation') || lower.includes('cancelamento')) return true;
+    }
+  }
+  return false;
+}
+
+// ── Confidence Scoring ──────────────────────────────────────────────
+// Combines hotel name match quality, room type match, and source trust
+// into a single 0-1 score for result ranking.
+
+/**
+ * Compute a confidence score for a result.
+ * @param {boolean} isExactMatch - Hotel name matches the booking
+ * @param {boolean} roomTypeMatch - Room type is compatible
+ * @param {boolean} trusted - Source is in the trusted whitelist
+ * @param {boolean} freeCancellation - Has free cancellation
+ * @returns {number} 0-1 confidence score
+ */
+function computeConfidenceScore(isExactMatch, roomTypeMatch, trusted, freeCancellation) {
+  let score = 0;
+  // Hotel name match is the most important signal (0.5)
+  if (isExactMatch) score += 0.50;
+  // Room type match is critical for valid comparison (0.25)
+  if (roomTypeMatch) score += 0.25;
+  // Trusted source adds reliability (0.15)
+  if (trusted) score += 0.15;
+  // Free cancellation is a small bonus (0.10)
+  if (freeCancellation) score += 0.10;
+  return Math.round(score * 100) / 100;
+}
 
 /**
  * Check if a source should be excluded from results.

@@ -51,6 +51,8 @@ function toSnake(obj) {
     cancelledAt: 'cancelled_at', fileType: 'file_type', fileSize: 'file_size',
     storagePath: 'storage_path', extractedData: 'extracted_data',
     confidenceScores: 'confidence_scores', processingStatus: 'processing_status',
+    rawSource: 'raw_source', parseMethod: 'parse_method', missingFields: 'missing_fields',
+    cancellationPolicy: 'cancellation_policy', fieldConfidence: 'field_confidence',
   };
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -91,6 +93,8 @@ function toCamel(row) {
     cancelled_at: 'cancelledAt', file_type: 'fileType', file_size: 'fileSize',
     storage_path: 'storagePath', extracted_data: 'extractedData',
     confidence_scores: 'confidenceScores', processing_status: 'processingStatus',
+    raw_source: 'rawSource', parse_method: 'parseMethod', missing_fields: 'missingFields',
+    cancellation_policy: 'cancellationPolicy', field_confidence: 'fieldConfidence',
   };
   const out = {};
   for (const [k, v] of Object.entries(row)) {
@@ -236,7 +240,11 @@ const BOOKING_CORE_COLUMNS = [
 ];
 
 // Extra columns added by migrations (may not exist yet)
-const BOOKING_EXTRA_COLUMNS = ['potential_savings', 'room_type_custom'];
+const BOOKING_EXTRA_COLUMNS = [
+  'potential_savings', 'room_type_custom',
+  'raw_source', 'parse_method', 'missing_fields',
+  'cancellation_policy', 'field_confidence',
+];
 
 export async function createBooking(booking) {
   const raw = toSnake(booking);

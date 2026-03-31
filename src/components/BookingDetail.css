@@ -109,6 +109,36 @@
   font-size: 14px;
 }
 
+/* ─── MONITORING ACTIVE INDICATOR ─── */
+.detail-monitoring-active {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.detail-monitoring-active .badge-info::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tl-bg-dark);
+  margin-right: 6px;
+  animation: detailPulse 2s ease-in-out infinite;
+}
+
+.detail-last-check {
+  font-size: 12px;
+  color: var(--tl-text-muted);
+  opacity: 0.7;
+}
+
+@keyframes detailPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: 360px 1fr;
@@ -662,6 +692,8 @@
 .badge-info { background: var(--tl-bg-page); color: var(--tl-text-muted); border: 1px solid var(--tl-border); }
 .badge-accent { background: rgba(203, 160, 82, 0.12); color: var(--tl-accent-gold-hover); }
 .badge-muted { background: var(--tl-border); color: var(--tl-text-muted); }
+.badge-pending { background: rgba(15, 46, 31, 0.05); color: var(--tl-text-muted); font-style: italic; }
+.badge-warning { background: #fef3c7; color: #92400e; }
 
 /* Savings highlight variants */
 .detail-savings-highlight.unconfirmed {
@@ -683,37 +715,49 @@
 .confirm-savings-banner {
   margin-top: 40px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 28px;
   padding: 36px 40px;
   background: var(--tl-accent-gold);
   border-radius: var(--tl-radius);
   color: #fff;
   box-shadow: var(--tl-shadow);
 }
+.confirm-savings-banner .rebook-content {
+  max-width: 100%;
+}
 .confirm-savings-banner .rebook-content h3 {
   font-size: 26px;
   font-weight: 500;
   letter-spacing: -0.02em;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   color: #fff;
 }
 .confirm-savings-banner .rebook-content p {
   font-size: 15px;
   opacity: 0.9;
   max-width: 640px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: #fff;
 }
 .confirm-savings-banner .btn {
   background: var(--tl-bg-dark);
   color: #fff;
-  flex-shrink: 0;
   font-weight: 500;
+  padding: 14px 32px;
+  font-size: 15px;
+  border-radius: 10px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .confirm-savings-banner .btn:hover {
   background: var(--tl-bg-darker);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 /* Confirmed banner */

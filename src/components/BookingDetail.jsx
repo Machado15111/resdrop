@@ -72,6 +72,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   };
 
   const statusConfig = {
+    received: { label: t('dash.received'), cls: 'badge-pending' },
+    processing: { label: t('dash.processing'), cls: 'badge-pending' },
+    needs_review: { label: t('dash.needsReview'), cls: 'badge-warning' },
     savings_found: { label: t('dash.savingsFound'), cls: 'badge-success' },
     lower_fare_found: { label: t('savings.lowerFareFound'), cls: 'badge-success' },
     confirmed_savings: { label: t('savings.confirmedBadge'), cls: 'badge-confirmed' },
@@ -114,9 +117,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                 <span className="savings-amount">R${booking.totalSavings.toFixed(0)}</span>
               </div>
             ) : (
-              <span className="badge badge-info badge-lg">
-                {t('detail.monitoringPrices')}
-              </span>
+              <div className="detail-monitoring-active">
+                <span className="badge badge-info badge-lg">
+                  {t('detail.monitoringPrices')}
+                </span>
+                {booking.lastChecked && (
+                  <span className="detail-last-check">
+                    {t('detail.lastChecked')} {formatDate(booking.lastChecked)} {formatTime(booking.lastChecked)}
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
