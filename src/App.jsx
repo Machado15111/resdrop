@@ -21,6 +21,7 @@ import AdminSpecialFares from './components/AdminSpecialFares';
 import AboutPage from './components/AboutPage';
 import PrivacyPage from './components/PrivacyPage';
 import TermsPage from './components/TermsPage';
+import ResetPassword from './components/ResetPassword';
 import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
 import PremiumLanding from './components/PremiumLanding';
 import TravelerLanding from './components/TravelerLanding';
@@ -89,6 +90,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
           </Route>
+
+          {/* Password reset — public, no auth required */}
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Onboarding — requires auth, must NOT be onboarded */}
           <Route element={<OnboardingRoute />}>

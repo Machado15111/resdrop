@@ -146,6 +146,7 @@ setInterval(() => {
 const authRateLimit = rateLimit(15 * 60 * 1000, 15, req => `auth:${req.ip}`);        // 15 attempts per 15 min
 const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`);     // 10 signups per hour
 const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`);        // 5 resets per hour
+const resetSubmitLimit = rateLimit(15 * 60 * 1000, 10, req => `resetSubmit:${req.ip}`); // 10 reset attempts per 15 min
 const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`);  // 10 bookings per min
 
 // ─── Status Log ──────────────────────────────────────────────
@@ -879,7 +880,7 @@ app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', resetSubmitLimit, async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) {
     return res.status(400).json({ error: 'Token e senha obrigatorios' });
