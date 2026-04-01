@@ -1406,7 +1406,7 @@ app.post('/api/admin/send-email', authMiddleware, adminMiddleware, async (req, r
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'ResDrop <noreply@resdrop.com>',
+        from: process.env.RESEND_FROM || 'ResDrop <notifications@resdrop.app>',
         to: [to],
         subject,
         html: body.replace(/\n/g, '<br>'),
