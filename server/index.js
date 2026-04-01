@@ -1568,8 +1568,8 @@ function extractHotelName(text) {
     { re: /YOUR\s+STAY\s*\n+\s*([^\n]{3,80})/i, confidence: 0.85 },
     // "welcoming you ... at Hotel Name" / "welcome to Hotel Name"
     { re: /(?:welcoming you|welcome)\s+(?:to|at)\s+([^\n.]{3,80})/i, confidence: 0.8 },
-    // Same-line labels: "Hotel Name: Xyz" / "Property: Name" (NOT "Hotel Program")
-    { re: /(?:hotel\s*name|property\s*name|propriedade|nome do hotel)[:\s]+([^\n,]{3,80})/i, confidence: 0.8 },
+    // Same-line labels: "Hotel Name: Xyz" / "Accommodation: Xyz" / "Property: Name" (NOT "Hotel Program")
+    { re: /(?:hotel\s*name|property\s*name|accomod?ation|propriedade|nome do hotel)[:\s]+([^\n,]{3,80})/i, confidence: 0.8 },
     // Multiline "HOTEL\nName" or "PROPERTY NAME\nValue"
     { re: /(?:HOTEL|PROPERTY|ACCOMMODATION)\s*(?:NAME)?\s*\n+\s*([^\n]{3,80})/i, confidence: 0.75 },
   ];
@@ -1642,6 +1642,15 @@ function extractDate(text, key) {
         if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
       }
     }
+  }
+  // Try DD.MM.YY or DD.MM.YYYY — "Arrival date: 03.04.26" or "03.04.2026"
+  const dotDateRe = new RegExp(`${keyPattern}[:\\s]*(\\d{1,2})\\.(\\d{1,2})\\.(\\d{2,4})`, 'i');
+  const dotMatch = text.match(dotDateRe);
+  if (dotMatch) {
+    let [, day, month, year] = dotMatch;
+    if (year.length === 2) year = (parseInt(year) > 50 ? '19' : '20') + year;
+    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
   }
   return null;
 }
@@ -1770,11 +1779,11 @@ function extractRoomType(text) {
     { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.9 },
     // Same-line: "Room Type: Deluxe Room"
     { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)[:\s]+([^\n,]{3,50})/i, confidence: 0.9 },
-    // EPS portal: "Room description XYZ" — extract the value after "description"
-    { re: /room\s+description\s+([^\n]{3,80})/i, confidence: 0.85 },
-    // EPS portal room line (after hotel name in details): "Portrait Studio - 1 King Bed"
-    // Matches lines like "Room, 1 King Bed, Non Smoking - 1 King Bed" standalone
-    { re: /\n\s*((?:Room|Suite|Studio|Deluxe|Superior|Standard|Executive|Junior|Premier|Classic|Portrait)[^\n]{3,80})\s*\n\s*Confirmation/im, confidence: 0.85 },
+    // EPS portal room line (before Confirmation N. in hotel details section):
+    // "Standard Double Room, City View - 1 King Bed" or "Deluxe Room, 1 King Bed - 1 King Bed"
+    { re: /\n\s*((?:Room|Suite|Studio|Deluxe|Superior|Standard|Executive|Junior|Premier|Classic|Portrait)[^\n]{3,80})\s*\n\s*Confirmation/im, confidence: 0.9 },
+    // EPS "Room description" — extract only the bed type, ignore amenity text after it
+    { re: /room\s+description\s+(\d+\s+(?:King|Queen|Double|Twin|Single)\s+Bed(?:s)?)/i, confidence: 0.8 },
     // Multiline: "CATEGORY\n\nDeluxe"
     { re: /(?:category|categoria|catégorie)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.7 },
     // Same-line: "Category: Deluxe"
@@ -1831,8 +1840,10 @@ function extractGuestName(text) {
     { re: /(?:Dear|Prezado|Prezada)\s+((?:Mr|Mrs|Ms|Sr|Sra)\.?\s+[A-Z][A-Za-záàâãéèêíïóôõöúçñ\s]{2,60})/i, confidence: 0.85 },
     // EPS portal traveler list: "1.1 MONICA HIRA" or "1.1 ANDREA MIETH"
     { re: /(?:Travelers?\s*\d*\s*\n+)?\s*1\.1\s+([A-Z][A-Z\s]{3,40})/m, confidence: 0.85 },
-    // Same-line: "Guest: John Smith" / "Guest name: John Smith" / "Name: John Smith"
-    { re: /(?:guest\s*name|guest|hóspede|nome|name)[: \t]+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:[ \t]+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,4})/i, confidence: 0.7 },
+    // Same-line: "Guest: Mrs. Aliyeva Aida + 1" / "Guest: John Smith"
+    { re: /(?:guest\s*name|guest|hóspede)[:\s]+(?:(?:Mr|Mrs|Ms|Sr|Sra)\.?\s+)?([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:[ \t]+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,4})/i, confidence: 0.75 },
+    // "Name: John Smith"
+    { re: /(?:nome|name)[: \t]+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:[ \t]+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,4})/i, confidence: 0.7 },
     // Title prefix anywhere: "Mr. JOHN SMITH"
     { re: /(?:Mr|Mrs|Ms|Sr|Sra)\.?\s+([A-Z][A-Z\s]{3,40})/m, confidence: 0.6 },
   ];
@@ -1869,18 +1880,16 @@ function extractDestination(text) {
   };
 
   const patterns = [
-    // Explicit labels same-line
-    { re: /(?:destination|destino|city|cidade|location|localização)[:\s]+([^\n,]{3,60})/i, confidence: 0.7 },
-    // EPS portal address: "Street, City, State ZIP, CC" e.g. "Corso Venezia 11, Milan, MI 20121, IT"
-    { re: /\d+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*[A-Z]{2}\s+\d{4,6},\s*([A-Z]{2})\b/i, confidence: 0.85 },
-    // EPS portal address variant: "Street, City, City Zip, CC" e.g. "410 E 92nd St, New York, New York 10128, US"
-    { re: /\d+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*[A-Za-z\s]+\d{4,6},\s*([A-Z]{2})\b/i, confidence: 0.85 },
-    // UK-style address: "Street, City, Country POSTCODE, CC" e.g. "..., London, England SW1X 8HQ, GB"
+    // Explicit labels same-line: "Destination: ROGASKA SLATINA"
+    { re: /(?:destination|destino|location|localização)[:\s]+([^\n,]{3,60})/i, confidence: 0.7 },
+    // EPS: generic "..., City, StateOrCity ZIP, CC" — catches all EPS address lines ending in 2-letter country
+    { re: /,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{2,40}),\s*(?:[A-Za-z\s]+\s+)?\d{4,6},\s*([A-Z]{2})\s*$/im, confidence: 0.85 },
+    // UK-style address: "..., London, England SW1X 8HQ, GB"
     { re: /,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*([A-Za-z]+)\s+[A-Z0-9]{2,4}\s+[A-Z0-9]{2,4},\s*([A-Z]{2})\b/i, confidence: 0.85 },
-    // Address line with city, country: "38 Sentier Jardin Alpin, Courchevel, France"
-    { re: /\d+\s+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})\s*\d{4,6}/i, confidence: 0.65 },
+    // Address line with city, country + postal: "38 Sentier Jardin Alpin, Courchevel, France 73120"
+    { re: /[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})\s*\d{4,6}/i, confidence: 0.65 },
     // Address with city, country (no postal code): "Street, City, Country"
-    { re: /\d+\s+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})$/im, confidence: 0.6 },
+    { re: /[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})$/im, confidence: 0.6 },
     // "in City, Country" or "in City"
     { re: /\b(?:in|em)\s+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:de|do|da|di)\s+)?[A-Za-záàâãéèêíïóôõöúçñ]*),?\s*([A-Z][a-záàâãéèêíïóôõöúçñ]+)?/i, confidence: 0.5 },
   ];
@@ -2053,10 +2062,10 @@ function parseEmailContent(text) {
     } catch { /* fallthrough */ }
   }
   if (!checkinDate) {
-    checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'entrada') || '';
+    checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'arrival date') || extractDate(text, 'entrada') || '';
   }
   if (!checkoutDate) {
-    checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
+    checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'departure date') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
   }
   const originalPrice = extractPrice(text) || 0;
   const guest = extractGuestName(text);
