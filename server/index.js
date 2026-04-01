@@ -1549,7 +1549,13 @@ function extractMultiline(text, labelPattern) {
  */
 function extractHotelName(text) {
   if (!text) return { value: null, confidence: 0 };
+
+  // Reject list — these are NOT hotel names
+  const rejectWords = /^(program|prepaid|commission|card|sales|trip|reservation|check|room|cancel|pricing|tax|traveler)/i;
+
   const patterns = [
+    // "Hotel Details\nHotel Name\nAddress" — portal booking format (EPS/Expedia Partner)
+    { re: /Hotel\s+Details\s*\n+\s*([^\n]{3,80})/im, confidence: 0.95 },
     // "confirm your stay ... at Hotel Name"
     { re: /(?:confirm|confirmar)\s+(?:your|sua)\s+(?:stay|reserva|estadia)\s+(?:with us\s+)?(?:at|no|na|em)\s+([^\n.]{3,80})/i, confidence: 0.9 },
     // "your stay at Hotel Name" / "sua estadia no Hotel Name"
@@ -1562,8 +1568,8 @@ function extractHotelName(text) {
     { re: /YOUR\s+STAY\s*\n+\s*([^\n]{3,80})/i, confidence: 0.85 },
     // "welcoming you ... at Hotel Name" / "welcome to Hotel Name"
     { re: /(?:welcoming you|welcome)\s+(?:to|at)\s+([^\n.]{3,80})/i, confidence: 0.8 },
-    // Same-line labels: "Hotel: Name" / "Property: Name"
-    { re: /(?:hotel|property|propriedade|nome do hotel|hotel name)[:\s]+([^\n,]{3,80})/i, confidence: 0.8 },
+    // Same-line labels: "Hotel Name: Xyz" / "Property: Name" (NOT "Hotel Program")
+    { re: /(?:hotel\s*name|property\s*name|propriedade|nome do hotel)[:\s]+([^\n,]{3,80})/i, confidence: 0.8 },
     // Multiline "HOTEL\nName" or "PROPERTY NAME\nValue"
     { re: /(?:HOTEL|PROPERTY|ACCOMMODATION)\s*(?:NAME)?\s*\n+\s*([^\n]{3,80})/i, confidence: 0.75 },
   ];
@@ -1576,8 +1582,8 @@ function extractHotelName(text) {
       // Remove trailing phrases like "is confirmed!", "has been confirmed", etc.
       name = name.replace(/\s+(?:is|has been|was)\s+(?:confirmed|booked|reserved)[!.]*/i, '').trim();
       name = name.replace(/[!?]$/, '').trim();
-      // Don't accept if it looks like an address or generic text
-      if (name.length > 3 && name.length < 100 && !/^\d/.test(name)) {
+      // Reject if it looks like an address, generic text, or a label false positive
+      if (name.length > 3 && name.length < 100 && !/^\d/.test(name) && !rejectWords.test(name)) {
         return { value: name, confidence };
       }
     }
@@ -1649,6 +1655,8 @@ function extractPrice(text) {
 
   // Look for total/amount labels first (most reliable)
   const totalPatterns = [
+    // EPS portal: "Sales Total\n$3,441.67" or "Sales Total $3,441.67"
+    /Sales\s+Total\s*\n?\s*\$\s*([\d,]+\.\d{2})/im,
     // "TOTAL (TAX INCLUDED)\n\n€ 5.800,00" — multiline
     /(?:TOTAL|VALOR\s*TOTAL|AMOUNT|MONTANTE|IMPORTE)(?:\s*\([^)]*\))?\s*\n+\s*[€$R]\$?\s*([\d.,]+)/im,
     // "Total: € 5.800,00" or "Total: R$ 1.234,56" — same line
@@ -1714,10 +1722,12 @@ function parseEuropeanPrice(str) {
 function extractConfirmationNumber(text) {
   if (!text) return { value: null, confidence: 0 };
   const patterns = [
+    // EPS portal: "Confirmation N.: 2427429304" — very specific format
+    { re: /Confirmation\s+N\.?\s*[:.]?\s*(\d{5,20})/i, confidence: 0.98 },
     // Multiline: "CONFIRMATION NO.\n\n96521SG009883"
-    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.95 },
-    // Same-line: "Confirmation #: ABC123"
-    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.95 },
+    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?|n\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.95 },
+    // Same-line: "Confirmation #: ABC123" or "Confirmation No.: ABC123"
+    { re: /(?:confirm(?:ation|ação)?|conf)\s*(?:#|number|número|num\.?|no\.?|n\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.95 },
     // Multiline: "BOOKING ID\n\nABC123"
     { re: /(?:booking|reserva)\s*(?:id|#|number|número|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.9 },
     // Same-line: "Booking ID: ABC123"
@@ -1726,6 +1736,8 @@ function extractConfirmationNumber(text) {
     { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)\s*\n+\s*([A-Z0-9][\w\-]{3,25})/im, confidence: 0.9 },
     // Same-line: "Reservation #: ABC123"
     { re: /(?:reservation|reservación)\s*(?:#|number|número|no\.?)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.9 },
+    // "Reservation Code XXXX" (EPS portal — lower priority than Confirmation N.)
+    { re: /Reservation\s+Code\s+(\d{5,20})/i, confidence: 0.85 },
     // "Código: ABC123" / "Code: ABC123"
     { re: /(?:código|code)[:\s]+([A-Z0-9][\w\-]{3,25})/i, confidence: 0.8 },
     // "Reference: ABC123"
@@ -1758,12 +1770,17 @@ function extractRoomType(text) {
     { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.9 },
     // Same-line: "Room Type: Deluxe Room"
     { re: /(?:room\s*type|tipo\s*de?\s*(?:quarto|habitación)|accommodation|acomodação)[:\s]+([^\n,]{3,50})/i, confidence: 0.9 },
+    // EPS portal: "Room description XYZ" — extract the value after "description"
+    { re: /room\s+description\s+([^\n]{3,80})/i, confidence: 0.85 },
+    // EPS portal room line (after hotel name in details): "Portrait Studio - 1 King Bed"
+    // Matches lines like "Room, 1 King Bed, Non Smoking - 1 King Bed" standalone
+    { re: /\n\s*((?:Room|Suite|Studio|Deluxe|Superior|Standard|Executive|Junior|Premier|Classic|Portrait)[^\n]{3,80})\s*\n\s*Confirmation/im, confidence: 0.85 },
     // Multiline: "CATEGORY\n\nDeluxe"
     { re: /(?:category|categoria|catégorie)\s*\n+\s*([^\n]{3,50})/im, confidence: 0.7 },
     // Same-line: "Category: Deluxe"
     { re: /(?:category|categoria|catégorie)[:\s]+([^\n,]{3,50})/i, confidence: 0.7 },
-    // Same-line: "Room: Deluxe Room"
-    { re: /(?:room|quarto|habitación|chambre)[:\s]+([^\n,]{3,50})/i, confidence: 0.65 },
+    // Same-line: "Room: Deluxe Room" (but NOT "Room description")
+    { re: /(?:room|quarto|habitación|chambre)[:\s]+(?!description\b)([^\n,]{3,50})/i, confidence: 0.65 },
   ];
   for (const { re, confidence } of patterns) {
     const m = text.match(re);
@@ -1812,6 +1829,8 @@ function extractGuestName(text) {
     { re: /(?:^|\n)\s*(?:GUEST\s*)?NAME\s*\n+\s*((?:Mr|Mrs|Ms|Sr|Sra)\.?\s+[A-Z][A-Za-záàâãéèêíïóôõöúçñ\s]{2,60})/m, confidence: 0.85 },
     // "Dear Mr. THOMAS GROSSE,"
     { re: /(?:Dear|Prezado|Prezada)\s+((?:Mr|Mrs|Ms|Sr|Sra)\.?\s+[A-Z][A-Za-záàâãéèêíïóôõöúçñ\s]{2,60})/i, confidence: 0.85 },
+    // EPS portal traveler list: "1.1 MONICA HIRA" or "1.1 ANDREA MIETH"
+    { re: /(?:Travelers?\s*\d*\s*\n+)?\s*1\.1\s+([A-Z][A-Z\s]{3,40})/m, confidence: 0.85 },
     // Same-line: "Guest: John Smith" / "Guest name: John Smith" / "Name: John Smith"
     { re: /(?:guest\s*name|guest|hóspede|nome|name)[: \t]+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:[ \t]+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,4})/i, confidence: 0.7 },
     // Title prefix anywhere: "Mr. JOHN SMITH"
@@ -1836,9 +1855,28 @@ function extractGuestName(text) {
  */
 function extractDestination(text) {
   if (!text) return { value: null, confidence: 0 };
+
+  // Country code to name map for EPS portal format (e.g., "IT", "US", "GB")
+  const countryMap = {
+    US: 'USA', GB: 'UK', IT: 'Italy', FR: 'France', ES: 'Spain', DE: 'Germany',
+    BR: 'Brazil', JP: 'Japan', CN: 'China', AU: 'Australia', CA: 'Canada',
+    MX: 'Mexico', TH: 'Thailand', PT: 'Portugal', NL: 'Netherlands', CH: 'Switzerland',
+    AT: 'Austria', GR: 'Greece', TR: 'Turkey', AE: 'UAE', SG: 'Singapore',
+    HK: 'Hong Kong', IN: 'India', KR: 'South Korea', CZ: 'Czech Republic',
+    SE: 'Sweden', NO: 'Norway', DK: 'Denmark', BE: 'Belgium', IE: 'Ireland',
+    PL: 'Poland', HR: 'Croatia', HU: 'Hungary', MA: 'Morocco', CO: 'Colombia',
+    AR: 'Argentina', CL: 'Chile', PE: 'Peru', ZA: 'South Africa',
+  };
+
   const patterns = [
     // Explicit labels same-line
     { re: /(?:destination|destino|city|cidade|location|localização)[:\s]+([^\n,]{3,60})/i, confidence: 0.7 },
+    // EPS portal address: "Street, City, State ZIP, CC" e.g. "Corso Venezia 11, Milan, MI 20121, IT"
+    { re: /\d+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*[A-Z]{2}\s+\d{4,6},\s*([A-Z]{2})\b/i, confidence: 0.85 },
+    // EPS portal address variant: "Street, City, City Zip, CC" e.g. "410 E 92nd St, New York, New York 10128, US"
+    { re: /\d+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*[A-Za-z\s]+\d{4,6},\s*([A-Z]{2})\b/i, confidence: 0.85 },
+    // UK-style address: "Street, City, Country POSTCODE, CC" e.g. "..., London, England SW1X 8HQ, GB"
+    { re: /,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]+),\s*([A-Za-z]+)\s+[A-Z0-9]{2,4}\s+[A-Z0-9]{2,4},\s*([A-Z]{2})\b/i, confidence: 0.85 },
     // Address line with city, country: "38 Sentier Jardin Alpin, Courchevel, France"
     { re: /\d+\s+[^,\n]+,\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,40}),\s*([A-Za-záàâãéèêíïóôõöúçñ\s]{3,30})\s*\d{4,6}/i, confidence: 0.65 },
     // Address with city, country (no postal code): "Street, City, Country"
@@ -1846,6 +1884,31 @@ function extractDestination(text) {
     // "in City, Country" or "in City"
     { re: /\b(?:in|em)\s+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+(?:de|do|da|di)\s+)?[A-Za-záàâãéèêíïóôõöúçñ]*),?\s*([A-Z][a-záàâãéèêíïóôõöúçñ]+)?/i, confidence: 0.5 },
   ];
+  for (const { re, confidence } of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const city = m[1]?.trim();
+      let country = m[2]?.trim() || '';
+      // Convert 2-letter country code to full name
+      if (country.length === 2 && countryMap[country.toUpperCase()]) {
+        country = countryMap[country.toUpperCase()];
+      }
+      // For UK-style with 3 groups (city, region, country code)
+      if (m[3]) {
+        const cc = m[3].trim();
+        country = countryMap[cc.toUpperCase()] || cc;
+      }
+      if (country) {
+        const result = `${city}, ${country}`;
+        if (result.length > 4 && result.length < 80 && !/tax|fee|charge|penalty|policy/i.test(result)) {
+          return { value: result, confidence };
+        }
+      }
+      if (city && city.length > 2 && city.length < 80 && !/tax|fee|charge|penalty|policy|program/i.test(city)) {
+        return { value: city, confidence };
+      }
+    }
+  }
   for (const { re, confidence } of patterns) {
     const m = text.match(re);
     if (m) {
@@ -1912,6 +1975,8 @@ function extractGuests(text) {
 function detectBookingPlatform(text) {
   if (!text) return null;
   const platforms = [
+    // EPS (Expedia Partner Solutions) portal booking
+    { re: /(?:Portal Booking|Hotel Program|Sales Total|Trip Details.*Reservation Code)/i, name: 'EPS Portal' },
     { re: /booking\.com/i, name: 'Booking.com' },
     { re: /expedia/i, name: 'Expedia' },
     { re: /hotels\.com/i, name: 'Hotels.com' },
@@ -1975,8 +2040,24 @@ function parseEmailContent(text) {
     const cityFromName = inferCityFromHotelName(hotel.value);
     if (cityFromName) dest = { value: cityFromName, confidence: 0.4 };
   }
-  const checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'entrada') || '';
-  const checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
+  // Try "Trip Dates DD Mon YYYY - DD Mon YYYY" format first (EPS portal)
+  let checkinDate = '';
+  let checkoutDate = '';
+  const tripDatesMatch = text.match(/Trip\s+Dates\s*\n?\s*((?:\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4}))\s*[-–]\s*((?:\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{4}))/i);
+  if (tripDatesMatch) {
+    try {
+      const d1 = new Date(tripDatesMatch[1]);
+      const d2 = new Date(tripDatesMatch[2]);
+      if (!isNaN(d1.getTime())) checkinDate = d1.toISOString().split('T')[0];
+      if (!isNaN(d2.getTime())) checkoutDate = d2.toISOString().split('T')[0];
+    } catch { /* fallthrough */ }
+  }
+  if (!checkinDate) {
+    checkinDate = extractDate(text, 'check-in') || extractDate(text, 'checkin') || extractDate(text, 'arrival') || extractDate(text, 'entrada') || '';
+  }
+  if (!checkoutDate) {
+    checkoutDate = extractDate(text, 'check-out') || extractDate(text, 'checkout') || extractDate(text, 'departure') || extractDate(text, 'saída') || extractDate(text, 'salida') || '';
+  }
   const originalPrice = extractPrice(text) || 0;
   const guest = extractGuestName(text);
   const confirmation = extractConfirmationNumber(text);
