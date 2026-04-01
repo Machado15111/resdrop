@@ -1253,7 +1253,7 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
 
 // ─── Admin: Bookings management ─────────────────────────────
 
-// GET /api/admin/bookings — all bookings with filtering/sorting/pagination
+// GET /api/admin/bookings — all bookings with filtering/sorting/pagination + user info
 app.get('/api/admin/bookings', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { status, search, sort, order, page, limit } = req.query;
@@ -1265,13 +1265,27 @@ app.get('/api/admin/bookings', authMiddleware, adminMiddleware, async (req, res)
       page: parseInt(page) || 1,
       limit: parseInt(limit) || 50,
     });
+    // Enrich bookings with user info (name, plan)
+    const emails = [...new Set(result.bookings.map(b => b.email).filter(Boolean))];
+    const userMap = {};
+    if (emails.length > 0) {
+      const allUsers = await db.getAllUsers(500);
+      for (const u of allUsers) {
+        userMap[u.email] = { name: u.name, plan: u.plan || 'free', joinedAt: u.joinedAt || u.createdAt };
+      }
+    }
+    result.bookings = result.bookings.map(b => ({
+      ...b,
+      userName: userMap[b.email]?.name || '-',
+      userPlan: userMap[b.email]?.plan || 'free',
+    }));
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/admin/bookings/:id — single booking with fare_alerts + activity_log
+// GET /api/admin/bookings/:id — single booking with fare_alerts + activity_log + user info
 app.get('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const booking = await db.getBooking(req.params.id);
@@ -1280,7 +1294,12 @@ app.get('/api/admin/bookings/:id', authMiddleware, adminMiddleware, async (req, 
       db.getAlertsByBooking(req.params.id),
       db.getActivityLog('booking', req.params.id),
     ]);
-    res.json({ booking, fareAlerts, activityLog });
+    // Enrich with user info
+    let user = null;
+    if (booking.email) {
+      user = await db.getUser(booking.email);
+    }
+    res.json({ booking, fareAlerts, activityLog, user: user ? { name: user.name, email: user.email, plan: user.plan || 'free', joinedAt: user.joinedAt || user.createdAt } : null });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

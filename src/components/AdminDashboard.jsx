@@ -256,6 +256,7 @@ function BookingsTab({ authFetch }) {
   const [emailForm, setEmailForm] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [editingStatus, setEditingStatus] = useState(null);
+  const [viewMode, setViewMode] = useState('table');
   const searchTimer = useRef(null);
   const limit = 50;
 
@@ -374,17 +375,60 @@ function BookingsTab({ authFetch }) {
     all: 'All', monitoring: 'Monitoring', lower_fare_found: 'Lower Fare Found',
     savings_found: 'Savings Found', confirmed_savings: 'Confirmed', dismissed: 'Dismissed',
   };
+  const statusCounts = {};
+  bookings.forEach(b => { statusCounts[b.status] = (statusCounts[b.status] || 0) + 1; });
+
+  // Compute summary KPIs from current page data
+  const totalSavingsSum = bookings.reduce((s, b) => s + (parseFloat(b.totalSavings) || 0), 0);
+  const withSavings = bookings.filter(b => parseFloat(b.totalSavings) > 0).length;
+  const avgPrice = bookings.length > 0 ? bookings.reduce((s, b) => s + (parseFloat(b.originalPrice) || 0), 0) / bookings.length : 0;
+
+  const getDaysUntil = (dateStr) => {
+    if (!dateStr) return null;
+    const diff = Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  const getNights = (checkin, checkout) => {
+    if (!checkin || !checkout) return null;
+    return Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
+  };
+
+  const formatPrice = (val) => {
+    const n = parseFloat(val);
+    if (!n || isNaN(n)) return '-';
+    return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  };
 
   return (
     <div className="admin-section">
-      <h2>Bookings Management</h2>
+      <div className="admin-bookings-header">
+        <h2>Bookings Management</h2>
+        <div className="admin-view-toggle">
+          <button className={`view-btn ${viewMode === 'table' ? 'active' : ''}`} onClick={() => setViewMode('table')} title="Table view">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2h16v2H0V2zm0 5h16v2H0V7zm0 5h16v2H0v-2z"/></svg>
+          </button>
+          <button className={`view-btn ${viewMode === 'cards' ? 'active' : ''}`} onClick={() => setViewMode('cards')} title="Card view">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 0h7v7H0V0zm9 0h7v7H9V0zM0 9h7v7H0V9zm9 0h7v7H9V9z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Summary KPIs */}
+      <div className="admin-kpi-grid admin-kpi-grid-5">
+        <KpiCard label="Total Bookings" value={total} icon={<IconHotel size={20} />} color="blue" />
+        <KpiCard label="With Savings" value={withSavings} icon={<IconCheck size={20} />} color="green" trend={total > 0 ? `${Math.round(withSavings/total*100)}%` : '0%'} />
+        <KpiCard label="Total Savings" value={`$${formatPrice(totalSavingsSum)}`} icon={<IconDollar size={20} />} color="green" />
+        <KpiCard label="Avg Booking Value" value={`$${formatPrice(avgPrice)}`} icon={<IconChart size={20} />} color="purple" />
+        <KpiCard label="Page" value={`${page}/${totalPages || 1}`} icon={<IconSearch size={20} />} color="orange" trend={`${limit} per page`} />
+      </div>
 
       <div className="admin-card">
         <div className="admin-search-bar">
           <IconSearch size={16} />
           <input
             type="text"
-            placeholder="Search hotel name, email, or destination..."
+            placeholder="Search hotel name, guest email, destination, or user name..."
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
@@ -397,38 +441,38 @@ function BookingsTab({ authFetch }) {
               onClick={() => { setStatusFilter(s); setPage(1); }}
             >
               {statusLabels[s] || s}
+              {s !== 'all' && statusCounts[s] ? <span className="filter-count">{statusCounts[s]}</span> : null}
             </button>
           ))}
         </div>
 
         <div className="admin-table-info">
           <span>{total} booking{total !== 1 ? 's' : ''} found</span>
+          {search && <span className="search-tag">Search: "{search}" <button className="btn-clear-search" onClick={() => { setSearch(''); document.querySelector('.admin-search-bar input').value = ''; }}>x</button></span>}
         </div>
 
         {loading ? (
           <div className="admin-empty"><div className="admin-spinner" /></div>
         ) : bookings.length === 0 ? (
           <p className="admin-empty">No bookings match your filters.</p>
-        ) : (
+        ) : viewMode === 'table' ? (
           <>
             <div className="admin-table-wrap">
-              <table className="admin-table">
+              <table className="admin-table admin-bookings-table">
                 <thead>
                   <tr>
                     <th className="sortable" onClick={() => handleSort('hotel_name')}>
                       Hotel {sort === 'hotel_name' ? (order === 'asc' ? '↑' : '↓') : ''}
                     </th>
-                    <th>User Email</th>
+                    <th>Account</th>
                     <th>Destination</th>
                     <th className="sortable" onClick={() => handleSort('checkin_date')}>
-                      Check-in {sort === 'checkin_date' ? (order === 'asc' ? '↑' : '↓') : ''}
+                      Dates {sort === 'checkin_date' ? (order === 'asc' ? '↑' : '↓') : ''}
                     </th>
-                    <th>Check-out</th>
-                    <th className="sortable" onClick={() => handleSort('original_price')}>
-                      Original {sort === 'original_price' ? (order === 'asc' ? '↑' : '↓') : ''}
+                    <th className="sortable th-right" onClick={() => handleSort('original_price')}>
+                      Price {sort === 'original_price' ? (order === 'asc' ? '↑' : '↓') : ''}
                     </th>
-                    <th>Best Price</th>
-                    <th className="sortable" onClick={() => handleSort('total_savings')}>
+                    <th className="sortable th-right" onClick={() => handleSort('total_savings')}>
                       Savings {sort === 'total_savings' ? (order === 'asc' ? '↑' : '↓') : ''}
                     </th>
                     <th>Status</th>
@@ -438,26 +482,134 @@ function BookingsTab({ authFetch }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map(b => (
-                    <tr key={b.id} className="admin-booking-row" onClick={() => openDetail(b.id)}>
-                      <td className="text-truncate">{b.hotelName || '-'}</td>
-                      <td className="text-truncate">{b.email || '-'}</td>
-                      <td className="text-truncate">{b.destination || '-'}</td>
-                      <td>{b.checkinDate ? new Date(b.checkinDate).toLocaleDateString() : '-'}</td>
-                      <td>{b.checkoutDate ? new Date(b.checkoutDate).toLocaleDateString() : '-'}</td>
-                      <td>R${parseFloat(b.originalPrice || 0).toLocaleString()}</td>
-                      <td>{b.bestPrice ? `R$${parseFloat(b.bestPrice).toLocaleString()}` : '-'}</td>
-                      <td className={parseFloat(b.totalSavings) > 0 ? 'text-savings' : ''}>
-                        {parseFloat(b.totalSavings) > 0 ? `R$${parseFloat(b.totalSavings).toLocaleString()}` : '-'}
-                      </td>
-                      <td><BookingStatusBadge status={b.status} /></td>
-                      <td>{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '-'}</td>
-                    </tr>
-                  ))}
+                  {bookings.map(b => {
+                    const days = getDaysUntil(b.checkinDate);
+                    const nights = getNights(b.checkinDate, b.checkoutDate);
+                    const savingsPercent = parseFloat(b.originalPrice) > 0 && parseFloat(b.totalSavings) > 0
+                      ? Math.round(parseFloat(b.totalSavings) / parseFloat(b.originalPrice) * 100) : 0;
+                    return (
+                      <tr key={b.id} className="admin-booking-row" onClick={() => openDetail(b.id)}>
+                        <td>
+                          <div className="booking-hotel-cell">
+                            <span className="booking-hotel-name">{b.hotelName || '-'}</span>
+                            {b.roomType && <span className="booking-room-type">{b.roomType}</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="booking-account-cell">
+                            <span className="booking-user-name">{b.userName || '-'}</span>
+                            <span className="booking-user-email">{b.email || '-'}</span>
+                            <span className={`plan-badge-sm plan-${b.userPlan || 'free'}`}>{b.userPlan || 'free'}</span>
+                          </div>
+                        </td>
+                        <td className="text-truncate">{b.destination || '-'}</td>
+                        <td>
+                          <div className="booking-dates-cell">
+                            <span>{b.checkinDate ? new Date(b.checkinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '-'}</span>
+                            {nights && <span className="booking-nights">{nights}n</span>}
+                            {days !== null && <span className={`booking-countdown ${days < 0 ? 'past' : days <= 7 ? 'soon' : ''}`}>
+                              {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `in ${days}d`}
+                            </span>}
+                          </div>
+                        </td>
+                        <td className="td-right">
+                          <span className="booking-price">${formatPrice(b.originalPrice)}</span>
+                        </td>
+                        <td className="td-right">
+                          {parseFloat(b.totalSavings) > 0 ? (
+                            <div className="booking-savings-cell">
+                              <span className="booking-savings-amount">-${formatPrice(b.totalSavings)}</span>
+                              <span className="booking-savings-percent">{savingsPercent}%</span>
+                            </div>
+                          ) : '-'}
+                        </td>
+                        <td><BookingStatusBadge status={b.status} /></td>
+                        <td className="td-muted">{b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : '-'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
+            {totalPages > 1 && (
+              <div className="admin-pagination">
+                <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
+                <span>Page {page} of {totalPages}</span>
+                <button disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</button>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Card View */
+          <>
+            <div className="admin-booking-cards">
+              {bookings.map(b => {
+                const days = getDaysUntil(b.checkinDate);
+                const nights = getNights(b.checkinDate, b.checkoutDate);
+                const savingsPercent = parseFloat(b.originalPrice) > 0 && parseFloat(b.totalSavings) > 0
+                  ? Math.round(parseFloat(b.totalSavings) / parseFloat(b.originalPrice) * 100) : 0;
+                return (
+                  <div key={b.id} className="booking-card" onClick={() => openDetail(b.id)}>
+                    <div className="booking-card-top">
+                      <div className="booking-card-hotel">
+                        <h4>{b.hotelName || 'Unknown Hotel'}</h4>
+                        <span className="booking-card-dest">{b.destination || '-'}</span>
+                      </div>
+                      <BookingStatusBadge status={b.status} />
+                    </div>
+                    <div className="booking-card-account">
+                      <div className="booking-card-avatar">{(b.userName || b.email || '?')[0].toUpperCase()}</div>
+                      <div>
+                        <span className="booking-card-user">{b.userName || '-'}</span>
+                        <span className="booking-card-email">{b.email}</span>
+                      </div>
+                      <span className={`plan-badge-sm plan-${b.userPlan || 'free'}`}>{b.userPlan || 'free'}</span>
+                    </div>
+                    <div className="booking-card-details">
+                      <div className="booking-card-detail">
+                        <span className="bcd-label">Check-in</span>
+                        <span className="bcd-value">{b.checkinDate ? new Date(b.checkinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+                      </div>
+                      <div className="booking-card-detail">
+                        <span className="bcd-label">Nights</span>
+                        <span className="bcd-value">{nights || '-'}</span>
+                      </div>
+                      <div className="booking-card-detail">
+                        <span className="bcd-label">Room</span>
+                        <span className="bcd-value">{b.roomType || '-'}</span>
+                      </div>
+                      {days !== null && (
+                        <div className="booking-card-detail">
+                          <span className="bcd-label">Countdown</span>
+                          <span className={`bcd-value ${days < 0 ? 'text-danger' : days <= 7 ? 'text-warning' : ''}`}>
+                            {days < 0 ? `${Math.abs(days)}d ago` : days === 0 ? 'Today' : `${days} days`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="booking-card-pricing">
+                      <div className="booking-card-price">
+                        <span className="bcp-label">Paid</span>
+                        <span className="bcp-amount">${formatPrice(b.originalPrice)}</span>
+                      </div>
+                      {parseFloat(b.totalSavings) > 0 && (
+                        <div className="booking-card-savings">
+                          <span className="bcp-label">Savings</span>
+                          <span className="bcp-savings">-${formatPrice(b.totalSavings)} <small>({savingsPercent}%)</small></span>
+                        </div>
+                      )}
+                      {b.bestSource && (
+                        <div className="booking-card-source">
+                          <span className="bcp-label">Best via</span>
+                          <span className="bcp-source">{b.bestSource}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             {totalPages > 1 && (
               <div className="admin-pagination">
                 <button disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</button>
@@ -473,7 +625,7 @@ function BookingsTab({ authFetch }) {
       {selectedBooking && (
         <>
           <div className="admin-detail-overlay" onClick={closeDetail} />
-          <div className="admin-detail-modal">
+          <div className="admin-detail-modal admin-detail-wide">
             <div className="admin-detail-header">
               <h3>Booking Details</h3>
               <button className="btn btn-ghost btn-sm" onClick={closeDetail}><IconX size={18} /></button>
@@ -482,26 +634,84 @@ function BookingsTab({ authFetch }) {
               <div className="admin-empty"><div className="admin-spinner" /></div>
             ) : detailData ? (
               <div className="admin-detail-body">
+                {/* Hotel & Status Summary */}
+                <div className="detail-hero">
+                  <div className="detail-hero-left">
+                    <h2 className="detail-hotel-name">{detailData.booking.hotelName || 'Unknown Hotel'}</h2>
+                    <span className="detail-hotel-dest">{detailData.booking.destination || ''}</span>
+                  </div>
+                  <BookingStatusBadge status={detailData.booking.status} />
+                </div>
+
+                {/* Account Info */}
+                {detailData.user && (
+                  <div className="detail-account-bar">
+                    <div className="detail-account-avatar">{(detailData.user.name || detailData.user.email || '?')[0].toUpperCase()}</div>
+                    <div className="detail-account-info">
+                      <span className="detail-account-name">{detailData.user.name}</span>
+                      <span className="detail-account-email">{detailData.user.email}</span>
+                    </div>
+                    <span className={`plan-badge plan-${detailData.user.plan || 'free'}`}>{detailData.user.plan || 'free'}</span>
+                    {detailData.user.joinedAt && <span className="detail-account-joined">Joined {new Date(detailData.user.joinedAt).toLocaleDateString()}</span>}
+                  </div>
+                )}
+
+                {/* Pricing Cards */}
+                <div className="detail-pricing-grid">
+                  <div className="detail-price-card">
+                    <span className="dpc-label">Original Price</span>
+                    <span className="dpc-amount">${formatPrice(detailData.booking.originalPrice)}</span>
+                  </div>
+                  <div className="detail-price-card detail-price-best">
+                    <span className="dpc-label">Best Price Found</span>
+                    <span className="dpc-amount">{detailData.booking.bestPrice ? `$${formatPrice(detailData.booking.bestPrice)}` : '-'}</span>
+                    {detailData.booking.bestSource && <span className="dpc-source">via {detailData.booking.bestSource}</span>}
+                  </div>
+                  <div className={`detail-price-card ${parseFloat(detailData.booking.totalSavings) > 0 ? 'detail-price-savings' : ''}`}>
+                    <span className="dpc-label">Savings</span>
+                    <span className="dpc-amount">{parseFloat(detailData.booking.totalSavings) > 0 ? `-$${formatPrice(detailData.booking.totalSavings)}` : '-'}</span>
+                    {parseFloat(detailData.booking.originalPrice) > 0 && parseFloat(detailData.booking.totalSavings) > 0 && (
+                      <span className="dpc-percent">{Math.round(parseFloat(detailData.booking.totalSavings) / parseFloat(detailData.booking.originalPrice) * 100)}% off</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stay Details */}
                 <div className="admin-detail-section">
-                  <h4>Booking Info</h4>
-                  <div className="admin-stat-list">
-                    <StatRow label="ID" value={detailData.booking.id} />
-                    <StatRow label="Hotel" value={detailData.booking.hotelName || '-'} />
-                    <StatRow label="Destination" value={detailData.booking.destination || '-'} />
-                    <StatRow label="Guest" value={detailData.booking.guestName || '-'} />
-                    <StatRow label="Email" value={detailData.booking.email || '-'} />
-                    <StatRow label="Check-in" value={detailData.booking.checkinDate || '-'} />
-                    <StatRow label="Check-out" value={detailData.booking.checkoutDate || '-'} />
-                    <StatRow label="Room Type" value={detailData.booking.roomType || '-'} />
-                    <StatRow label="Original Price" value={`R$${detailData.booking.originalPrice || 0}`} />
-                    <StatRow label="Best Price" value={detailData.booking.bestPrice ? `R$${detailData.booking.bestPrice}` : '-'} />
-                    <StatRow label="Savings" value={detailData.booking.totalSavings ? `R$${detailData.booking.totalSavings}` : '-'} />
-                    <StatRow label="Best Source" value={detailData.booking.bestSource || '-'} />
-                    <StatRow label="Confirmation #" value={detailData.booking.confirmationNumber || '-'} />
-                    <StatRow label="Status" value={<BookingStatusBadge status={detailData.booking.status} />} />
-                    <StatRow label="Check Count" value={detailData.booking.checkCount || 0} />
-                    <StatRow label="Created" value={detailData.booking.createdAt ? new Date(detailData.booking.createdAt).toLocaleString() : '-'} />
-                    <StatRow label="Last Checked" value={detailData.booking.lastChecked ? new Date(detailData.booking.lastChecked).toLocaleString() : 'Never'} />
+                  <h4>Stay Details</h4>
+                  <div className="detail-info-grid">
+                    <div className="detail-info-item">
+                      <span className="dii-label">Guest</span>
+                      <span className="dii-value">{detailData.booking.guestName || '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Room Type</span>
+                      <span className="dii-value">{detailData.booking.roomType || '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Check-in</span>
+                      <span className="dii-value">{detailData.booking.checkinDate ? new Date(detailData.booking.checkinDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Check-out</span>
+                      <span className="dii-value">{detailData.booking.checkoutDate ? new Date(detailData.booking.checkoutDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Confirmation #</span>
+                      <span className="dii-value dii-mono">{detailData.booking.confirmationNumber || '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Checks Run</span>
+                      <span className="dii-value">{detailData.booking.checkCount || 0}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Created</span>
+                      <span className="dii-value">{detailData.booking.createdAt ? new Date(detailData.booking.createdAt).toLocaleString() : '-'}</span>
+                    </div>
+                    <div className="detail-info-item">
+                      <span className="dii-label">Last Checked</span>
+                      <span className="dii-value">{detailData.booking.lastChecked ? new Date(detailData.booking.lastChecked).toLocaleString() : 'Never'}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -572,7 +782,7 @@ function BookingsTab({ authFetch }) {
                       {detailData.fareAlerts.map((a, i) => (
                         <div key={i} className="admin-detail-list-item">
                           <span className="detail-time">{new Date(a.createdAt).toLocaleString()}</span>
-                          <span>R${a.offeredPrice || a.savingsAmount || '-'} via {a.foundSource || '-'}</span>
+                          <span>${a.offeredPrice || a.savingsAmount || '-'} via {a.foundSource || '-'}</span>
                           <BookingStatusBadge status={a.status || 'alert'} />
                         </div>
                       ))}
@@ -598,6 +808,11 @@ function BookingsTab({ authFetch }) {
                   ) : (
                     <p className="admin-empty">No activity recorded.</p>
                   )}
+                </div>
+
+                {/* Booking ID */}
+                <div className="detail-id-footer">
+                  <span>ID: {detailData.booking.id}</span>
                 </div>
               </div>
             ) : (
