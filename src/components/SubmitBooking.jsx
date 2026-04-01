@@ -74,6 +74,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     preferences: [],
     guestName: '',
     confirmationNumber: '',
+    cancellationPolicy: 'free_cancellation',
   });
 
   const [hotelSuggestions, setHotelSuggestions] = useState([]);
@@ -205,6 +206,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rawEmail: pasteText, email: userEmail }),
       });
+      if (!res.ok) {
+        throw new Error(`Primary endpoint failed with status ${res.status}`);
+      }
       const data = await res.json();
 
       if (data.status === 'created' && data.booking) {
@@ -213,8 +217,11 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         return;
       }
 
-      if (data.parsed) {
-        const p = data.parsed;
+      // Try to extract data from any response shape
+      const p = data.parsed || data.extractedData || data;
+      const hasAnyData = p.hotelName || p.checkinDate || p.checkoutDate || p.originalPrice || p.confirmationNumber;
+
+      if (hasAnyData) {
         setForm(prev => ({
           ...prev,
           hotelName: p.hotelName || prev.hotelName,
@@ -226,12 +233,15 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
           confirmationNumber: p.confirmationNumber || prev.confirmationNumber,
           guestName: p.guestName || prev.guestName,
         }));
-        setTimeout(() => setStep(STEP_REVIEW), 600);
+        // If we have enough data for review, go there; otherwise manual form
+        const hasRequired = p.hotelName && p.checkinDate && p.checkoutDate && p.originalPrice;
+        setTimeout(() => setStep(hasRequired ? STEP_REVIEW : STEP_MANUAL), 600);
       } else {
         setError(lang === 'pt'
-          ? 'Não foi possível extrair dados. Tente o formulário manual.'
-          : 'Could not extract data. Try manual entry.');
-        setStep(STEP_INTAKE);
+          ? 'Não foi possível extrair dados. Preencha o formulário abaixo.'
+          : 'Could not extract data. Please fill in the form below.');
+        setSourceType('manual');
+        setStep(STEP_MANUAL);
       }
     } catch (err) {
       console.error('Parse error:', err);
@@ -243,11 +253,18 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
           body: JSON.stringify({ emailContent: pasteText }),
         });
         const parsed = await res2.json();
-        setForm(prev => ({ ...prev, ...parsed }));
-        setTimeout(() => setStep(STEP_REVIEW), 400);
+        const fallbackFields = {};
+        // Only merge known booking fields to avoid polluting state
+        for (const key of ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'originalPrice', 'confirmationNumber', 'guestName']) {
+          if (parsed[key]) fallbackFields[key] = parsed[key];
+        }
+        setForm(prev => ({ ...prev, ...fallbackFields }));
+        const hasRequired = fallbackFields.hotelName && fallbackFields.checkinDate && fallbackFields.checkoutDate && fallbackFields.originalPrice;
+        setTimeout(() => setStep(hasRequired ? STEP_REVIEW : STEP_MANUAL), 400);
       } catch {
-        setError(lang === 'pt' ? 'Erro ao analisar' : 'Parse error');
-        setStep(STEP_INTAKE);
+        setError(lang === 'pt' ? 'Erro ao analisar. Preencha o formulário abaixo.' : 'Parse error. Please fill in the form below.');
+        setSourceType('manual');
+        setStep(STEP_MANUAL);
       }
     }
   };
@@ -280,8 +297,13 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
   const handleChange = (e) => {
     const { name, value } = e.target;
     const updated = { ...form, [name]: value };
+    // Clear checkout if it's on or before the new checkin date
     if (name === 'checkinDate' && updated.checkoutDate && updated.checkoutDate <= value) {
       updated.checkoutDate = '';
+    }
+    // Prevent negative prices at input level
+    if (name === 'originalPrice' && value !== '' && parseFloat(value) < 0) {
+      return;
     }
     setForm(updated);
   };
@@ -307,6 +329,21 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
 
     setError(null);
     setDuplicateWarning(null);
+    
+    // Validate price is positive
+    const price = parseFloat(form.originalPrice);
+    if (isNaN(price) || price <= 0) {
+      setError(lang === 'pt' ? 'O preço deve ser maior que zero.' : 'Price must be greater than zero.');
+      return;
+    }
+
+    // Validate checkout is strictly after checkin
+    if (form.checkoutDate <= form.checkinDate) {
+      setError(lang === 'pt'
+        ? 'A data de check-out deve ser posterior à data de check-in.'
+        : 'Check-out date must be after check-in date.');
+      return;
+    }
 
     // If we have a documentId, create booking via document route
     if (documentId) {
@@ -751,7 +788,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 <button
                   className="review-submit-btn"
                   onClick={handleSubmit}
-                  disabled={loading || !form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice}
+                  disabled={loading || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate}
                 >
                   {loading ? (
                     <span className="loading-pulse">{t('submit.searching')}</span>
@@ -878,7 +915,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                       value={form.originalPrice}
                       onChange={handleChange}
                       required
-                      min="1"
+                      min="0.01"
                       step="0.01"
                     />
                   </div>
@@ -912,6 +949,24 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                   />
                   <span>{t('submit.taxesIncluded')}</span>
                 </label>
+
+                {/* PNR / Confirmation Number */}
+                <div className="form-group pnr-field-main">
+                  <label className="form-label">
+                    {t('submit.confirmationCode') || (lang === 'pt' ? 'Código de Confirmação (PNR)' : 'Confirmation Code (PNR)')}
+                    <span className="field-hint">
+                      {lang === 'pt' ? 'Opcional, mas muito recomendado para o hotel.' : 'Optional, but highly recommended.'}
+                    </span>
+                  </label>
+                  <input
+                    className="form-input"
+                    type="text"
+                    name="confirmationNumber"
+                    placeholder="e.g., XYZ123"
+                    value={form.confirmationNumber}
+                    onChange={handleChange}
+                  />
+                </div>
 
                 {/* Preferences */}
                 <div className="form-group preferences-section">
@@ -965,17 +1020,6 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                           onChange={handleChange}
                         />
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('submit.confirmation')}</label>
-                        <input
-                          className="form-input"
-                          type="text"
-                          name="confirmationNumber"
-                          placeholder="e.g., CONF-ABC123"
-                          value={form.confirmationNumber}
-                          onChange={handleChange}
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -994,7 +1038,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 <button
                   className="submit-cta"
                   type="submit"
-                  disabled={loading || !form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
+                  disabled={loading || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
                 >
                   {loading ? (
                     <span className="loading-pulse">{t('submit.searching')}</span>

@@ -371,6 +371,11 @@
   margin-top: 32px;
   padding-top: 24px;
   border-top: 1px solid var(--tl-border);
+  position: sticky;
+  bottom: 0;
+  background: var(--tl-bg-surface);
+  padding-bottom: 8px;
+  z-index: 10;
 }
 
 .onboarding-cta {
@@ -405,12 +410,16 @@
 /* Mobile */
 @media (max-width: 640px) {
   .onboarding-page {
-    padding: 24px 0 60px;
+    padding: 24px 0 0;
+    padding-bottom: 0;
+    align-items: stretch;
   }
 
   .onboarding-card {
-    padding: 32px 24px;
+    padding: 32px 24px 16px;
     margin: 0 16px;
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
   }
 
   .traveler-grid {

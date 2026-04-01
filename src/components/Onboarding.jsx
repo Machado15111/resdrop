@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
@@ -57,9 +56,9 @@ const COUNTRIES_LIST = [
 function Onboarding() {
   const { t, lang } = useI18n();
   const { user, authFetch, updateUser } = useAuth();
-  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [currencies, setCurrencies] = useState([]);
   const [form, setForm] = useState({
     travelerType: '',
@@ -115,11 +114,14 @@ function Onboarding() {
       });
       if (res.ok) {
         const updated = await res.json();
-        updateUser(updated);
-        navigate('/dashboard');
+        updateUser({ ...updated, onboardingCompleted: true });
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || (lang === 'pt' ? 'Falha ao salvar' : 'Failed to save'));
       }
     } catch (err) {
       console.error('Onboarding failed:', err);
+      setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
     }
     setLoading(false);
   };
@@ -334,6 +336,11 @@ function Onboarding() {
             </div>
           )}
 
+          {/* Error display */}
+          {error && (
+            <p style={{ color: '#b91c1c', fontSize: '0.9rem', textAlign: 'center', marginTop: 16 }}>{error}</p>
+          )}
+
           {/* Actions */}
           <div className="onboarding-actions">
             {step > 0 && (
@@ -356,7 +363,7 @@ function Onboarding() {
               disabled={!canProceed() || loading}
             >
               {step === totalSteps - 1
-                ? (loading ? '...' : t('onboarding.finishCta'))
+                ? (loading ? '...' : (lang === 'pt' ? 'Concluir e Ir para o Painel' : 'Finish & Go to Dashboard'))
                 : t('onboarding.nextCta')}
               <IconArrowRight size={16} />
             </button>

@@ -469,7 +469,7 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       guestName, confirmationNumber,
       rateType, roomTypeCustom,
       preferences, taxesIncluded,
-      rawSource, parseMethod,
+      rawSource, parseMethod, cancellationPolicy
     } = req.body;
 
     // Validate booking data
@@ -520,6 +520,7 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       guestName: guestName || req.user.name || null,
       confirmationNumber: confirmationNumber || null,
       email: req.userEmail,
+      cancellationPolicy: cancellationPolicy || 'free_cancellation',
       status,
       missingFields: optionalMissing.length > 0 ? optionalMissing : null,
       createdAt: new Date().toISOString(),
