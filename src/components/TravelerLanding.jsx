@@ -328,10 +328,10 @@ export default function TravelerLanding() {
       {/* 7.25 WHERE WE SEARCH — OTA PORTALS */}
       <section className="tl-portals">
         <div className="container">
-          <h2>{pt ? 'Comparamos tarifas nas maiores plataformas' : 'We compare rates across major platforms'}</h2>
+          <h2>{pt ? 'Tarifas monitoradas nas principais plataformas de reserva' : 'Rates monitored across major booking platforms'}</h2>
           <p className="tl-portals-sub">{pt
-            ? 'Monitoramos automaticamente as principais plataformas de reserva para identificar quando uma tarifa mais baixa está disponível para o seu hotel.'
-            : 'We automatically monitor the top booking platforms to identify when a lower rate becomes available for your hotel.'}</p>
+            ? 'Monitoramos resultados de tarifas de hotéis publicamente disponíveis nas principais plataformas de reserva e fontes de metabusca para identificar tarifas comparáveis mais baixas.'
+            : 'We monitor publicly available hotel rate results across major booking platforms and metasearch sources to identify lower comparable rates.'}</p>
           <div className="tl-portals-grid">
             {[
               { name: 'Booking.com', domain: 'booking.com' },
@@ -360,9 +360,9 @@ export default function TravelerLanding() {
               </div>
             ))}
           </div>
-          <p className="tl-portals-note">{pt
-            ? 'Resultados filtrados por fontes confiáveis. Não incluímos revendedores ou fontes não verificadas.'
-            : 'Results filtered by trusted sources. We do not include resellers or unverified sources.'}</p>
+          <p className="tl-portals-disclaimer">{pt
+            ? 'Resdrop não é afiliado, endossado ou patrocinado por Booking.com, Expedia, Agoda, Trip.com, Priceline, Trivago, KAYAK, HotelsCombined ou Google. Todas as marcas são propriedade de seus respectivos proprietários.'
+            : 'Resdrop is not affiliated with, endorsed by, or sponsored by Booking.com, Expedia, Agoda, Trip.com, Priceline, Trivago, KAYAK, HotelsCombined, or Google. All trademarks are the property of their respective owners.'}</p>
         </div>
       </section>
 
