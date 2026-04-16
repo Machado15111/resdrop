@@ -148,6 +148,7 @@ const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`)
 const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`);        // 5 resets per hour
 const resetSubmitLimit = rateLimit(15 * 60 * 1000, 10, req => `resetSubmit:${req.ip}`); // 10 reset attempts per 15 min
 const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`);  // 10 bookings per min
+const parseRateLimit = rateLimit(15 * 60 * 1000, 30, req => `parse:${req.userEmail}`); // 30 parses per 15 min
 
 // ─── Status Log ──────────────────────────────────────────────
 const API_MODE = isSerpApiConfigured() ? 'LIVE (SerpApi)' : isBookingApiConfigured() ? 'LIVE (Booking)' : 'SIMULATION';
@@ -660,7 +661,7 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
 });
 
 // Parse a forwarded confirmation email (requires auth)
-app.post('/api/parse-email', authMiddleware, (req, res) => {
+app.post('/api/parse-email', authMiddleware, parseRateLimit, (req, res) => {
   const { emailContent } = req.body;
   if (!emailContent) return res.status(400).json({ error: 'emailContent is required' });
 
@@ -669,7 +670,7 @@ app.post('/api/parse-email', authMiddleware, (req, res) => {
 });
 
 // Email-to-booking workflow: forward email → auto-create booking
-app.post('/api/bookings/from-email', authMiddleware, async (req, res) => {
+app.post('/api/bookings/from-email', authMiddleware, parseRateLimit, async (req, res) => {
   const { rawEmail } = req.body;
   if (!rawEmail) return res.status(400).json({ error: 'rawEmail is required' });
 
@@ -800,7 +801,7 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   await db.updateUser(email, { lastActive: new Date().toISOString() });
   await db.updateUserStats(email);
 
-  const token = crypto.randomUUID();
+  const token = crypto.randomBytes(32).toString('hex');
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
@@ -838,7 +839,7 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
 
   if (error) return res.status(500).json({ error: 'Failed to create user' });
 
-  const token = crypto.randomUUID();
+  const token = crypto.randomBytes(32).toString('hex');
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
@@ -870,7 +871,7 @@ app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
     return res.json({ success: true });
   }
 
-  const token = crypto.randomUUID();
+  const token = crypto.randomBytes(32).toString('hex');
   await db.createPasswordReset(email.toLowerCase(), token);
   // Security: Token is NOT logged — only sent via email
 

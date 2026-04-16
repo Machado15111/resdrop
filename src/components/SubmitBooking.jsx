@@ -69,6 +69,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     roomType: 'Standard Room',
     roomTypeCustom: '',
     originalPrice: '',
+    currency: 'BRL',
     taxesIncluded: false,
     rateType: 'total',
     preferences: [],
@@ -736,15 +737,33 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                     confidence={confidenceScores.roomType}
                     lang={lang}
                   />
-                  <ReviewField
-                    label={lang === 'pt' ? 'Valor Pago' : 'Price Paid'}
-                    value={form.originalPrice}
-                    onChange={v => handleFieldChange('originalPrice', v)}
-                    confidence={confidenceScores.originalPrice}
-                    type="number"
-                    required
-                    lang={lang}
-                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flex: 1 }}>
+                    <div style={{ flex: 1 }}>
+                      <ReviewField
+                        label={lang === 'pt' ? 'Valor Pago' : 'Price Paid'}
+                        value={form.originalPrice}
+                        onChange={v => handleFieldChange('originalPrice', v)}
+                        confidence={confidenceScores.originalPrice}
+                        type="number"
+                        required
+                        lang={lang}
+                      />
+                    </div>
+                    <div className="review-field" style={{ width: '80px', marginTop: 0 }}>
+                      <div className="review-field-header"><label>{lang === 'pt' ? 'Moeda' : 'Currency'}</label></div>
+                      <select 
+                        className="review-input" 
+                        value={form.currency} 
+                        onChange={(e) => handleFieldChange('currency', e.target.value)}
+                        style={{ padding: '0.5rem' }}
+                      >
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <div className="review-row">
                   <ReviewField
@@ -842,6 +861,10 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 </div>
 
                 {/* Dates */}
+                <div style={{ fontSize: '13px', color: 'var(--text-muted, #64748b)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  {lang === 'pt' ? 'Por favor, insira as datas no fuso horário local do hotel.' : 'Please enter dates in the hotel\'s local time zone.'}
+                </div>
                 <div className="form-dates">
                   <div className="form-group">
                     <label className="form-label">{t('submit.checkin')}</label>
@@ -907,17 +930,32 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 <div className="form-price-row">
                   <div className="form-group form-group-price">
                     <label className="form-label">{t('submit.totalPrice')}</label>
-                    <input
-                      className="form-input"
-                      type="number"
-                      name="originalPrice"
-                      placeholder="e.g., 892"
-                      value={form.originalPrice}
-                      onChange={handleChange}
-                      required
-                      min="0.01"
-                      step="0.01"
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select
+                        className="form-input"
+                        name="currency"
+                        value={form.currency}
+                        onChange={handleChange}
+                        style={{ width: '80px', padding: '0 8px' }}
+                      >
+                        <option value="BRL">BRL</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                      </select>
+                      <input
+                        className="form-input"
+                        style={{ flex: 1 }}
+                        type="number"
+                        name="originalPrice"
+                        placeholder="e.g., 892"
+                        value={form.originalPrice}
+                        onChange={handleChange}
+                        required
+                        min="0.01"
+                        step="0.01"
+                      />
+                    </div>
                   </div>
                   <div className="form-group form-group-rate">
                     <label className="form-label">{t('submit.rateType')}</label>
