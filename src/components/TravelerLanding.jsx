@@ -420,7 +420,7 @@ export default function TravelerLanding() {
                   alt={portal.name}
                   className="tl-portal-logo"
                   loading="lazy"
-                  onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                  onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'grid'; }}
                 />
                 <div className="tl-portal-fallback" style={{ display: 'none' }}>
                   {portal.name[0]}
