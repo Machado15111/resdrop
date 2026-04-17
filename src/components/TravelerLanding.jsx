@@ -1,7 +1,38 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import './TravelerLanding.css';
+
+// Animated counter hook
+function useAnimatedCounter(target, duration = 2000, startOnView = true) {
+  const [count, setCount] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!startOnView) { setHasStarted(true); return; }
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && !hasStarted) setHasStarted(true); },
+      { threshold: 0.3 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [hasStarted, startOnView]);
+
+  useEffect(() => {
+    if (!hasStarted) return;
+    let start = 0;
+    const step = Math.ceil(target / (duration / 16));
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setCount(target); clearInterval(timer); }
+      else setCount(start);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [hasStarted, target, duration]);
+
+  return { count, ref };
+}
 
 // Using inline SVG icons without external dependencies
 const Icons = {
@@ -31,7 +62,13 @@ const Icons = {
 export default function TravelerLanding() {
   const { lang, toggleLang } = useI18n();
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const lastScrollY = useRef(0);
+
+  // Animated counters for social proof
+  const savings = useAnimatedCounter(150000, 2500);
+  const users = useAnimatedCounter(500, 2000);
+  const drops = useAnimatedCounter(2800, 2200);
 
   // Ensure the page starts at the top
   useEffect(() => {
@@ -69,21 +106,33 @@ export default function TravelerLanding() {
           <Link to="/" className="tl-header-logo">
             <Icons.ResDropLogo /> ResDrop
           </Link>
-          <nav className="tl-header-nav">
-            <a href="#como-funciona">{pt ? 'Como funciona' : 'How it works'}</a>
-            <a href="#economia">{pt ? 'Economia real' : 'Real savings'}</a>
-            <a href="#planos">{pt ? 'Planos' : 'Plans'}</a>
-            <a href="#faq">FAQ</a>
+          <nav className={`tl-header-nav ${mobileMenuOpen ? 'tl-nav-open' : ''}`}>
+            <a href="#como-funciona" onClick={() => setMobileMenuOpen(false)}>{pt ? 'Como funciona' : 'How it works'}</a>
+            <a href="#economia" onClick={() => setMobileMenuOpen(false)}>{pt ? 'Economia real' : 'Real savings'}</a>
+            <a href="#planos" onClick={() => setMobileMenuOpen(false)}>{pt ? 'Planos' : 'Plans'}</a>
+            <a href="#faq" onClick={() => setMobileMenuOpen(false)}>FAQ</a>
+            <div className="tl-mobile-nav-actions">
+              <Link to="/login" className="btn btn-ghost" onClick={() => setMobileMenuOpen(false)}>{pt ? 'Entrar' : 'Sign in'}</Link>
+              <Link to="/signup" className="btn btn-primary" onClick={() => setMobileMenuOpen(false)}>{pt ? 'Começar grátis' : 'Start free'}</Link>
+            </div>
           </nav>
           <div className="tl-header-actions">
             <button className="tl-lang-toggle" onClick={toggleLang} title={pt ? 'English' : 'Português'}>
               {pt ? 'EN' : 'PT'}
             </button>
-            <Link to="/login" className="btn btn-ghost">{pt ? 'Entrar' : 'Sign in'}</Link>
-            <Link to="/signup" className="btn btn-primary">{pt ? 'Começar grátis' : 'Start free'}</Link>
+            <Link to="/login" className="btn btn-ghost tl-desktop-only">{pt ? 'Entrar' : 'Sign in'}</Link>
+            <Link to="/signup" className="btn btn-primary tl-desktop-only">{pt ? 'Começar grátis' : 'Start free'}</Link>
+            <button className="tl-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Menu">
+              {mobileMenuOpen ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              )}
+            </button>
           </div>
         </div>
       </header>
+      {mobileMenuOpen && <div className="tl-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
 
       {/* 2. HERO SECTION */}
       <section className="tl-hero">
@@ -103,6 +152,26 @@ export default function TravelerLanding() {
             <span><Icons.Check /> {pt ? 'Monitoramento contínuo' : 'Continuous monitoring'}</span>
             <span><Icons.Check /> {pt ? 'Sem acesso a dados financeiros' : 'No financial data access'}</span>
             <span><Icons.Check /> {pt ? 'Você decide cada passo' : 'You decide every step'}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2.5 SOCIAL PROOF STATS */}
+      <section className="tl-stats">
+        <div className="container">
+          <div className="tl-stats-grid">
+            <div className="tl-stat-item" ref={savings.ref}>
+              <span className="tl-stat-number">R$ {savings.count.toLocaleString('pt-BR')}+</span>
+              <span className="tl-stat-label">{pt ? 'Economia identificada para nossos usuários' : 'Savings identified for our users'}</span>
+            </div>
+            <div className="tl-stat-item" ref={users.ref}>
+              <span className="tl-stat-number">{users.count}+</span>
+              <span className="tl-stat-label">{pt ? 'Viajantes monitorando reservas' : 'Travelers monitoring bookings'}</span>
+            </div>
+            <div className="tl-stat-item" ref={drops.ref}>
+              <span className="tl-stat-number">{drops.count.toLocaleString('pt-BR')}+</span>
+              <span className="tl-stat-label">{pt ? 'Quedas de preço detectadas' : 'Price drops detected'}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -584,6 +653,17 @@ export default function TravelerLanding() {
             <div className="tl-footer-brand">
               <Link to="/" className="logo"><Icons.ResDropLogo /> ResDrop</Link>
               <p>{pt ? 'Plataforma de monitoramento de tarifas hoteleiras. Acompanhamos variações de preço e alertamos oportunidades para reservas com cancelamento gratuito.' : 'Hotel rate monitoring platform. We track price changes and alert opportunities for free cancellation bookings.'}</p>
+              <div className="tl-social-links">
+                <a href="https://instagram.com/resdrop" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="tl-social-link">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                </a>
+                <a href="https://tiktok.com/@resdrop" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="tl-social-link">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1 0-5.78 2.92 2.92 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.57 6.33 6.33 0 0 0 9.37 22a6.33 6.33 0 0 0 6.36-6.36V8.73a8.19 8.19 0 0 0 3.86.96V6.69z"/></svg>
+                </a>
+                <a href="https://twitter.com/resdrop" target="_blank" rel="noopener noreferrer" aria-label="X / Twitter" className="tl-social-link">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                </a>
+              </div>
               <p className="tl-footer-compliance">{pt ? 'Serviço de monitoramento e alertas. Não garantimos resultados específicos. Não acessamos dados financeiros.' : 'Monitoring and alerting service. We do not guarantee specific results. We do not access financial data.'}</p>
             </div>
 

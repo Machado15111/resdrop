@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "repricehq",
-      "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/npx",
-      "runtimeArgs": ["vite", "--host"],
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["/Users/antoniomachado/Library/Mobile Documents/com~apple~CloudDocs/Claude AI/repricehq/.claude/start-dev.sh"],
       "port": 5173,
       "autoPort": false
     },
@@ -12,7 +12,10 @@
       "name": "backend",
       "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/node",
       "runtimeArgs": ["server/index.js"],
-      "port": 3001
+      "port": 3001,
+      "env": {
+        "PATH": "/Users/antoniomachado/.local/node/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     }
   ]
 }
