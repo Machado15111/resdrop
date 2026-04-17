@@ -9,6 +9,7 @@
     "build": "vite build",
     "build:prod": "npm install && vite build && cd server && npm install",
     "start": "node server/index.js",
+    "postinstall": "cd server && npm install",
     "lint": "eslint .",
     "preview": "vite preview"
   },
