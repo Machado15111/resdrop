@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AdvisorOS — Dashboard</title>
+<style>
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f5f4;
+    --color-background-tertiary: #f0efed;
+    --color-background-info: #e6f1fb;
+    --color-border-tertiary: #e4e3e0;
+    --color-border-secondary: #d4d2ce;
+    --color-text-primary: #1a1916;
+    --color-text-secondary: #706e69;
+    --color-text-tertiary: #a09d97;
+    --color-text-info: #185FA5;
+    --border-radius-lg: 10px;
+    --border-radius-md: 6px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font-sans);background:#e8e7e4;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+
+  .app{display:flex;height:600px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary);width:100%;max-width:1020px;box-shadow:0 4px 24px rgba(0,0,0,0.08)}
+  .sidebar{width:200px;min-width:200px;border-right:0.5px solid var(--color-border-tertiary);padding:16px 0;display:flex;flex-direction:column;gap:4px;background:var(--color-background-secondary)}
+  .sidebar-logo{padding:0 16px 16px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:8px}
+  .logo-text{font-size:15px;font-weight:500;color:var(--color-text-primary);letter-spacing:-0.3px}
+  .logo-dot{display:inline-block;width:7px;height:7px;background:#1D9E75;border-radius:50%;margin-right:6px}
+  .nav-item{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:13px;color:var(--color-text-secondary);cursor:pointer;border-radius:0}
+  .nav-item.active{color:var(--color-text-primary);background:var(--color-background-primary);font-weight:500}
+  .nav-item svg{opacity:0.6;flex-shrink:0}
+  .nav-item.active svg{opacity:1}
+  .nav-section{font-size:10px;font-weight:500;color:var(--color-text-tertiary);padding:12px 16px 4px;letter-spacing:0.5px;text-transform:uppercase}
+  .main{flex:1;overflow:auto;padding:20px 24px;background:var(--color-background-tertiary)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .page-title{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+  .topbar-right{display:flex;align-items:center;gap:8px}
+  .avatar{width:28px;height:28px;border-radius:50%;background:#9FE1CB;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#085041}
+  .badge-new{font-size:11px;background:var(--color-background-info);color:var(--color-text-info);padding:3px 8px;border-radius:20px}
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+  .metric{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px 14px}
+  .metric-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:6px}
+  .metric-val{font-size:22px;font-weight:500;color:var(--color-text-primary);letter-spacing:-0.5px}
+  .metric-sub{font-size:11px;margin-top:3px}
+  .metric-up{color:#1D9E75}
+  .metric-down{color:#D85A30}
+  .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+  .card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:16px}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .card-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+  .card-action{font-size:12px;color:var(--color-text-info);cursor:pointer}
+  .trip-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+  .trip-row:last-child{border-bottom:none}
+  .trip-flag{width:28px;height:28px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;font-size:14px;background:var(--color-background-secondary)}
+  .trip-info{flex:1;min-width:0}
+  .trip-name{font-size:12px;font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trip-date{font-size:11px;color:var(--color-text-secondary)}
+  .trip-amount{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+  .status{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+  .s-conf{background:#E1F5EE;color:#0F6E56}
+  .s-pend{background:#FAEEDA;color:#854F0B}
+  .s-new{background:#E6F1FB;color:#185FA5}
+  .client-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+  .client-row:last-child{border-bottom:none}
+  .cli-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500}
+  .cli-av.a{background:#E1F5EE;color:#0F6E56}
+  .cli-av.b{background:#E6F1FB;color:#185FA5}
+  .cli-av.c{background:#EEEDFE;color:#3C3489}
+  .cli-av.d{background:#FAEEDA;color:#854F0B}
+  .cli-av.e{background:#FAECE7;color:#993C1D}
+  .cli-name{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+  .cli-dest{font-size:11px;color:var(--color-text-secondary)}
+  .cli-val{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+  .bottom-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .comm-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+  .comm-row:last-child{border-bottom:none}
+  .comm-supplier{color:var(--color-text-secondary)}
+  .comm-val{font-weight:500;color:var(--color-text-primary)}
+  .bar-wrap{height:5px;background:var(--color-background-secondary);border-radius:4px;flex:1;margin:0 10px}
+  .bar-fill{height:5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-text"><span class="logo-dot"></span>AdvisorOS</div>
+    </div>
+    <div class="nav-section">Main</div>
+    <div class="nav-item active">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Clients
+    </div>
+    <div class="nav-item">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1L9.8 5.6L15 6.2L11.5 9.4L12.5 14.5L8 12L3.5 14.5L4.5 9.4L1 6.2L6.2 5.6L8 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      Trips
+    </div>
+    <div class="nav-item">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Proposals
+    </div>
+    <div class="nav-section">Finance</div>
+    <div class="nav-item">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Commissions
+    </div>
+    <div class="nav-item">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M4 4V2h8v2M3 4l1 10h8l1-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Invoices
+    </div>
+    <div class="nav-item" style="margin-top:auto">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Settings
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title">Good morning, Rafael ✈</div>
+        <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px">3 trips departing this week</div>
+      </div>
+      <div class="topbar-right">
+        <div class="badge-new">2 new inquiries</div>
+        <div class="avatar">RF</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">Revenue (YTD)</div>
+        <div class="metric-val">$84,200</div>
+        <div class="metric-sub metric-up">↑ 18% vs last year</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Pending commissions</div>
+        <div class="metric-val">$12,450</div>
+        <div class="metric-sub" style="color:var(--color-text-secondary)">From 6 suppliers</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Active clients</div>
+        <div class="metric-val">47</div>
+        <div class="metric-sub metric-up">↑ 5 this month</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Trips this quarter</div>
+        <div class="metric-val">23</div>
+        <div class="metric-sub metric-up">↑ 8 vs Q1</div>
+      </div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Upcoming trips</div>
+          <div class="card-action">View all</div>
+        </div>
+        <div class="trip-row">
+          <div class="trip-flag">🇮🇹</div>
+          <div class="trip-info">
+            <div class="trip-name">Michael & Sarah Thompson</div>
+            <div class="trip-date">Amalfi Coast · Jun 12–22</div>
+          </div>
+          <div style="text-align:right">
+            <div class="trip-amount">$18,400</div>
+            <div class="status s-conf">confirmed</div>
+          </div>
+        </div>
+        <div class="trip-row">
+          <div class="trip-flag">🇯🇵</div>
+          <div class="trip-info">
+            <div class="trip-name">James O'Brien</div>
+            <div class="trip-date">Tokyo & Kyoto · Jun 18–30</div>
+          </div>
+          <div style="text-align:right">
+            <div class="trip-amount">$9,200</div>
+            <div class="status s-conf">confirmed</div>
+          </div>
+        </div>
+        <div class="trip-row">
+          <div class="trip-flag">🇬🇷</div>
+          <div class="trip-info">
+            <div class="trip-name">The Williams Family</div>
+            <div class="trip-date">Santorini · Jul 4–14</div>
+          </div>
+          <div style="text-align:right">
+            <div class="trip-amount">$24,600</div>
+            <div class="status s-pend">awaiting deposit</div>
+          </div>
+        </div>
+        <div class="trip-row">
+          <div class="trip-flag">🇵🇹</div>
+          <div class="trip-info">
+            <div class="trip-name">Anna Kowalski</div>
+            <div class="trip-date">Lisbon · Jul 9–16</div>
+          </div>
+          <div style="text-align:right">
+            <div class="trip-amount">$5,800</div>
+            <div class="status s-new">proposal sent</div>
+          </div>
+        </div>
+        <div class="trip-row">
+          <div class="trip-flag">🇫🇷</div>
+          <div class="trip-info">
+            <div class="trip-name">David & Claire Martin</div>
+            <div class="trip-date">Paris & Loire · Aug 2–12</div>
+          </div>
+          <div style="text-align:right">
+            <div class="trip-amount">$14,100</div>
+            <div class="status s-new">proposal sent</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top clients (LTV)</div>
+          <div class="card-action">View all</div>
+        </div>
+        <div class="client-row">
+          <div class="cli-av a">MT</div>
+          <div style="flex:1">
+            <div class="cli-name">M. Thompson</div>
+            <div class="cli-dest">4 trips · Italy, France, Japan</div>
+          </div>
+          <div class="cli-val">$62k</div>
+        </div>
+        <div class="client-row">
+          <div class="cli-av b">WF</div>
+          <div style="flex:1">
+            <div class="cli-name">Williams Family</div>
+            <div class="cli-dest">3 trips · Greece, UK, Brazil</div>
+          </div>
+          <div class="cli-val">$51k</div>
+        </div>
+        <div class="client-row">
+          <div class="cli-av c">JO</div>
+          <div style="flex:1">
+            <div class="cli-name">James O'Brien</div>
+            <div class="cli-dest">5 trips · Asia specialist</div>
+          </div>
+          <div class="cli-val">$38k</div>
+        </div>
+        <div class="client-row">
+          <div class="cli-av d">DM</div>
+          <div style="flex:1">
+            <div class="cli-name">D. & C. Martin</div>
+            <div class="cli-dest">2 trips · Europe</div>
+          </div>
+          <div class="cli-val">$29k</div>
+        </div>
+        <div class="client-row">
+          <div class="cli-av e">AK</div>
+          <div style="flex:1">
+            <div class="cli-name">Anna Kowalski</div>
+            <div class="cli-dest">2 trips · Portugal, Spain</div>
+          </div>
+          <div class="cli-val">$14k</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Commissions by supplier</div>
+        </div>
+        <div class="comm-row">
+          <div class="comm-supplier">Four Seasons</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:82%;background:#5DCAA5"></div></div>
+          <div class="comm-val">$4,100</div>
+        </div>
+        <div class="comm-row">
+          <div class="comm-supplier">Virtuoso Hotels</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:60%;background:#5DCAA5"></div></div>
+          <div class="comm-val">$3,020</div>
+        </div>
+        <div class="comm-row">
+          <div class="comm-supplier">Abercrombie & Kent</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:44%;background:#EF9F27"></div></div>
+          <div class="comm-val">$2,200</div>
+        </div>
+        <div class="comm-row">
+          <div class="comm-supplier">Crystal Cruises</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:30%;background:#EF9F27"></div></div>
+          <div class="comm-val">$1,620</div>
+        </div>
+        <div class="comm-row">
+          <div class="comm-supplier">Delta Air Lines</div>
+          <div class="bar-wrap"><div class="bar-fill" style="width:18%;background:var(--color-border-tertiary)"></div></div>
+          <div class="comm-val">$820</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Tasks this week</div>
+          <div class="card-action">+ Add task</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid #1D9E75;border-radius:3px;flex-shrink:0;margin-top:1px;background:#E1F5EE;display:flex;align-items:center;justify-content:center">
+              <svg width="8" height="8" viewBox="0 0 8 8"><polyline points="1,4 3,6 7,2" stroke="#1D9E75" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+            </div>
+            <div style="color:var(--color-text-secondary);text-decoration:line-through">Send Thompson itinerary final PDF</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:1px"></div>
+            <div style="color:var(--color-text-primary)">Follow up: Williams deposit due Jun 1</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:1px"></div>
+            <div style="color:var(--color-text-primary)">Review Kowalski proposal before sending</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:1px"></div>
+            <div style="color:var(--color-text-primary)">Check visa requirements — O'Brien Japan trip</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:1px"></div>
+            <div style="color:var(--color-text-primary)">Call new inquiry: Bahamas honeymoon</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;font-size:12px">
+            <div style="width:14px;height:14px;border:0.5px solid var(--color-border-secondary);border-radius:3px;flex-shrink:0;margin-top:1px"></div>
+            <div style="color:var(--color-text-primary)">Reconcile Four Seasons commission — May</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
