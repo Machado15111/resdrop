@@ -25,6 +25,7 @@ import ResetPassword from './components/ResetPassword';
 import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
 import PremiumLanding from './components/PremiumLanding';
 import TravelerLanding from './components/TravelerLanding';
+import ResDroppLanding from './components/ResDroppLanding';
 
 
 function LayoutWithHeader() {
@@ -76,6 +77,9 @@ function App() {
 
         {/* Traveler Landing Preview */}
         <Route path="/v3" element={<TravelerLanding />} />
+
+        {/* ResDropp Premium SaaS Landing */}
+        <Route path="/v4" element={<ResDroppLanding />} />
 
         {/* Landing page — no app header (TravelerLanding has its own) */}
         <Route path="/" element={
