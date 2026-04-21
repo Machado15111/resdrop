@@ -148,7 +148,7 @@ function Nav({ scrolled, mobileOpen, setMobileOpen }) {
     <>
       <nav className={`rdp-nav${scrolled ? ' rdp-nav--scrolled' : ''}`}>
         <div className="rdp-nav__inner">
-          <Link to="/v4" className="rdp-nav__logo">
+          <Link to="/" className="rdp-nav__logo">
             <span className="rdp-nav__logo-icon"><ResDropLogo size={22} /></span>
             <span className="rdp-nav__logo-text">ResDrop</span>
           </Link>
@@ -928,7 +928,7 @@ function Footer() {
     <footer className="rdp-footer">
       <div className="rdp-footer__top">
         <div>
-          <Link to="/v4" className="rdp-footer__logo">
+          <Link to="/" className="rdp-footer__logo">
             <span className="rdp-footer__logo-icon"><ResDropLogo size={20} /></span>
             <span className="rdp-footer__logo-text">ResDrop</span>
           </Link>

@@ -81,9 +81,9 @@ function App() {
         {/* ResDropp Premium SaaS Landing */}
         <Route path="/v4" element={<ResDroppLanding />} />
 
-        {/* Landing page — no app header (TravelerLanding has its own) */}
+        {/* Landing page — no app header (ResDroppLanding has its own) */}
         <Route path="/" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <TravelerLanding />
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLanding />
         } />
 
         {/* All other routes — with header */}
