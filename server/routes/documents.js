@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { readFile } from 'fs/promises';
 import * as db from '../db.js';
+import { sendBookingCreated } from '../email.js';
 
 // Multer config — store in memory for processing
 const upload = multer({
@@ -287,6 +288,9 @@ export default function documentRoutes(authMiddleware) {
         actorEmail: req.userEmail,
         details: { documentId: doc.id, filename: doc.filename },
       });
+
+      // Fire-and-forget confirmation email
+      sendBookingCreated(req.userEmail, req.user?.name || 'Traveler', booking).catch(() => {});
 
       res.status(201).json({ booking, documentId: doc.id });
     } catch (err) {

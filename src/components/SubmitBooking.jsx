@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import { useAuth } from '../contexts/AuthContext';
 import { IconArrowLeft, IconMail, IconUpload, IconArrowRight, IconShield, IconChevronDown, IconCheck, IconX } from './Icons';
@@ -45,6 +46,7 @@ const STEP_MANUAL = 'manual';
 function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEmail }) {
   const { t, lang } = useI18n();
   const { authFetch } = useAuth();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const dropzoneRef = useRef(null);
 
@@ -202,9 +204,8 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     setError(null);
 
     try {
-      const res = await fetch(`${API}/bookings/from-email`, {
+      const res = await authFetch(`${API}/bookings/from-email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rawEmail: pasteText, email: userEmail }),
       });
       if (!res.ok) {
@@ -214,7 +215,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
 
       if (data.status === 'created' && data.booking) {
         setProcessingStatus(lang === 'pt' ? 'Reserva criada!' : 'Booking created!');
-        setTimeout(() => window.location.reload(), 800);
+        setTimeout(() => navigate(`/bookings/${data.booking.id}`), 600);
         return;
       }
 
@@ -370,7 +371,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         }
 
         const data = await res.json();
-        if (onSubmit) onSubmit(data.booking);
+        // Booking already created — navigate directly, don't re-POST
+        navigate(`/bookings/${data.booking.id}`);
+        return;
       } catch (err) {
         setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
       }
