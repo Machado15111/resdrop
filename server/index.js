@@ -367,7 +367,10 @@ async function applyBestResult(booking, results) {
         });
 
         // Fire-and-forget price drop email
-        sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking).catch(() => {});
+        // Fetch user for currency/lang context
+        db.getUser(booking.email).then(u => {
+          sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking, u || {}).catch(() => {});
+        }).catch(() => {});
       } else if (diff === 0) {
         alertType = 'price_same';
         alertMessage = `➡️ Price stable: R$${currentPrice} via ${bestMatch.source}`;
@@ -555,7 +558,7 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
     }
 
     // Fire-and-forget booking created email
-    sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created).catch(() => {});
+    sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created, req.user).catch(() => {});
 
     res.status(201).json(created);
   } catch (err) {
@@ -845,7 +848,7 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
   const user = await db.getUser(email);
 
   // Fire-and-forget emails
-  sendWelcomeEmail(email, name || 'Guest').catch(() => {});
+  sendWelcomeEmail(email, name || 'Guest', user || {}).catch(() => {});
   sendAdminNotification('New User Signup', `<p><strong>${name || 'Guest'}</strong> (${email}) just signed up.</p>`).catch(() => {});
 
   res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
@@ -877,7 +880,7 @@ app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
 
   // Fire-and-forget password reset email
   const resetUrl = `https://resdrop.app/reset-password?token=${token}`;
-  sendPasswordReset(email, user.name, resetUrl).catch(() => {});
+  sendPasswordReset(email, user.name, resetUrl, user).catch(() => {});
 
   res.json({ success: true });
 });

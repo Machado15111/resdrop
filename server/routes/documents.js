@@ -290,7 +290,7 @@ export default function documentRoutes(authMiddleware) {
       });
 
       // Fire-and-forget confirmation email
-      sendBookingCreated(req.userEmail, req.user?.name || 'Traveler', booking).catch(() => {});
+      sendBookingCreated(req.userEmail, req.user?.name || 'Traveler', booking, req.user || {}).catch(() => {});
 
       res.status(201).json({ booking, documentId: doc.id });
     } catch (err) {
