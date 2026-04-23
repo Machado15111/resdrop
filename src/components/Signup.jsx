@@ -65,8 +65,8 @@ function Signup() {
           <h1>{t('account.signupTitle')}</h1>
           <p className="auth-subtitle">
             {lang === 'pt'
-              ? 'Crie sua conta e comece a economizar.'
-              : 'Create your account and start saving.'}
+              ? 'Monitore sua primeira reserva de hotel gratuitamente. Sem cartao de credito.'
+              : 'Monitor your first hotel booking free. No credit card required.'}
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -142,11 +142,36 @@ function Signup() {
               </div>
             </div>
 
+            {/* Terms acceptance */}
+            <div className="form-group">
+              <label className="form-checkbox-label">
+                <input
+                  type="checkbox"
+                  required
+                  className="form-checkbox"
+                />
+                <span>
+                  {lang === 'pt'
+                    ? <>Concordo com os <a href="/terms" target="_blank" rel="noopener" className="account-link">Termos de Servico</a> e a <a href="/privacy" target="_blank" rel="noopener" className="account-link">Politica de Privacidade</a></>
+                    : <>I agree to the <a href="/terms" target="_blank" rel="noopener" className="account-link">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" className="account-link">Privacy Policy</a></>
+                  }
+                </span>
+              </label>
+            </div>
+
             {error && <p className="account-error">{error}</p>}
 
             <button className="account-submit gold" type="submit" disabled={loading}>
-              {loading ? (lang === 'pt' ? 'Aguarde...' : 'Please wait...') : t('account.signup')}
+              {loading
+                ? (lang === 'pt' ? 'Criando conta...' : 'Creating account...')
+                : (lang === 'pt' ? 'Criar conta gratis' : 'Create free account')}
             </button>
+
+            <p className="auth-trust-line">
+              {lang === 'pt'
+                ? 'Nunca remarcamos sem sua aprovacao. Seus dados sao privados.'
+                : 'We never rebook without your approval. Your data is private.'}
+            </p>
           </form>
 
           <p className="account-toggle">

@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 import './Footer.css';
 
 function Footer() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <footer className="footer">
       <div className="container">
@@ -17,27 +17,34 @@ function Footer() {
             <p className="footer-tagline">
               {t('footer.tagline')}
             </p>
+            <p className="footer-contact-line">
+              <a href="mailto:hello@resdrop.app">hello@resdrop.app</a>
+            </p>
           </div>
           <div className="footer-links">
             <h4>{t('footer.product')}</h4>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#faq">FAQ</a>
+            <Link to="/">{lang === 'pt' ? 'Como funciona' : 'How It Works'}</Link>
+            <Link to="/plans">{lang === 'pt' ? 'Planos e Preços' : 'Pricing'}</Link>
+            <Link to="/about">FAQ</Link>
           </div>
           <div className="footer-links">
             <h4>{t('footer.company')}</h4>
-            <Link to="/about">About</Link>
-            <a href="#blog">Blog</a>
-            <a href="#contact">Contact</a>
+            <Link to="/about">{lang === 'pt' ? 'Sobre' : 'About'}</Link>
+            <a href="mailto:hello@resdrop.app">{lang === 'pt' ? 'Contato' : 'Contact'}</a>
           </div>
           <div className="footer-links">
             <h4>{t('footer.legal')}</h4>
-            <Link to="/privacy">Privacy Policy</Link>
-            <Link to="/terms">Terms of Service</Link>
+            <Link to="/privacy">{lang === 'pt' ? 'Privacidade' : 'Privacy Policy'}</Link>
+            <Link to="/terms">{lang === 'pt' ? 'Termos de Uso' : 'Terms of Service'}</Link>
           </div>
         </div>
         <div className="footer-bottom">
           <p>&copy; 2026 ResDrop. {t('footer.rights')}</p>
+          <p className="footer-bottom-note">
+            {lang === 'pt'
+              ? 'Nunca remarcamos sem sua aprovação.'
+              : 'We never rebook without your approval.'}
+          </p>
         </div>
       </div>
     </footer>

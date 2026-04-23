@@ -37,6 +37,27 @@
   line-height: 1.6;
 }
 
+.footer-contact-line {
+  margin-top: 12px;
+  font-size: 0.875rem;
+}
+
+.footer-contact-line a {
+  color: var(--tl-text-light-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-contact-line a:hover {
+  color: var(--tl-accent-gold);
+}
+
+.footer-bottom-note {
+  font-size: 0.8rem;
+  color: var(--tl-text-light-muted);
+  opacity: 0.6;
+}
+
 .footer-links h4 {
   color: var(--tl-text-light);
   font-size: 1rem;

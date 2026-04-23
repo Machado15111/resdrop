@@ -5,6 +5,7 @@ import { API } from '../api';
 import { IconArrowRight, IconCheck, IconUser, IconHeart, IconFamily, IconBriefcase, IconGlobe } from './Icons';
 import PhoneCountrySelect from './PhoneCountrySelect';
 import './Onboarding.css';
+import { useNavigate } from 'react-router-dom';
 
 const TRAVELER_TYPES = [
   { id: 'solo', icon: IconUser, pt: 'Solo', en: 'Solo' },
@@ -14,29 +15,6 @@ const TRAVELER_TYPES = [
   { id: 'frequent', icon: IconGlobe, pt: 'Viajante frequente', en: 'Frequent traveler' },
 ];
 
-const ROOM_TYPES = [
-  { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
-  { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
-  { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
-  { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
-  { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
-  { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
-  { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
-  { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
-  { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
-  { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
-  { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
-  { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
-  { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
-  { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
-  { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
-  { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
-  { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
-  { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
-  { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
-  { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
-  { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
-];
 
 const COUNTRIES_LIST = [
   { value: 'BR', pt: 'Brasil', en: 'Brazil' },
@@ -56,6 +34,7 @@ const COUNTRIES_LIST = [
 function Onboarding() {
   const { t, lang } = useI18n();
   const { user, authFetch, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -70,7 +49,6 @@ function Onboarding() {
     phoneNumber: '',
     dateOfBirth: '',
     country: 'BR',
-    preferredRoomType: 'Standard Room',
     marketingOptIn: true,
   });
 
@@ -105,7 +83,6 @@ function Onboarding() {
       }
       if (form.dateOfBirth) payload.dateOfBirth = form.dateOfBirth;
       if (form.country) payload.country = form.country;
-      if (form.preferredRoomType) payload.preferredRoomType = form.preferredRoomType;
       payload.marketingOptIn = form.marketingOptIn;
 
       const res = await authFetch(`${API}/auth/onboarding`, {
@@ -115,6 +92,7 @@ function Onboarding() {
       if (res.ok) {
         const updated = await res.json();
         updateUser({ ...updated, onboardingCompleted: true });
+        navigate('/submit', { state: { fromOnboarding: true } });
       } else {
         const errData = await res.json().catch(() => ({}));
         setError(errData.error || (lang === 'pt' ? 'Falha ao salvar' : 'Failed to save'));
@@ -297,21 +275,6 @@ function Onboarding() {
                       ))}
                     </select>
                   </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">{t('onboarding.roomPrefLabel')}</label>
-                  <select
-                    className="form-input"
-                    value={form.preferredRoomType}
-                    onChange={e => setForm(prev => ({ ...prev, preferredRoomType: e.target.value }))}
-                  >
-                    {ROOM_TYPES.map(rt => (
-                      <option key={rt.value} value={rt.value}>
-                        {lang === 'pt' ? rt.pt : rt.en}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 <div className="alerts-section">

@@ -2,8 +2,19 @@ import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconSh
 import { useI18n } from '../i18n';
 import './Dashboard.css';
 
+const CURRENCY_SYMBOLS = { BRL: 'R$', USD: '$', EUR: '€', GBP: '£' };
+
+function formatCurrency(amount, currencyCode) {
+  const symbol = CURRENCY_SYMBOLS[currencyCode] || currencyCode || 'R$';
+  const locale = currencyCode === 'BRL' ? 'pt-BR' : 'en-US';
+  return `${symbol}${Number(amount).toLocaleString(locale, { minimumFractionDigits: 0 })}`;
+}
+
 function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, currentUser, bookingStates = {} }) {
   const { t, lang } = useI18n();
+  const currency = currentUser?.currency || 'BRL';
+  const fmt = (amount) => formatCurrency(amount, currency);
+
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
       day: 'numeric', month: 'short',
@@ -50,14 +61,14 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
           <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-gold"><IconDollar size={20} /></div>
             <div className="dash-kpi-data">
-              <span className="dash-kpi-value gold">R${(stats?.potentialSavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+              <span className="dash-kpi-value gold">{fmt(stats?.potentialSavings || 0)}</span>
               <span className="dash-kpi-label">{t('dash.potentialSavings')}</span>
             </div>
           </div>
           <div className="dash-kpi">
             <div className="dash-kpi-icon kpi-green"><IconDollar size={20} /></div>
             <div className="dash-kpi-data">
-              <span className="dash-kpi-value accent">R${(stats?.totalSavings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+              <span className="dash-kpi-value accent">{fmt(stats?.totalSavings || 0)}</span>
               <span className="dash-kpi-label">{t('dash.confirmedSavings')}</span>
             </div>
           </div>
@@ -100,6 +111,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
                   getNights={getNights}
                   t={t}
                   lang={lang}
+                  fmt={fmt}
                   bookingState={bookingStates[booking.id]}
                 />
               ))}
@@ -125,6 +137,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
                   getNights={getNights}
                   t={t}
                   lang={lang}
+                  fmt={fmt}
                   isPast
                 />
               ))}
@@ -136,7 +149,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
   );
 }
 
-function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, isPast, bookingState }) {
+function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, fmt, isPast, bookingState }) {
   const statusMap = {
     received: { label: t('dash.received'), cls: 'status-pending' },
     processing: { label: t('dash.processing'), cls: 'status-pending' },
@@ -177,19 +190,19 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
       <div className="dbc-pricing">
         <div className="dbc-original">
           <span className="dbc-price-label">{t('dash.originalPrice')}</span>
-          <span className="dbc-price">R${booking.originalPrice.toLocaleString('pt-BR')}</span>
+          <span className="dbc-price">{fmt ? fmt(booking.originalPrice) : `R$${booking.originalPrice.toLocaleString('pt-BR')}`}</span>
         </div>
         {(booking.status === 'savings_found' || booking.status === 'lower_fare_found') && booking.bestPrice && (booking.potentialSavings > 0 || booking.totalSavings > 0) ? (
           <div className="dbc-savings-info">
             <div className="dbc-best">
               <span className="dbc-price-label">{t('dash.bestFound')}</span>
-              <span className="dbc-price accent">R${booking.bestPrice.toLocaleString('pt-BR')}</span>
+              <span className="dbc-price accent">{fmt ? fmt(booking.bestPrice) : `R$${booking.bestPrice.toLocaleString('pt-BR')}`}</span>
             </div>
-            <span className="badge badge-success">{t('dash.lowerRateFound')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
+            <span className="badge badge-success">{t('dash.lowerRateFound')} {fmt ? fmt(booking.potentialSavings || booking.totalSavings) : `R$${(booking.potentialSavings || booking.totalSavings).toFixed(0)}`}</span>
           </div>
         ) : booking.status === 'confirmed_savings' && booking.totalSavings > 0 ? (
           <div className="dbc-savings-info">
-            <span className="badge badge-confirmed">{t('savings.confirmedBadge')} R${booking.totalSavings.toFixed(0)}</span>
+            <span className="badge badge-confirmed">{t('savings.confirmedBadge')} {fmt ? fmt(booking.totalSavings) : `R$${booking.totalSavings.toFixed(0)}`}</span>
           </div>
         ) : (
           <div className="dbc-monitoring-active">

@@ -1,50 +1,149 @@
 import Footer from './Footer';
-import './LegalPage.css';
+import './AboutPage.css';
 
 function AboutPage() {
   return (
     <>
-      <div className="legal-page about-page">
-        <div className="about-hero">
-          <h1>About ResDrop</h1>
-          <p>
-            We help travelers save money on hotel bookings by automatically monitoring prices and alerting you when rates drop — so you never overpay for a stay.
-          </p>
-        </div>
+      <div className="about-page">
 
-        <h2>Our Mission</h2>
-        <p>
-          Hotel prices fluctuate constantly. Most travelers book once and never look back, missing potential savings. ResDrop was built to fix that. We track your reservations around the clock and notify you when it's time to rebook at a lower rate.
-        </p>
+        <section className="about-hero">
+          <div className="about-container">
+            <div className="about-eyebrow">OUR STORY</div>
+            <h1>Built for the moment after booking.</h1>
+            <p className="about-hero-sub">
+              Most travel tools help you find a hotel before you book. ResDrop was built for what happens after —
+              when the reservation is confirmed and the rate keeps moving without you.
+            </p>
+          </div>
+        </section>
 
-        <h2>How It Works</h2>
-        <p>
-          Submit your upcoming hotel booking and we'll monitor the price 24/7 across major platforms. When we detect a price drop, you get an instant alert with all the details you need to rebook and save.
-        </p>
+        <section className="about-origin">
+          <div className="about-container about-origin-grid">
+            <div className="about-origin-text">
+              <h2>Why we built this</h2>
+              <p>
+                The idea started with a simple frustration: booking a hotel months in advance, then
+                seeing the same room at a lower rate two weeks later. By then, the original booking
+                felt locked in. Checking manually every few days was tedious, and easy to forget.
+              </p>
+              <p>
+                Hotel rates are dynamic. They change after you book. A member rate opens on the hotel
+                website. An equivalent room drops on Expedia. A partner channel surfaces a rate that
+                was never publicly visible. None of this requires any action from the traveler —
+                it just requires someone watching.
+              </p>
+              <p>
+                ResDrop is that watcher. It monitors your confirmed refundable reservation across the
+                hotel's official website, Expedia, Booking.com, and supported sources — and sends you
+                an alert the moment a better equivalent option appears. What you do with that
+                information is entirely up to you.
+              </p>
+            </div>
+            <div className="about-origin-stat-col">
+              <div className="about-stat-card">
+                <div className="about-stat-number">3x</div>
+                <div className="about-stat-label">Daily monitoring cycles per booking</div>
+              </div>
+              <div className="about-stat-card">
+                <div className="about-stat-number">3+</div>
+                <div className="about-stat-label">Booking sources checked per cycle</div>
+              </div>
+              <div className="about-stat-card">
+                <div className="about-stat-number">0</div>
+                <div className="about-stat-label">Automatic rebookings. Ever.</div>
+              </div>
+            </div>
+          </div>
+        </section>
 
-        <div className="about-values">
-          <div className="about-value">
-            <h3>Transparency</h3>
-            <p>No hidden fees. You always know exactly what you're saving and how.</p>
+        <section className="about-principles">
+          <div className="about-container">
+            <h2>What we believe</h2>
+            <div className="about-values-grid">
+              <div className="about-value-item">
+                <div className="about-value-num">01</div>
+                <h3>The traveler stays in control</h3>
+                <p>
+                  ResDrop surfaces opportunities. It does not create obligations.
+                  Every alert gives you the full picture — source, rate, room, cancellation terms.
+                  From there, the decision is yours. Nothing about your reservation changes
+                  unless you initiate it.
+                </p>
+              </div>
+              <div className="about-value-item">
+                <div className="about-value-num">02</div>
+                <h3>Equivalent means equivalent</h3>
+                <p>
+                  We compare only like-for-like options: same hotel, same room category,
+                  same or better cancellation terms. We do not surface non-refundable
+                  alternatives, lower-tier rooms, or different properties — regardless
+                  of how the price compares.
+                </p>
+              </div>
+              <div className="about-value-item">
+                <div className="about-value-num">03</div>
+                <h3>Transparency about what we check</h3>
+                <p>
+                  We monitor the hotel's official direct booking channel, Expedia, Booking.com,
+                  and supported partner sources. When an alert is sent, it tells you exactly
+                  where the rate was found. No opaque matching, no mystery sources.
+                </p>
+              </div>
+              <div className="about-value-item">
+                <div className="about-value-num">04</div>
+                <h3>Your data serves one purpose</h3>
+                <p>
+                  The booking details you add to ResDrop are used to monitor your reservation
+                  on your behalf. We do not sell, share, or use your data for advertising,
+                  analytics products, or any purpose outside the monitoring service.
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="about-value">
-            <h3>Simplicity</h3>
-            <p>Submit a booking in seconds. We handle the monitoring — you handle the savings.</p>
-          </div>
-          <div className="about-value">
-            <h3>Privacy</h3>
-            <p>Your data stays yours. We only collect what's needed to track your bookings.</p>
-          </div>
-          <div className="about-value">
-            <h3>Reliability</h3>
-            <p>24/7 price monitoring so you never miss a drop, no matter the time zone.</p>
-          </div>
-        </div>
+        </section>
 
-        <h2>Contact</h2>
-        <p>
-          Have questions or feedback? Reach out to us at <a href="mailto:support@resdrop.com">support@resdrop.com</a>.
-        </p>
+        <section className="about-how">
+          <div className="about-container">
+            <h2>How it works</h2>
+            <div className="about-steps">
+              <div className="about-step">
+                <div className="about-step-num">01</div>
+                <div>
+                  <h3>Add your confirmed booking</h3>
+                  <p>Enter the details of any refundable hotel reservation — or forward your confirmation email to your ResDrop address. Monitoring begins immediately.</p>
+                </div>
+              </div>
+              <div className="about-step">
+                <div className="about-step-num">02</div>
+                <div>
+                  <h3>We monitor continuously</h3>
+                  <p>ResDrop checks the hotel's official site, Expedia, Booking.com, and supported sources three times a day — looking only for equivalent options with the same or better cancellation terms.</p>
+                </div>
+              </div>
+              <div className="about-step">
+                <div className="about-step-num">03</div>
+                <div>
+                  <h3>You receive an alert when something appears</h3>
+                  <p>The alert includes the source, the rate, the room details, and the cancellation terms. Everything you need to evaluate the opportunity and decide whether to act.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="about-contact">
+          <div className="about-container">
+            <h2>Get in touch</h2>
+            <p>
+              Questions about the product, your account, or a monitoring result?
+              Reach us at <a href="mailto:hello@resdrop.app">hello@resdrop.app</a>.
+            </p>
+            <p className="about-contact-sub">
+              We aim to respond within one business day.
+            </p>
+          </div>
+        </section>
+
       </div>
       <Footer />
     </>
