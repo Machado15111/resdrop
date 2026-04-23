@@ -134,7 +134,7 @@
 }
 .rdp-btn--primary {
   background: var(--rdp-green-grad);
-  color: #FFFFFF;
+  color: #FFFFFF !important;
 }
 .rdp-btn--primary:hover {
   background: var(--rdp-green-grad-h);

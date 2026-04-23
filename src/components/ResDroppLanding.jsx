@@ -402,10 +402,6 @@ function Hero({ t }) {
       <div className="rdp-hero__glow" />
       <div className="rdp-hero__wrap">
         <div className="rdp-hero__left">
-          <div className="rdp-hero__kicker">
-            <span className="rdp-hero__kicker-dot" />
-            {th.kicker}
-          </div>
           <h1 className="rdp-hero__h1">
             {th.h1a}<br />{th.h1b}<br />
             <em>{th.h1c}</em>
