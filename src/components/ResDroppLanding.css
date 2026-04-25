@@ -1071,32 +1071,52 @@
 
   .rdp-hero::after { display: none; }
   .rdp-hero__glow { display: none; }
-  .rdp-hero__wrap { grid-template-columns: 1fr; padding: 64px 24px 0; min-height: auto; max-height: none; }
+  .rdp-hero__wrap { grid-template-columns: 1fr; padding: 56px 24px 0; min-height: auto; max-height: none; }
   .rdp-hero__left { padding-right: 0; }
-  .rdp-hero__right { position: relative; height: 340px; overflow: hidden; }
+  .rdp-hero__right { position: relative; height: 320px; overflow: hidden; }
   .rdp-hero__app-wrap { width: 680px; top: 0; transform: none; }
 
   .rdp-container { padding: 0 24px; }
-  .rdp-platforms__inner { padding: 0 24px; gap: 16px; }
+  .rdp-platforms { padding: 22px 0; }
+  .rdp-platforms__inner { padding: 0 24px; gap: 12px; }
+  .rdp-platforms__list { gap: 20px; }
 
+  .rdp-hiw__header { margin-bottom: 56px; }
   .rdp-hiw__steps { grid-template-columns: repeat(2, 1fr); gap: 32px; }
   .rdp-hiw__steps::before { display: none; }
 
-  .rdp-features__header { grid-template-columns: 1fr; gap: 16px; }
+  .rdp-features__header { grid-template-columns: 1fr; gap: 16px; margin-bottom: 40px; }
   .rdp-features__grid { grid-template-columns: 1fr; }
+
+  .rdp-dash__header { margin-bottom: 44px; }
+  /* Dashboard browser: hide sidebar, stack to single column */
+  .rdp-full-sidebar { display: none; }
+  .rdp-full-app { grid-template-columns: 1fr; min-height: auto; }
+  .rdp-full-main { padding: 20px; }
+  .rdp-full-kpis { grid-template-columns: repeat(2, 1fr); }
+  .rdp-dash__browser { border-radius: var(--rdp-r-lg); }
 
   .rdp-sf__wrap { grid-template-columns: 1fr; gap: 40px; }
 
-  .rdp-savings__header { grid-template-columns: 1fr; }
+  .rdp-savings__header { grid-template-columns: 1fr; gap: 16px; }
   .rdp-savings__grid { grid-template-columns: 1fr; }
+  .rdp-save-card__img-wrap { height: 200px; }
 
-  .rdp-benefits__grid { grid-template-columns: 1fr; gap: 48px; }
-  .rdp-benefits__stat { right: 0; }
+  .rdp-benefits__grid { grid-template-columns: 1fr; gap: 40px; }
+  .rdp-benefits__stat { right: 0; bottom: 20px; }
+  .rdp-benefits__photo { aspect-ratio: 16/9; }
+  .rdp-benefits__photo-fallback { aspect-ratio: 16/9; }
 
+  .rdp-lifestyle__header { margin-bottom: 44px; }
   .rdp-lifestyle__grid { grid-template-columns: 1fr; }
-  .rdp-lifestyle__right { padding-top: 0; }
+  .rdp-lifestyle__right { padding-top: 0; gap: 12px; }
+  .rdp-lifestyle__main { aspect-ratio: 16/9; }
+  .rdp-lifestyle__main-fallback { aspect-ratio: 16/9; }
 
+  .rdp-testimonials__header { margin-bottom: 44px; }
   .rdp-testimonials__grid { grid-template-columns: 1fr; }
+
+  .rdp-faq__header { margin-bottom: 36px; }
 
   .rdp-footer__top { grid-template-columns: 1fr 1fr; gap: 36px; padding: 0 24px 48px; }
   .rdp-footer__brand { grid-column: 1/-1; }
@@ -1106,13 +1126,85 @@
 }
 
 @media (max-width: 640px) {
-  .rdp-hero__h1 { font-size: 40px; }
-  .rdp-hero__actions { flex-direction: column; align-items: flex-start; }
-  .rdp-hiw__steps { grid-template-columns: 1fr; }
-  .rdp-footer__top { grid-template-columns: 1fr; }
-  .rdp-hero__right { height: 280px; }
-  .rdp-hero__app-wrap { width: 540px; }
+  /* ── Reduce section vertical rhythm ── */
+  .rdp { --rdp-section: 72px; }
+
+  /* ── Nav ── */
+  .rdp-nav__inner { padding: 0 20px; }
+
+  /* ── Hero ── */
+  .rdp-hero__wrap { padding: 48px 20px 0; }
+  .rdp-hero__h1 { font-size: 38px; letter-spacing: -0.035em; }
+  .rdp-hero__sub { font-size: 16px; margin-bottom: 32px; }
+  .rdp-hero__actions { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .rdp-hero__actions .rdp-btn { width: 100%; justify-content: center; }
+  .rdp-hero__trust { gap: 12px; }
+  .rdp-hero__trust-divider { display: none; }
+  .rdp-hero__right { height: 260px; }
+  .rdp-hero__app-wrap { width: 480px; }
   .rdp-hero__app-body { grid-template-columns: 1fr; }
   .rdp-hero__sidebar { display: none; }
-  .rdp-sf__item { flex-direction: column; gap: 10px; }
+
+  /* ── Platforms ── */
+  .rdp-platforms { padding: 18px 0; }
+  .rdp-platforms__inner { padding: 0 20px; gap: 8px; flex-direction: column; align-items: flex-start; }
+  .rdp-platforms__sep { display: none; }
+  .rdp-platforms__list { gap: 14px; flex-wrap: wrap; }
+
+  /* ── HIW ── */
+  .rdp-container { padding: 0 20px; }
+  .rdp-hiw__header { margin-bottom: 44px; }
+  .rdp-hiw__steps { grid-template-columns: 1fr; gap: 36px; }
+  .rdp-hiw__step { padding: 0 8px; }
+  .rdp-hiw__num { width: 52px; height: 52px; font-size: 17px; margin-bottom: 20px; }
+  .rdp-hiw__title { font-size: 16px; }
+  .rdp-hiw__text { max-width: none; }
+
+  /* ── Features ── */
+  .rdp-feat-card { padding: 22px 20px; }
+
+  /* ── Dashboard ── */
+  .rdp-dash__header { margin-bottom: 36px; }
+  .rdp-full-main { padding: 16px; }
+  .rdp-full-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .rdp-full-kpi { padding: 11px 12px; }
+  .rdp-full-kpi__val { font-size: 18px; }
+  .rdp-full-alert { padding: 10px 12px; gap: 8px; }
+  .rdp-full-alert__msg { font-size: 12px; }
+  .rdp-full-alert__cta { font-size: 11px; padding: 6px 10px; }
+  .rdp-dash__browser { margin: 0 -20px; border-radius: 0; border-left: none; border-right: none; }
+
+  /* ── SF ── */
+  .rdp-sf__item { flex-direction: column; gap: 10px; padding: 18px 20px; }
+
+  /* ── Savings ── */
+  .rdp-savings__header { margin-bottom: 36px; }
+  .rdp-save-card__img-wrap { height: 180px; }
+
+  /* ── Benefits ── */
+  .rdp-benefits__list { gap: 20px; margin-top: 28px; }
+
+  /* ── Lifestyle ── */
+  .rdp-lifestyle__header { margin-bottom: 36px; }
+  .rdp-lifestyle__sub { display: none; }
+  .rdp-lifestyle__sub-fallback { display: none; }
+
+  /* ── Testimonials ── */
+  .rdp-testimonials__header { margin-bottom: 36px; }
+  .rdp-testimonial { padding: 22px 20px; gap: 16px; }
+
+  /* ── FAQ ── */
+  .rdp-faq__q { font-size: 15px; padding: 18px 0; }
+
+  /* ── CTA ── */
+  .rdp-cta__inner { padding: 0 20px; }
+  .rdp-cta__sub { font-size: 15px; margin-bottom: 32px; }
+  .rdp-cta__actions .rdp-btn { width: 100%; justify-content: center; }
+
+  /* ── Footer ── */
+  .rdp-footer { padding-top: 48px; }
+  .rdp-footer__top { grid-template-columns: 1fr; gap: 32px; padding: 0 20px 40px; }
+  .rdp-footer__brand { grid-column: auto; }
+  .rdp-footer__bottom { padding: 18px 20px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .rdp-footer__legal { gap: 16px; flex-wrap: wrap; }
 }
