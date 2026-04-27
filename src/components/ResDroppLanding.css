@@ -1127,84 +1127,121 @@
 
 @media (max-width: 640px) {
   /* ── Reduce section vertical rhythm ── */
-  .rdp { --rdp-section: 72px; }
+  .rdp { --rdp-section: 68px; }
+
+  /* ── Global heading scale-down ── */
+  .rdp-h2 { font-size: clamp(26px, 7vw, 32px); margin-bottom: 14px; }
+  .rdp-body-lead { font-size: 15px; line-height: 1.65; }
 
   /* ── Nav ── */
   .rdp-nav__inner { padding: 0 20px; }
 
   /* ── Hero ── */
-  .rdp-hero__wrap { padding: 48px 20px 0; }
-  .rdp-hero__h1 { font-size: 38px; letter-spacing: -0.035em; }
-  .rdp-hero__sub { font-size: 16px; margin-bottom: 32px; }
-  .rdp-hero__actions { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .rdp-hero__wrap { padding: 44px 20px 0; }
+  .rdp-hero__h1 { font-size: 36px; letter-spacing: -0.035em; }
+  .rdp-hero__sub { font-size: 15px; line-height: 1.65; margin-bottom: 28px; }
+  .rdp-hero__actions { flex-direction: column; align-items: stretch; gap: 10px; }
   .rdp-hero__actions .rdp-btn { width: 100%; justify-content: center; }
-  .rdp-hero__trust { gap: 12px; }
+  .rdp-hero__trust { gap: 10px; flex-wrap: wrap; }
   .rdp-hero__trust-divider { display: none; }
-  .rdp-hero__right { height: 260px; }
-  .rdp-hero__app-wrap { width: 480px; }
+  .rdp-hero__right { height: 240px; }
+  .rdp-hero__app-wrap { width: 420px; }
   .rdp-hero__app-body { grid-template-columns: 1fr; }
   .rdp-hero__sidebar { display: none; }
 
-  /* ── Platforms ── */
-  .rdp-platforms { padding: 18px 0; }
-  .rdp-platforms__inner { padding: 0 20px; gap: 8px; flex-direction: column; align-items: flex-start; }
+  /* ── Platforms — horizontal scroll, no orphan wrap ── */
+  .rdp-platforms { padding: 16px 0; }
+  .rdp-platforms__inner { padding: 0 20px; gap: 10px; flex-direction: column; align-items: flex-start; }
   .rdp-platforms__sep { display: none; }
-  .rdp-platforms__list { gap: 14px; flex-wrap: wrap; }
+  .rdp-platforms__list {
+    gap: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    width: 100%;
+  }
+  .rdp-platforms__list::-webkit-scrollbar { display: none; }
+  .rdp-platforms__item { white-space: nowrap; padding-right: 20px; flex-shrink: 0; }
 
-  /* ── HIW ── */
+  /* ── HIW — left-aligned grid cards, number left + title/text right ── */
   .rdp-container { padding: 0 20px; }
-  .rdp-hiw__header { margin-bottom: 44px; }
-  .rdp-hiw__steps { grid-template-columns: 1fr; gap: 36px; }
-  .rdp-hiw__step { padding: 0 8px; }
-  .rdp-hiw__num { width: 52px; height: 52px; font-size: 17px; margin-bottom: 20px; }
-  .rdp-hiw__title { font-size: 16px; }
-  .rdp-hiw__text { max-width: none; }
+  .rdp-hiw__header { margin-bottom: 40px; }
+  .rdp-hiw__steps { grid-template-columns: 1fr; gap: 12px; }
+  .rdp-hiw__step {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 0;
+    text-align: left;
+    padding: 18px 16px;
+    background: var(--rdp-white);
+    border: 1px solid var(--rdp-border);
+    border-radius: var(--rdp-r);
+  }
+  .rdp-hiw__num {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: center;
+    width: 38px; height: 38px;
+    font-size: 13px;
+    margin-bottom: 0;
+  }
+  .rdp-hiw__icon { display: none; }
+  .rdp-hiw__title { grid-column: 2; grid-row: 1; font-size: 15px; margin-bottom: 4px; }
+  .rdp-hiw__text { grid-column: 2; grid-row: 2; max-width: none; font-size: 13px; }
 
   /* ── Features ── */
-  .rdp-feat-card { padding: 22px 20px; }
+  .rdp-feat-card { padding: 20px 18px; }
 
   /* ── Dashboard ── */
-  .rdp-dash__header { margin-bottom: 36px; }
-  .rdp-full-main { padding: 16px; }
+  .rdp-dash__header { margin-bottom: 32px; }
+  .rdp-full-main { padding: 14px; }
   .rdp-full-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .rdp-full-kpi { padding: 11px 12px; }
   .rdp-full-kpi__val { font-size: 18px; }
   .rdp-full-alert { padding: 10px 12px; gap: 8px; }
-  .rdp-full-alert__msg { font-size: 12px; }
-  .rdp-full-alert__cta { font-size: 11px; padding: 6px 10px; }
+  .rdp-full-alert__msg { font-size: 12px; line-height: 1.5; }
+  .rdp-full-alert__cta { display: none; }
   .rdp-dash__browser { margin: 0 -20px; border-radius: 0; border-left: none; border-right: none; }
 
   /* ── SF ── */
   .rdp-sf__item { flex-direction: column; gap: 10px; padding: 18px 20px; }
 
   /* ── Savings ── */
-  .rdp-savings__header { margin-bottom: 36px; }
+  .rdp-savings__header { margin-bottom: 32px; }
   .rdp-save-card__img-wrap { height: 180px; }
 
   /* ── Benefits ── */
-  .rdp-benefits__list { gap: 20px; margin-top: 28px; }
+  .rdp-benefits__list { gap: 18px; margin-top: 24px; }
 
   /* ── Lifestyle ── */
-  .rdp-lifestyle__header { margin-bottom: 36px; }
+  .rdp-lifestyle__header { margin-bottom: 32px; }
+  .rdp-lifestyle__main { aspect-ratio: 3/2; }
+  .rdp-lifestyle__main-fallback { aspect-ratio: 3/2; }
   .rdp-lifestyle__sub { display: none; }
   .rdp-lifestyle__sub-fallback { display: none; }
 
   /* ── Testimonials ── */
-  .rdp-testimonials__header { margin-bottom: 36px; }
-  .rdp-testimonial { padding: 22px 20px; gap: 16px; }
+  .rdp-testimonials__header { margin-bottom: 32px; }
+  .rdp-testimonial { padding: 20px 18px; gap: 14px; }
 
   /* ── FAQ ── */
-  .rdp-faq__q { font-size: 15px; padding: 18px 0; }
+  .rdp-faq__q { font-size: 15px; padding: 16px 0; }
 
   /* ── CTA ── */
+  .rdp-cta__h2 { font-size: clamp(28px, 8vw, 38px); }
   .rdp-cta__inner { padding: 0 20px; }
-  .rdp-cta__sub { font-size: 15px; margin-bottom: 32px; }
+  .rdp-cta__sub { font-size: 14px; margin-bottom: 28px; }
+  .rdp-cta__actions { flex-direction: column; align-items: stretch; }
   .rdp-cta__actions .rdp-btn { width: 100%; justify-content: center; }
 
   /* ── Footer ── */
-  .rdp-footer { padding-top: 48px; }
-  .rdp-footer__top { grid-template-columns: 1fr; gap: 32px; padding: 0 20px 40px; }
+  .rdp-footer { padding-top: 44px; }
+  .rdp-footer__top { grid-template-columns: 1fr; gap: 28px; padding: 0 20px 36px; }
   .rdp-footer__brand { grid-column: auto; }
-  .rdp-footer__bottom { padding: 18px 20px; flex-direction: column; align-items: flex-start; gap: 10px; }
-  .rdp-footer__legal { gap: 16px; flex-wrap: wrap; }
+  .rdp-footer__bottom { padding: 16px 20px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .rdp-footer__legal { gap: 14px; flex-wrap: wrap; }
 }
