@@ -1144,9 +1144,24 @@
   .rdp-hero__actions .rdp-btn { width: 100%; justify-content: center; }
   .rdp-hero__trust { gap: 10px; flex-wrap: wrap; }
   .rdp-hero__trust-divider { display: none; }
-  .rdp-hero__right { height: 240px; }
-  .rdp-hero__app-wrap { width: 420px; }
-  .rdp-hero__app-body { grid-template-columns: 1fr; }
+
+  /* App preview — full-width visible block below hero text */
+  .rdp-hero__right {
+    height: auto;
+    overflow: visible;
+    margin: 24px -20px 0;
+    padding-bottom: 40px;
+  }
+  .rdp-hero__app-wrap {
+    position: relative;
+    left: auto; top: auto;
+    transform: none;
+    width: 100%;
+  }
+  .rdp-hero__app-body {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
   .rdp-hero__sidebar { display: none; }
 
   /* ── Platforms — horizontal scroll, no orphan wrap ── */
