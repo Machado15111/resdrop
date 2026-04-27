@@ -3,10 +3,12 @@
   "configurations": [
     {
       "name": "repricehq",
-      "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["/Users/antoniomachado/Library/Mobile Documents/com~apple~CloudDocs/Claude AI/repricehq/.claude/start-dev.sh"],
+      "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/node",
+      "runtimeArgs": ["/tmp/serve-resdrop.js"],
       "port": 5173,
-      "autoPort": false
+      "env": {
+        "PATH": "/Users/antoniomachado/.local/node/bin:/usr/local/bin:/usr/bin:/bin"
+      }
     },
     {
       "name": "backend",
@@ -16,6 +18,12 @@
       "env": {
         "PATH": "/Users/antoniomachado/.local/node/bin:/usr/local/bin:/usr/bin:/bin"
       }
+    },
+    {
+      "name": "brand-kit",
+      "runtimeExecutable": "/Users/antoniomachado/.local/node/bin/node",
+      "runtimeArgs": ["-e", "require('http').createServer((req,res)=>{require('fs').readFile('/tmp/voyu-preview/index.html',(e,d)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end(d)})}).listen(8099)"],
+      "port": 8099
     }
   ]
 }
