@@ -2,4 +2,4 @@
 cmds = ["npm install", "cd server && npm install"]
 
 [start]
-cmd = "node server/index.js"
+cmd = "node server/run-migration.js && node server/index.js"
