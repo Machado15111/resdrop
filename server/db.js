@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import postgres from 'postgres';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -7,18 +7,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '.env') });
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // use service_role key on server
+const connectionString = process.env.DATABASE_URL;
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('[DB] Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in server/.env');
+if (!connectionString) {
+  console.error('[DB] Missing DATABASE_URL environment variable');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const sql = postgres(connectionString, {
+  ssl: 'require',
+  max: 10,
+  idle_timeout: 30,
+  connect_timeout: 15,
+  transform: { undefined: null },
+});
+
+console.log('[DB] Connected via postgres driver');
 
 // ─── Camel ↔ Snake helpers ─────────────────────────────────
-// DB uses snake_case, app uses camelCase
 
 function toSnake(obj) {
   const map = {
@@ -100,23 +106,30 @@ function toCamel(row) {
   for (const [k, v] of Object.entries(row)) {
     out[map[k] || k] = v;
   }
-  // Compat: frontend uses .bookings, DB uses bookings_count
-  if (out.bookingsCount !== undefined) {
-    out.bookings = out.bookingsCount;
-  }
+  if (out.bookingsCount !== undefined) out.bookings = out.bookingsCount;
   return out;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+// Build SET clause for UPDATE from a snake_case object
+// Returns: { setClauses: string, values: array }
+function buildSet(obj) {
+  const entries = Object.entries(obj).filter(([, v]) => v !== undefined);
+  const parts = entries.map(([k], i) => `${k} = $${i + 1}`);
+  return { clause: parts.join(', '), values: entries.map(([, v]) => v) };
 }
 
 // ─── Users ──────────────────────────────────────────────────
 
 export async function getUserWithPassword(email) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', email.toLowerCase())
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getUserWithPassword:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const rows = await sql`SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getUserWithPassword:', e.message);
+    return null;
+  }
 }
 
 export async function getUser(email) {
@@ -126,24 +139,24 @@ export async function getUser(email) {
 }
 
 export async function createUser(email, name) {
-  const { data, error } = await supabase
-    .from('users')
-    .insert({ email: email.toLowerCase(), name: name || 'Guest' })
-    .select()
-    .single();
-  if (error) { console.error('[DB] createUser:', error.message); return null; }
-  return toCamel(data);
+  try {
+    const rows = await sql`
+      INSERT INTO users (email, name)
+      VALUES (${email.toLowerCase()}, ${name || 'Guest'})
+      RETURNING *
+    `;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createUser:', e.message);
+    return null;
+  }
 }
 
 export async function getOrCreateUser(email, name) {
   if (!email) return null;
   let user = await getUser(email);
   if (user) {
-    // Update last_active
-    await supabase
-      .from('users')
-      .update({ last_active: new Date().toISOString() })
-      .eq('email', email.toLowerCase());
+    await sql`UPDATE users SET last_active = NOW() WHERE email = ${email.toLowerCase()}`;
     user.lastActive = new Date().toISOString();
     return user;
   }
@@ -151,500 +164,489 @@ export async function getOrCreateUser(email, name) {
 }
 
 export async function updateUser(email, updates) {
-  const { data, error } = await supabase
-    .from('users')
-    .update(toSnake(updates))
-    .eq('email', email.toLowerCase())
-    .select()
-    .single();
-  if (error) console.error('[DB] updateUser:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const snake = toSnake(updates);
+    const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
+    if (entries.length === 0) return await getUser(email);
+    const rows = await sql`
+      UPDATE users SET ${sql(Object.fromEntries(entries))}
+      WHERE email = ${email.toLowerCase()}
+      RETURNING *
+    `;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateUser:', e.message);
+    return null;
+  }
 }
 
 export async function updateUserStats(email) {
   if (!email) return;
-  const key = email.toLowerCase();
-  // Count bookings and sum savings
-  const { data: bookingRows } = await supabase
-    .from('bookings')
-    .select('total_savings')
-    .eq('email', key);
-
-  const count = bookingRows?.length || 0;
-  const savings = (bookingRows || []).reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
-
-  await supabase
-    .from('users')
-    .update({ bookings_count: count, total_savings: Math.round(savings * 100) / 100 })
-    .eq('email', key);
+  try {
+    const key = email.toLowerCase();
+    const rows = await sql`SELECT total_savings FROM bookings WHERE email = ${key}`;
+    const count = rows.length;
+    const savings = rows.reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+    await sql`
+      UPDATE users SET bookings_count = ${count}, total_savings = ${Math.round(savings * 100) / 100}
+      WHERE email = ${key}
+    `;
+  } catch (e) {
+    console.error('[DB] updateUserStats:', e.message);
+  }
 }
 
 export async function getAllUsers(limit = 50) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .order('joined_at', { ascending: false })
-    .limit(limit);
-  if (error) console.error('[DB] getAllUsers:', error.message);
-  return (data || []).map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+  try {
+    const rows = await sql`SELECT * FROM users ORDER BY joined_at DESC LIMIT ${limit}`;
+    return rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+  } catch (e) {
+    console.error('[DB] getAllUsers:', e.message);
+    return [];
+  }
 }
 
 export async function getUserCount() {
-  const { count, error } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true });
-  if (error) console.error('[DB] getUserCount:', error.message);
-  return count || 0;
+  try {
+    const rows = await sql`SELECT COUNT(*)::int AS count FROM users`;
+    return rows[0]?.count || 0;
+  } catch (e) {
+    console.error('[DB] getUserCount:', e.message);
+    return 0;
+  }
 }
 
 // ─── Bookings ───────────────────────────────────────────────
 
 export async function getBooking(id) {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getBooking:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const rows = await sql`SELECT * FROM bookings WHERE id = ${id} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getBooking:', e.message);
+    return null;
+  }
 }
 
 export async function getBookingsByEmail(email) {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('email', email.toLowerCase())
-    .order('created_at', { ascending: false });
-  if (error) console.error('[DB] getBookingsByEmail:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    const rows = await sql`SELECT * FROM bookings WHERE email = ${email.toLowerCase()} ORDER BY created_at DESC`;
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getBookingsByEmail:', e.message);
+    return [];
+  }
 }
 
 export async function getAllBookings() {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) console.error('[DB] getAllBookings:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getAllBookings:', e.message);
+    return [];
+  }
 }
 
-// Core booking columns that always exist
-const BOOKING_CORE_COLUMNS = [
-  'id', 'hotel_name', 'destination', 'checkin_date', 'checkout_date',
-  'room_type', 'original_price', 'guest_name', 'confirmation_number',
-  'email', 'status', 'created_at', 'updated_at', 'last_checked',
-  'best_price', 'best_source', 'total_savings',
-  'notes', 'rate_type', 'check_count', 'api_mode',
-  'price_history', 'alerts', 'change_history', 'latest_results',
-  'source', 'alternatives',
-];
-
-// Extra columns added by migrations (may not exist yet)
-const BOOKING_EXTRA_COLUMNS = [
-  'potential_savings', 'room_type_custom',
-  'raw_source', 'parse_method', 'missing_fields',
-  'cancellation_policy', 'field_confidence',
-];
-
 export async function createBooking(booking) {
-  const raw = toSnake(booking);
-
-  // Try with all columns first (includes migration columns)
-  const allCols = [...BOOKING_CORE_COLUMNS, ...BOOKING_EXTRA_COLUMNS];
-  const row = {};
-  for (const col of allCols) {
-    if (raw[col] !== undefined) row[col] = raw[col];
-  }
-
-  const { data, error } = await supabase
-    .from('bookings')
-    .insert(row)
-    .select()
-    .single();
-
-  if (error) {
-    // If error is about unknown column, retry with only core columns
-    if (error.message?.includes('column') || error.code === '42703') {
-      console.warn('[DB] createBooking: retrying with core columns only');
-      const coreRow = {};
-      for (const col of BOOKING_CORE_COLUMNS) {
-        if (raw[col] !== undefined) coreRow[col] = raw[col];
-      }
-      const { data: d2, error: e2 } = await supabase
-        .from('bookings')
-        .insert(coreRow)
-        .select()
-        .single();
-      if (e2) { console.error('[DB] createBooking (core):', e2.message, e2.details); return null; }
-      return toCamel(d2);
-    }
-    console.error('[DB] createBooking:', error.message, error.details, error.hint);
+  try {
+    const raw = toSnake(booking);
+    // Filter to only defined values
+    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createBooking:', e.message);
     return null;
   }
-  return toCamel(data);
 }
 
 export async function updateBooking(id, updates) {
-  const row = toSnake(updates);
-  const { data, error } = await supabase
-    .from('bookings')
-    .update(row)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) console.error('[DB] updateBooking:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const raw = toSnake(updates);
+    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+    if (Object.keys(row).length === 0) return await getBooking(id);
+    const rows = await sql`UPDATE bookings SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateBooking:', e.message);
+    return null;
+  }
 }
 
 export async function getBookingCount() {
-  const { count, error } = await supabase
-    .from('bookings')
-    .select('*', { count: 'exact', head: true });
-  if (error) console.error('[DB] getBookingCount:', error.message);
-  return count || 0;
+  try {
+    const rows = await sql`SELECT COUNT(*)::int AS count FROM bookings`;
+    return rows[0]?.count || 0;
+  } catch (e) {
+    console.error('[DB] getBookingCount:', e.message);
+    return 0;
+  }
 }
 
-// ─── Stats helpers ──────────────────────────────────────────
-
 export async function getStats(email) {
-  let query = supabase.from('bookings').select('total_savings, potential_savings, status');
-  if (email) query = query.eq('email', email.toLowerCase());
-  const { data, error } = await query;
-  if (error) { console.error('[DB] getStats:', error.message); return null; }
+  try {
+    let rows;
+    if (email) {
+      rows = await sql`SELECT total_savings, potential_savings, status FROM bookings WHERE email = ${email.toLowerCase()}`;
+    } else {
+      rows = await sql`SELECT total_savings, potential_savings, status FROM bookings`;
+    }
+    const allBookings = rows;
+    const confirmedSavings = allBookings
+      .filter(b => b.status === 'confirmed_savings')
+      .reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+    const potentialSavings = allBookings
+      .filter(b => ['lower_fare_found', 'savings_found'].includes(b.status))
+      .reduce((sum, b) => sum + (parseFloat(b.potential_savings) || parseFloat(b.total_savings) || 0), 0);
+    const dropsFound = allBookings.filter(b =>
+      ['lower_fare_found', 'savings_found', 'confirmed_savings', 'pending_user_confirmation'].includes(b.status)
+    ).length;
+    const total = allBookings.length;
+    return {
+      totalBookings: total, savingsFound: dropsFound,
+      confirmedSavings: Math.round(confirmedSavings * 100) / 100,
+      potentialSavings: Math.round(potentialSavings * 100) / 100,
+      totalSavings: Math.round(confirmedSavings * 100) / 100,
+      avgSavings: dropsFound > 0 ? Math.round(((confirmedSavings + potentialSavings) / dropsFound) * 100) / 100 : 0,
+      successRate: total > 0 ? Math.round((dropsFound / total) * 100) : 0,
+    };
+  } catch (e) {
+    console.error('[DB] getStats:', e.message);
+    return null;
+  }
+}
 
-  const allBookings = data || [];
-  const confirmedSavings = allBookings
-    .filter(b => b.status === 'confirmed_savings')
-    .reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
-  const potentialSavings = allBookings
-    .filter(b => ['lower_fare_found', 'savings_found'].includes(b.status))
-    .reduce((sum, b) => sum + (parseFloat(b.potential_savings) || parseFloat(b.total_savings) || 0), 0);
-  const dropsFound = allBookings.filter(b =>
-    ['lower_fare_found', 'savings_found', 'confirmed_savings', 'pending_user_confirmation'].includes(b.status)
-  ).length;
-  const total = allBookings.length;
+export async function deleteBooking(id) {
+  try {
+    await sql`DELETE FROM fare_alerts WHERE booking_id = ${id}`;
+    await sql`DELETE FROM savings_confirmations WHERE booking_id = ${id}`;
+    await sql`DELETE FROM activity_log WHERE entity_id = ${id} AND entity_type = 'booking'`;
+    await sql`DELETE FROM bookings WHERE id = ${id}`;
+    return true;
+  } catch (e) {
+    console.error('[DB] deleteBooking:', e.message);
+    return false;
+  }
+}
 
-  return {
-    totalBookings: total,
-    savingsFound: dropsFound,
-    confirmedSavings: Math.round(confirmedSavings * 100) / 100,
-    potentialSavings: Math.round(potentialSavings * 100) / 100,
-    totalSavings: Math.round(confirmedSavings * 100) / 100, // backward compat: total = confirmed only
-    avgSavings: dropsFound > 0 ? Math.round(((confirmedSavings + potentialSavings) / dropsFound) * 100) / 100 : 0,
-    successRate: total > 0 ? Math.round((dropsFound / total) * 100) : 0,
-  };
+export async function getAdminBookings({ status, search, sort = 'created_at', order = 'desc', page = 1, limit = 50 } = {}) {
+  try {
+    const validSorts = ['created_at', 'hotel_name', 'original_price', 'total_savings', 'checkin_date', 'status'];
+    const sortCol = validSorts.includes(sort) ? sort : 'created_at';
+    const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
+    const offset = (page - 1) * limit;
+
+    let rows, countRows;
+    if (status && status !== 'all' && search) {
+      const s = `%${search.replace(/[%_\\]/g, '')}%`;
+      rows = await sql`SELECT * FROM bookings WHERE status = ${status} AND (hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s}) ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
+      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE status = ${status} AND (hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s})`;
+    } else if (status && status !== 'all') {
+      rows = await sql`SELECT * FROM bookings WHERE status = ${status} ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
+      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE status = ${status}`;
+    } else if (search) {
+      const s = `%${search.replace(/[%_\\]/g, '')}%`;
+      rows = await sql`SELECT * FROM bookings WHERE hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s} ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
+      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s}`;
+    } else {
+      rows = await sql`SELECT * FROM bookings ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
+      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings`;
+    }
+    return { bookings: rows.map(toCamel), total: countRows[0]?.count || 0, page, limit };
+  } catch (e) {
+    console.error('[DB] getAdminBookings:', e.message);
+    return { bookings: [], total: 0, page, limit };
+  }
 }
 
 // ─── Fare Alerts ─────────────────────────────────────────────
 
 export async function createFareAlert(alert) {
-  const row = toSnake(alert);
-  const { data, error } = await supabase
-    .from('fare_alerts')
-    .insert(row)
-    .select()
-    .single();
-  if (error) console.error('[DB] createFareAlert:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(alert)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO fare_alerts ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createFareAlert:', e.message);
+    return null;
+  }
 }
 
 export async function getAlertsByBooking(bookingId) {
-  const { data, error } = await supabase
-    .from('fare_alerts')
-    .select('*')
-    .eq('booking_id', bookingId)
-    .order('created_at', { ascending: false });
-  if (error) console.error('[DB] getAlertsByBooking:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    const rows = await sql`SELECT * FROM fare_alerts WHERE booking_id = ${bookingId} ORDER BY created_at DESC`;
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getAlertsByBooking:', e.message);
+    return [];
+  }
 }
 
 export async function getAlertsByEmail(email) {
-  // Join fare_alerts with bookings to filter by user email
-  const bookings = await getBookingsByEmail(email);
-  const bookingIds = bookings.map(b => b.id);
-  if (bookingIds.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from('fare_alerts')
-    .select('*')
-    .in('booking_id', bookingIds)
-    .order('created_at', { ascending: false })
-    .limit(100);
-  if (error) console.error('[DB] getAlertsByEmail:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    const bookings = await getBookingsByEmail(email);
+    const ids = bookings.map(b => b.id);
+    if (ids.length === 0) return [];
+    const rows = await sql`SELECT * FROM fare_alerts WHERE booking_id = ANY(${ids}) ORDER BY created_at DESC LIMIT 100`;
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getAlertsByEmail:', e.message);
+    return [];
+  }
 }
 
 // ─── Savings Confirmations ───────────────────────────────────
 
 export async function createSavingsConfirmation(confirmation) {
-  const row = toSnake(confirmation);
-  const { data, error } = await supabase
-    .from('savings_confirmations')
-    .insert(row)
-    .select()
-    .single();
-  if (error) console.error('[DB] createSavingsConfirmation:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(confirmation)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO savings_confirmations ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createSavingsConfirmation:', e.message);
+    return null;
+  }
 }
 
 export async function getConfirmationByBooking(bookingId) {
-  const { data, error } = await supabase
-    .from('savings_confirmations')
-    .select('*')
-    .eq('booking_id', bookingId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getConfirmationByBooking:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const rows = await sql`SELECT * FROM savings_confirmations WHERE booking_id = ${bookingId} ORDER BY created_at DESC LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getConfirmationByBooking:', e.message);
+    return null;
+  }
 }
 
 export async function updateUserConfirmedSavings(email) {
-  if (!email) return;
-  const key = email.toLowerCase();
-  const { data } = await supabase
-    .from('savings_confirmations')
-    .select('confirmed_savings')
-    .eq('user_email', key)
-    .eq('status', 'confirmed');
-
-  const total = (data || []).reduce((sum, c) => sum + (parseFloat(c.confirmed_savings) || 0), 0);
-  await supabase
-    .from('users')
-    .update({ confirmed_savings: Math.round(total * 100) / 100 })
-    .eq('email', key);
+  try {
+    const key = email.toLowerCase();
+    const rows = await sql`SELECT confirmed_savings FROM savings_confirmations WHERE user_email = ${key} AND status = 'confirmed'`;
+    const total = rows.reduce((sum, c) => sum + (parseFloat(c.confirmed_savings) || 0), 0);
+    await sql`UPDATE users SET confirmed_savings = ${Math.round(total * 100) / 100} WHERE email = ${key}`;
+  } catch (e) {
+    console.error('[DB] updateUserConfirmedSavings:', e.message);
+  }
 }
 
 // ─── Activity Log ────────────────────────────────────────────
 
 export async function logActivity(entityType, entityId, action, actorEmail, details = {}) {
-  const { error } = await supabase
-    .from('activity_log')
-    .insert({
-      entity_type: entityType,
-      entity_id: entityId,
-      action,
-      actor_email: actorEmail || null,
-      details,
-    });
-  if (error) console.error('[DB] logActivity:', error.message);
+  try {
+    await sql`
+      INSERT INTO activity_log (entity_type, entity_id, action, actor_email, details)
+      VALUES (${entityType}, ${entityId}, ${action}, ${actorEmail || null}, ${sql.json(details)})
+    `;
+  } catch (e) {
+    console.error('[DB] logActivity:', e.message);
+  }
 }
 
 export async function getActivityLog(entityType, entityId) {
-  const { data, error } = await supabase
-    .from('activity_log')
-    .select('*')
-    .eq('entity_type', entityType)
-    .eq('entity_id', entityId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) console.error('[DB] getActivityLog:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    const rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${entityType} AND entity_id = ${entityId} ORDER BY created_at DESC LIMIT 50`;
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getActivityLog:', e.message);
+    return [];
+  }
 }
 
 export async function getGlobalActivityLog(limit = 200, filters = {}) {
-  let query = supabase
-    .from('activity_log')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (filters.entityType) query = query.eq('entity_type', filters.entityType);
-  if (filters.action) query = query.eq('action', filters.action);
-  query = query.limit(limit);
-  const { data, error } = await query;
-  if (error) console.error('[DB] getGlobalActivityLog:', error.message);
-  return (data || []).map(toCamel);
-}
-
-export async function deleteBooking(id) {
-  // Delete related fare_alerts first
-  await supabase.from('fare_alerts').delete().eq('booking_id', id);
-  // Delete related savings_confirmations
-  await supabase.from('savings_confirmations').delete().eq('booking_id', id);
-  // Delete related activity_log
-  await supabase.from('activity_log').delete().eq('entity_id', id).eq('entity_type', 'booking');
-  // Delete the booking
-  const { error } = await supabase.from('bookings').delete().eq('id', id);
-  if (error) { console.error('[DB] deleteBooking:', error.message); return false; }
-  return true;
-}
-
-export async function getAdminBookings({ status, search, sort = 'created_at', order = 'desc', page = 1, limit = 50 } = {}) {
-  let query = supabase.from('bookings').select('*', { count: 'exact' });
-  if (status && status !== 'all') query = query.eq('status', status);
-  if (search) {
-    // Security: Sanitize search to prevent PostgREST operator injection
-    const safeSearch = search.replace(/[%_\\(),.]/g, '');
-    if (safeSearch.length > 0) {
-      query = query.or(`hotel_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,destination.ilike.%${safeSearch}%`);
+  try {
+    let rows;
+    if (filters.entityType && filters.action) {
+      rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${filters.entityType} AND action = ${filters.action} ORDER BY created_at DESC LIMIT ${limit}`;
+    } else if (filters.entityType) {
+      rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${filters.entityType} ORDER BY created_at DESC LIMIT ${limit}`;
+    } else if (filters.action) {
+      rows = await sql`SELECT * FROM activity_log WHERE action = ${filters.action} ORDER BY created_at DESC LIMIT ${limit}`;
+    } else {
+      rows = await sql`SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ${limit}`;
     }
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getGlobalActivityLog:', e.message);
+    return [];
   }
-  const validSorts = ['created_at', 'hotel_name', 'original_price', 'total_savings', 'checkin_date', 'status'];
-  const sortCol = validSorts.includes(sort) ? sort : 'created_at';
-  query = query.order(sortCol, { ascending: order === 'asc' });
-  const from = (page - 1) * limit;
-  query = query.range(from, from + limit - 1);
-  const { data, count, error } = await query;
-  if (error) console.error('[DB] getAdminBookings:', error.message);
-  return { bookings: (data || []).map(toCamel), total: count || 0, page, limit };
 }
 
 // ─── Special Fare Cases ─────────────────────────────────────
 
 export async function createSpecialFare(fareCase) {
-  const row = toSnake(fareCase);
-  const { data, error } = await supabase
-    .from('special_fare_cases')
-    .insert(row)
-    .select()
-    .single();
-  if (error) { console.error('[DB] createSpecialFare:', error.message); return null; }
-  return toCamel(data);
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(fareCase)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO special_fare_cases ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createSpecialFare:', e.message);
+    return null;
+  }
 }
 
 export async function getSpecialFare(id) {
-  const { data, error } = await supabase
-    .from('special_fare_cases')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getSpecialFare:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const rows = await sql`SELECT * FROM special_fare_cases WHERE id = ${id} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getSpecialFare:', e.message);
+    return null;
+  }
 }
 
 export async function getAllSpecialFares(filters = {}) {
-  let query = supabase.from('special_fare_cases').select('*').order('created_at', { ascending: false });
-  if (filters.status) query = query.eq('status', filters.status);
-  if (filters.assignedAgent) query = query.eq('assigned_agent', filters.assignedAgent);
-  const { data, error } = await query.limit(200);
-  if (error) console.error('[DB] getAllSpecialFares:', error.message);
-  return (data || []).map(toCamel);
+  try {
+    let rows;
+    if (filters.status && filters.assignedAgent) {
+      rows = await sql`SELECT * FROM special_fare_cases WHERE status = ${filters.status} AND assigned_agent = ${filters.assignedAgent} ORDER BY created_at DESC LIMIT 200`;
+    } else if (filters.status) {
+      rows = await sql`SELECT * FROM special_fare_cases WHERE status = ${filters.status} ORDER BY created_at DESC LIMIT 200`;
+    } else if (filters.assignedAgent) {
+      rows = await sql`SELECT * FROM special_fare_cases WHERE assigned_agent = ${filters.assignedAgent} ORDER BY created_at DESC LIMIT 200`;
+    } else {
+      rows = await sql`SELECT * FROM special_fare_cases ORDER BY created_at DESC LIMIT 200`;
+    }
+    return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getAllSpecialFares:', e.message);
+    return [];
+  }
 }
 
 export async function updateSpecialFare(id, updates) {
-  const row = toSnake({ ...updates, updatedAt: new Date().toISOString() });
-  const { data, error } = await supabase
-    .from('special_fare_cases')
-    .update(row)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) console.error('[DB] updateSpecialFare:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const raw = toSnake({ ...updates, updatedAt: new Date().toISOString() });
+    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+    const rows = await sql`UPDATE special_fare_cases SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateSpecialFare:', e.message);
+    return null;
+  }
 }
 
 // ─── Document Uploads ────────────────────────────────────────
 
 export async function createDocumentUpload(doc) {
-  const row = toSnake(doc);
-  const { data, error } = await supabase
-    .from('document_uploads')
-    .insert(row)
-    .select()
-    .single();
-  if (error) { console.error('[DB] createDocumentUpload:', error.message); return null; }
-  return toCamel(data);
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(doc)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO document_uploads ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createDocumentUpload:', e.message);
+    return null;
+  }
 }
 
 export async function getDocumentUpload(id) {
-  const { data, error } = await supabase
-    .from('document_uploads')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getDocumentUpload:', error.message);
-  return data ? toCamel(data) : null;
+  try {
+    const rows = await sql`SELECT * FROM document_uploads WHERE id = ${id} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getDocumentUpload:', e.message);
+    return null;
+  }
 }
 
 export async function updateDocumentUpload(id, updates) {
-  const row = toSnake(updates);
-  const { data, error } = await supabase
-    .from('document_uploads')
-    .update(row)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) console.error('[DB] updateDocumentUpload:', error.message);
-  return data ? toCamel(data) : null;
-}
-
-// ─── Run Migrations ──────────────────────────────────────────
-
-export async function runMigration(sql) {
-  const { error } = await supabase.rpc('exec_sql', { sql_text: sql });
-  if (error) {
-    // Fallback: try individual statements
-    console.error('[DB] Migration via RPC failed:', error.message);
-    return false;
+  try {
+    const raw = toSnake(updates);
+    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+    if (Object.keys(row).length === 0) return await getDocumentUpload(id);
+    const rows = await sql`UPDATE document_uploads SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateDocumentUpload:', e.message);
+    return null;
   }
-  return true;
 }
 
 // ─── Sessions ─────────────────────────────────────────────
 
 export async function createSession(email, token) {
-  const { data, error } = await supabase
-    .from('sessions')
-    .insert({ user_email: email.toLowerCase(), token })
-    .select()
-    .single();
-  if (error) console.error('[DB] createSession:', error.message);
-  return data;
+  try {
+    const rows = await sql`
+      INSERT INTO sessions (user_email, token)
+      VALUES (${email.toLowerCase()}, ${token})
+      RETURNING *
+    `;
+    return rows[0];
+  } catch (e) {
+    console.error('[DB] createSession:', e.message);
+    return null;
+  }
 }
 
 export async function getSessionByToken(token) {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('*')
-    .eq('token', token)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getSession:', error.message);
-  return data;
+  try {
+    const rows = await sql`
+      SELECT * FROM sessions
+      WHERE token = ${token} AND expires_at > NOW()
+      LIMIT 1
+    `;
+    return rows[0] || null;
+  } catch (e) {
+    console.error('[DB] getSession:', e.message);
+    return null;
+  }
 }
 
 export async function deleteSession(token) {
-  await supabase.from('sessions').delete().eq('token', token);
+  try {
+    await sql`DELETE FROM sessions WHERE token = ${token}`;
+  } catch (e) {
+    console.error('[DB] deleteSession:', e.message);
+  }
 }
 
 export async function deleteUserSessions(email) {
-  await supabase.from('sessions').delete().eq('user_email', email.toLowerCase());
+  try {
+    await sql`DELETE FROM sessions WHERE user_email = ${email.toLowerCase()}`;
+  } catch (e) {
+    console.error('[DB] deleteUserSessions:', e.message);
+  }
 }
 
 // ─── Password Resets ──────────────────────────────────────
 
 export async function createPasswordReset(email, token) {
-  await supabase
-    .from('password_resets')
-    .update({ used: true })
-    .eq('user_email', email.toLowerCase())
-    .eq('used', false);
-
-  const { data, error } = await supabase
-    .from('password_resets')
-    .insert({ user_email: email.toLowerCase(), token })
-    .select()
-    .single();
-  if (error) console.error('[DB] createPasswordReset:', error.message);
-  return data;
+  try {
+    const key = email.toLowerCase();
+    await sql`UPDATE password_resets SET used = true WHERE user_email = ${key} AND used = false`;
+    const rows = await sql`
+      INSERT INTO password_resets (user_email, token)
+      VALUES (${key}, ${token})
+      RETURNING *
+    `;
+    return rows[0];
+  } catch (e) {
+    console.error('[DB] createPasswordReset:', e.message);
+    return null;
+  }
 }
 
 export async function getPasswordReset(token) {
-  const { data, error } = await supabase
-    .from('password_resets')
-    .select('*')
-    .eq('token', token)
-    .eq('used', false)
-    .gt('expires_at', new Date().toISOString())
-    .single();
-  if (error && error.code !== 'PGRST116') console.error('[DB] getPasswordReset:', error.message);
-  return data;
+  try {
+    const rows = await sql`
+      SELECT * FROM password_resets
+      WHERE token = ${token} AND used = false AND expires_at > NOW()
+      LIMIT 1
+    `;
+    return rows[0] || null;
+  } catch (e) {
+    console.error('[DB] getPasswordReset:', e.message);
+    return null;
+  }
 }
 
 export async function markPasswordResetUsed(token) {
-  await supabase
-    .from('password_resets')
-    .update({ used: true })
-    .eq('token', token);
+  try {
+    await sql`UPDATE password_resets SET used = true WHERE token = ${token}`;
+  } catch (e) {
+    console.error('[DB] markPasswordResetUsed:', e.message);
+  }
 }
 
-export { supabase };
+// ─── Compat: expose sql client for index.js direct queries ────
+export { sql as supabase };

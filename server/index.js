@@ -827,38 +827,25 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // Try full insert first; fall back to minimal if optional columns are missing
-  let data, error;
-  ({ data, error } = await db.supabase
-    .from('users')
-    .insert({
-      email: email.toLowerCase(),
-      name: name || 'Guest',
-      password_hash: passwordHash,
-      phone: phone || null,
-      currency: currency || 'BRL',
-      country: country || null,
-    })
-    .select()
-    .single());
-
-  if (error) {
-    console.error('[Signup] Full insert failed:', error.message, error.code);
-    // Retry with only the columns that are guaranteed to exist
-    ({ data, error } = await db.supabase
-      .from('users')
-      .insert({
-        email: email.toLowerCase(),
-        name: name || 'Guest',
-        password_hash: passwordHash,
-      })
-      .select()
-      .single());
+  // Insert new user — db.supabase is the postgres sql client
+  let newUser;
+  try {
+    const rows = await db.supabase`
+      INSERT INTO users (email, name, password_hash, phone, currency, country)
+      VALUES (
+        ${email.toLowerCase()}, ${name || 'Guest'}, ${passwordHash},
+        ${phone || null}, ${currency || 'BRL'}, ${country || null}
+      )
+      RETURNING *
+    `;
+    newUser = rows[0];
+  } catch (e) {
+    console.error('[Signup] Insert failed:', e.message);
+    return res.status(500).json({ error: 'Failed to create user' });
   }
 
-  if (error) {
-    console.error('[Signup] Minimal insert also failed:', error.message, error.code);
-    return res.status(500).json({ error: 'Failed to create user', detail: error.message });
+  if (!newUser) {
+    return res.status(500).json({ error: 'Failed to create user' });
   }
 
   const token = crypto.randomBytes(32).toString('hex');
