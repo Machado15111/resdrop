@@ -263,14 +263,14 @@
 .rdp-hero__left {
   background: var(--rdp-bg);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
 }
 
 .rdp-hero__left-inner {
   width: 100%;
   max-width: 540px;
-  padding: 48px 56px 48px 40px;
+  padding: 80px 56px 80px 40px;
 }
 
 .rdp-hero__h1 {
@@ -322,9 +322,9 @@
 .rdp-hero__right {
   background: #EDF2EC;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   overflow: hidden;
-  padding: 48px 0 48px 52px;
+  padding: 80px 0 48px 52px;
 }
 
 /* ── Hero dashboard window ──────────────────────────────── */
