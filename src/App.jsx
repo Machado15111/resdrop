@@ -26,7 +26,6 @@ import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, Admin
 import PremiumLanding from './components/PremiumLanding';
 import TravelerLanding from './components/TravelerLanding';
 import ResDroppLanding from './components/ResDroppLanding';
-import ResDroppLogin from './components/ResDroppLogin';
 
 
 function LayoutWithHeader() {
@@ -87,16 +86,12 @@ function App() {
           isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLanding />
         } />
 
-        {/* Premium standalone login — no app header */}
-        <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLogin />
-        } />
-
         {/* All other routes — with header */}
         <Route element={<LayoutWithHeader />}>
 
           {/* Auth routes — redirect if already logged in */}
           <Route element={<PublicOnlyRoute />}>
+            <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
           </Route>
 
