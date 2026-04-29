@@ -256,20 +256,21 @@
 .rdp-hero {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  min-height: calc(100vh - 62px);
   overflow: hidden;
 }
 
 .rdp-hero__left {
   background: var(--rdp-bg);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
 }
 
 .rdp-hero__left-inner {
   width: 100%;
   max-width: 540px;
-  padding: 72px 56px 72px 40px;
+  padding: 48px 56px 48px 40px;
 }
 
 .rdp-hero__h1 {
@@ -321,9 +322,9 @@
 .rdp-hero__right {
   background: #EDF2EC;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
-  padding: 72px 0 72px 52px;
+  padding: 48px 0 48px 52px;
 }
 
 /* ── Hero dashboard window ──────────────────────────────── */
