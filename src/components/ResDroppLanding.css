@@ -3,11 +3,12 @@
    Font: Manrope
    ═══════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+/* Fonts loaded via index.html — Inter + Inter Tight */
 
 /* ── Variables ──────────────────────────────────────────── */
 :root {
-  --rdp-font:       'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --rdp-font:       'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --rdp-font-head:  'Inter Tight', 'Inter', -apple-system, sans-serif;
 
   --rdp-bg:         #FFFFFF;
   --rdp-bg-2:       #F7F6F3;
@@ -19,9 +20,9 @@
   --rdp-green-bd:   #C4DDD0;
   --rdp-green-dark: #14492B;
 
-  --rdp-text:       #111111;
+  --rdp-text:       #0A0A0A;
   --rdp-text-2:     #3C3C3C;
-  --rdp-text-3:     #696969;
+  --rdp-text-3:     #6B6B6B;
   --rdp-text-4:     #9C9C9C;
 
   --rdp-border:     #E5E3DE;
@@ -36,9 +37,10 @@
   --rdp-sh-md:      0 4px 16px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.04);
   --rdp-sh-lg:      0 8px 32px rgba(0,0,0,.10), 0 2px 6px rgba(0,0,0,.05);
 
-  --rdp-w:          1080px;
+  --rdp-w:          1140px;
   --rdp-pad:        40px;
   --rdp-section:    96px;
+  --rdp-nav-h:      72px;
 }
 
 /* ── Reset ──────────────────────────────────────────────── */
@@ -81,10 +83,11 @@
 }
 
 .rdp-h2 {
+  font-family: var(--rdp-font-head);
   font-size: clamp(28px, 3.8vw, 44px);
   font-weight: 800;
-  line-height: 1.13;
-  letter-spacing: -0.03em;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
   color: var(--rdp-text);
 }
 
@@ -126,8 +129,15 @@
   background: var(--rdp-green);
   color: #fff;
   border-color: var(--rdp-green);
+  box-shadow: 0 1px 3px rgba(26,92,55,.25), inset 0 1px 0 rgba(255,255,255,.08);
 }
-.rdp-btn--green:hover { background: var(--rdp-green-mid); border-color: var(--rdp-green-mid); }
+.rdp-btn--green:hover {
+  background: var(--rdp-green-mid);
+  border-color: var(--rdp-green-mid);
+  box-shadow: 0 4px 12px rgba(26,92,55,.30), inset 0 1px 0 rgba(255,255,255,.08);
+  transform: translateY(-1px);
+}
+.rdp-btn--green:active { transform: translateY(0); }
 
 .rdp-btn--white {
   background: #fff;
@@ -138,10 +148,14 @@
 
 .rdp-btn--outline {
   background: transparent;
-  color: var(--rdp-text);
-  border-color: var(--rdp-border-2);
+  color: var(--rdp-text-2);
+  border-color: var(--rdp-border);
 }
-.rdp-btn--outline:hover { border-color: var(--rdp-text-3); background: var(--rdp-bg-2); }
+.rdp-btn--outline:hover {
+  border-color: var(--rdp-text-3);
+  background: var(--rdp-bg-2);
+  color: var(--rdp-text);
+}
 
 .rdp-btn--ghost-light {
   background: transparent;
@@ -169,33 +183,34 @@
 .rdp-nav__inner {
   display: flex;
   align-items: center;
-  height: 62px;
+  height: var(--rdp-nav-h);
   padding: 0 var(--rdp-pad);
   max-width: var(--rdp-w);
   margin: 0 auto;
-  gap: 28px;
+  gap: 32px;
 }
 
 .rdp-nav__logo {
   display: flex;
   align-items: center;
   gap: 9px;
+  font-family: var(--rdp-font-head);
   font-size: 17px;
   font-weight: 800;
   color: var(--rdp-text);
   text-decoration: none;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   flex-shrink: 0;
 }
 
 .rdp-nav__links {
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 30px;
   flex: 1;
 }
 .rdp-nav__links a {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--rdp-text-3);
   text-decoration: none;
@@ -203,10 +218,10 @@
 }
 .rdp-nav__links a:hover { color: var(--rdp-text); }
 
-.rdp-nav__actions { display: flex; align-items: center; gap: 10px; }
+.rdp-nav__actions { display: flex; align-items: center; gap: 12px; }
 
 .rdp-nav__login {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--rdp-text-3);
   text-decoration: none;
@@ -256,45 +271,48 @@
 .rdp-hero {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  min-height: calc(100vh - 62px);
+  min-height: clamp(580px, 84vh, 880px);
   overflow: hidden;
 }
 
 .rdp-hero__left {
   background: var(--rdp-bg);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
 }
 
 .rdp-hero__left-inner {
   width: 100%;
-  max-width: 540px;
-  padding: 80px 56px 80px 40px;
+  max-width: 520px;
+  padding: 64px 72px 64px 40px;
+  animation: rdp-hero-text 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .rdp-hero__h1 {
-  font-size: clamp(38px, 4.8vw, 62px);
+  font-family: var(--rdp-font-head);
+  font-size: clamp(42px, 5vw, 64px);
   font-weight: 800;
-  line-height: 1.06;
+  line-height: 0.97;
   letter-spacing: -0.04em;
   color: var(--rdp-text);
-  margin-bottom: 22px;
+  margin-bottom: 24px;
 }
 .rdp-hero__h1--accent { color: var(--rdp-green); }
 
 .rdp-hero__sub {
-  font-size: 16.5px;
-  line-height: 1.7;
+  font-size: 17px;
+  line-height: 1.65;
   color: var(--rdp-text-3);
+  max-width: 460px;
   margin-bottom: 32px;
 }
 
 .rdp-hero__ctas {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
+  gap: 12px;
+  margin-bottom: 24px;
   flex-wrap: wrap;
 }
 
@@ -302,8 +320,7 @@
   list-style: none;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 0;
+  gap: 0;
 }
 .rdp-hero__trust li {
   display: flex;
@@ -311,20 +328,22 @@
   gap: 6px;
   font-size: 13px;
   color: var(--rdp-text-3);
+  white-space: nowrap;
 }
 .rdp-hero__trust li svg { color: var(--rdp-green); flex-shrink: 0; }
 .rdp-hero__trust-sep {
-  width: 1px; height: 13px;
+  width: 1px; height: 12px;
   background: var(--rdp-border-2);
   margin: 0 12px;
 }
 
 .rdp-hero__right {
   background: #EDF2EC;
+  background-image: radial-gradient(ellipse 80% 60% at 62% 42%, rgba(26,92,55,.10) 0%, transparent 68%);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   overflow: hidden;
-  padding: 80px 0 48px 52px;
+  padding: 64px 0 64px 64px;
 }
 
 /* ── Hero dashboard window ──────────────────────────────── */
@@ -332,12 +351,15 @@
   display: flex;
   background: #fff;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.14), 0 4px 16px rgba(0,0,0,.08);
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 28px 80px rgba(0,0,0,.14), 0 8px 24px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.04);
   overflow: hidden;
   width: 100%;
-  max-width: 700px;
-  min-height: 420px;
+  max-width: 680px;
+  min-height: 440px;
   flex-shrink: 0;
+  animation: rdp-hero-dashboard 0.75s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both,
+             rdp-float 7s 0.9s ease-in-out infinite;
 }
 
 .rdp-hw__sidebar {
@@ -537,6 +559,19 @@
 }
 
 @keyframes rdp-pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+@keyframes rdp-hero-text {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes rdp-hero-dashboard {
+  from { opacity: 0; transform: translateY(28px) scale(0.975); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rdp-float {
+  0%,100% { transform: translateY(0px); }
+  50%     { transform: translateY(-6px); }
+}
 
 /* ── How it works ───────────────────────────────────────── */
 .rdp-hiw { background: var(--rdp-bg-2); }
@@ -1346,12 +1381,13 @@
 
 @media (max-width: 1100px) {
   :root { --rdp-pad: 28px; }
-  .rdp-hero__left-inner { padding: 64px 40px 64px 28px; }
-  .rdp-hw { max-width: 580px; }
+  .rdp-hero__left-inner { padding: 56px 48px 56px 28px; max-width: 480px; }
+  .rdp-hero__right { padding: 56px 0 56px 48px; }
+  .rdp-hw { max-width: 560px; }
 }
 
 @media (max-width: 900px) {
-  :root { --rdp-pad: 24px; --rdp-section: 80px; }
+  :root { --rdp-pad: 24px; --rdp-section: 80px; --rdp-nav-h: 62px; }
 
   .rdp-nav__links, .rdp-nav__actions { display: none; }
   .rdp-nav__burger { display: flex; }
@@ -1361,15 +1397,16 @@
     grid-template-columns: 1fr;
     min-height: auto;
   }
-  .rdp-hero__left { justify-content: flex-start; }
-  .rdp-hero__left-inner { max-width: none; padding: 52px 24px 40px; }
+  .rdp-hero__left { justify-content: flex-start; align-items: flex-start; }
+  .rdp-hero__left-inner { max-width: none; padding: 48px 24px 40px; animation: none; }
   .rdp-hero__trust-sep { display: none; }
-  .rdp-hero__trust { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .rdp-hero__trust { flex-wrap: wrap; gap: 8px 0; }
   .rdp-hero__right {
-    padding: 40px 24px 48px;
+    padding: 40px 24px 56px;
     justify-content: center;
+    background-image: none;
   }
-  .rdp-hw { max-width: 600px; }
+  .rdp-hw { max-width: 600px; animation: none; }
   .rdp-hw__sidebar { width: 160px; }
 
   .rdp-trust__inner { grid-template-columns: 1fr; gap: 44px; }
@@ -1396,15 +1433,15 @@
 
   .rdp-nav__inner { padding: 0 20px; }
 
-  .rdp-hero__left-inner { padding: 40px 20px 32px; }
-  .rdp-hero__h1 { font-size: clamp(36px, 9.5vw, 52px); }
-  .rdp-hero__sub { font-size: 15.5px; }
-  .rdp-hero__ctas { flex-direction: column; align-items: stretch; }
+  .rdp-hero__left-inner { padding: 36px 20px 28px; }
+  .rdp-hero__h1 { font-size: clamp(36px, 10vw, 52px); line-height: 0.95; }
+  .rdp-hero__sub { font-size: 15.5px; max-width: none; }
+  .rdp-hero__ctas { flex-direction: column; align-items: stretch; gap: 10px; }
   .rdp-hero__ctas .rdp-btn { justify-content: center; }
-  .rdp-hero__trust-sep { display: none; }
   .rdp-hero__trust { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .rdp-hero__trust-sep { display: none; }
 
-  .rdp-hero__right { padding: 32px 20px 40px; }
+  .rdp-hero__right { padding: 28px 20px 40px; }
   .rdp-hw { min-height: auto; }
   .rdp-hw__sidebar { width: 140px; }
   .rdp-hw__logo span { display: none; }
