@@ -283,16 +283,16 @@
 
 .rdp-hero__left-inner {
   width: 100%;
-  max-width: 520px;
-  padding: 80px 72px 88px 40px;
+  max-width: 560px;
+  padding: 72px 52px 72px 32px;
   animation: rdp-hero-text 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .rdp-hero__h1 {
   font-family: var(--rdp-font-head);
-  font-size: clamp(42px, 5vw, 64px);
+  font-size: clamp(38px, 4.2vw, 56px);
   font-weight: 800;
-  line-height: 0.97;
+  line-height: 1.0;
   letter-spacing: -0.04em;
   color: var(--rdp-text);
   margin-bottom: 24px;
@@ -342,7 +342,7 @@
   display: flex;
   align-items: flex-start;
   overflow: hidden;
-  padding: 80px 0 80px 64px;
+  padding: 72px 0 72px 56px;
 }
 
 /* ── Hero dashboard window ──────────────────────────────── */
@@ -355,8 +355,9 @@
   overflow: hidden;
   width: 100%;
   max-width: 680px;
-  min-height: 440px;
+  min-height: 420px;
   flex-shrink: 0;
+  align-self: stretch;
   animation: rdp-hero-dashboard 0.75s 0.12s cubic-bezier(0.16, 1, 0.3, 1) both,
              rdp-float 7s 0.9s ease-in-out infinite;
 }
