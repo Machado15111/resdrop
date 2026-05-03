@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
 import Header from './components/Header';
@@ -61,72 +61,75 @@ function PlansPage() {
 
 function App() {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return null;
 
   return (
     <div className="app">
-      <Routes>
-        {/* Admin — no header, admin-only */}
-        <Route element={<AdminRoute />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/special-fares" element={<AdminSpecialFares />} />
-        </Route>
-
-        {/* Premium Landing Preview - No existing header */}
-        <Route path="/v2" element={<PremiumLanding />} />
-
-        {/* Traveler Landing Preview */}
-        <Route path="/v3" element={<TravelerLanding />} />
-
-        {/* ResDropp Premium SaaS Landing */}
-        <Route path="/v4" element={<ResDroppLanding />} />
-
-        {/* Landing page — no app header (ResDroppLanding has its own) */}
-        <Route path="/" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLanding />
-        } />
-
-        {/* Premium standalone login — no app header */}
-        <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLogin />
-        } />
-
-        {/* All other routes — with header */}
-        <Route element={<LayoutWithHeader />}>
-
-          {/* Auth routes — redirect if already logged in */}
-          <Route element={<PublicOnlyRoute />}>
-            <Route path="/signup" element={<Signup />} />
+      <div key={location.pathname} className="page-transition">
+        <Routes location={location}>
+          {/* Admin — no header, admin-only */}
+          <Route element={<AdminRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/special-fares" element={<AdminSpecialFares />} />
           </Route>
 
-          {/* Password reset — public, no auth required */}
-          <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Premium Landing Preview - No existing header */}
+          <Route path="/v2" element={<PremiumLanding />} />
 
-          {/* Onboarding — requires auth, must NOT be onboarded */}
-          <Route element={<OnboardingRoute />}>
-            <Route path="/onboarding" element={<Onboarding />} />
+          {/* Traveler Landing Preview */}
+          <Route path="/v3" element={<TravelerLanding />} />
+
+          {/* ResDropp Premium SaaS Landing */}
+          <Route path="/v4" element={<ResDroppLanding />} />
+
+          {/* Landing page — no app header (ResDroppLanding has its own) */}
+          <Route path="/" element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLanding />
+          } />
+
+          {/* Premium standalone login — no app header */}
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResDroppLogin />
+          } />
+
+          {/* All other routes — with header */}
+          <Route element={<LayoutWithHeader />}>
+
+            {/* Auth routes — redirect if already logged in */}
+            <Route element={<PublicOnlyRoute />}>
+              <Route path="/signup" element={<Signup />} />
+            </Route>
+
+            {/* Password reset — public, no auth required */}
+            <Route path="/reset-password" element={<ResetPassword />} />
+
+            {/* Onboarding — requires auth, must NOT be onboarded */}
+            <Route element={<OnboardingRoute />}>
+              <Route path="/onboarding" element={<Onboarding />} />
+            </Route>
+
+            {/* Protected + onboarded routes */}
+            <Route element={<OnboardedRoute />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/bookings/:id" element={<BookingDetailPage />} />
+              <Route path="/submit" element={<SubmitBookingPage />} />
+              <Route path="/account" element={<Account />} />
+              <Route path="/alerts" element={<AlertsPage />} />
+            </Route>
+
+            {/* Public */}
+            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
           </Route>
 
-          {/* Protected + onboarded routes */}
-          <Route element={<OnboardedRoute />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/bookings/:id" element={<BookingDetailPage />} />
-            <Route path="/submit" element={<SubmitBookingPage />} />
-            <Route path="/account" element={<Account />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-          </Route>
-
-          {/* Public */}
-          <Route path="/plans" element={<PlansPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-        </Route>
-
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     </div>
   );
 }

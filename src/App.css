@@ -3,3 +3,56 @@
   display: flex;
   flex-direction: column;
 }
+
+.page-transition {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: content-slide-up 1s cubic-bezier(0.19, 1, 0.22, 1) both;
+  animation-delay: 0.1s;
+}
+
+/* Stunning layered curtain reveal */
+.page-transition::before,
+.page-transition::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+/* Light green layer */
+.page-transition::before {
+  background: var(--rdp-green-mid);
+  animation: wipe-slide-up 0.85s cubic-bezier(0.77, 0, 0.175, 1) both;
+}
+
+/* Dark green layer on top */
+.page-transition::after {
+  background: var(--rdp-green-dark);
+  animation: wipe-slide-up 0.85s cubic-bezier(0.77, 0, 0.175, 1) both;
+  animation-delay: 0.1s;
+}
+
+@keyframes wipe-slide-up {
+  0% {
+    transform: translateY(0%);
+  }
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes content-slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(80px) scale(0.95);
+    filter: blur(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
