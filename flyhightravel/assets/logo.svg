@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520" fill="none">
+  <defs>
+    <!--
+      Warm amber → bright gold gradient, running bottom-left to top-right
+      matching the logo's original colour direction exactly.
+      gradientUnits="userSpaceOnUse" keeps the gradient consistent across
+      every element so the whole mark reads as one lit object.
+    -->
+    <linearGradient id="gold" gradientUnits="userSpaceOnUse"
+                    x1="60" y1="460" x2="460" y2="60">
+      <stop offset="0%"   stop-color="#B86008"/>
+      <stop offset="22%"  stop-color="#CB7C10"/>
+      <stop offset="48%"  stop-color="#E09C1A"/>
+      <stop offset="74%"  stop-color="#F0B822"/>
+      <stop offset="100%" stop-color="#F8CC38"/>
+    </linearGradient>
+  </defs>
+
+  <!--
+    ═══════════════════════════════════════════════════════
+    DOUBLE CONCENTRIC RING
+    Circle centre: (218, 275)
+    Outer radius : 178   (stroke-width 5)
+    Inner radius : 157   (stroke-width 3)
+    Gap          : ≈ 50°  at the upper-right (≈ 320° → 10°)
+    Both arcs run counter-clockwise (sweep=0) covering ≈ 310°
+    ═══════════════════════════════════════════════════════
+
+    Outer arc endpoints:
+      At 320°  → (218+178·cos320°, 275+178·sin320°)
+               = (218+136, 275−114) = (354, 161)
+      At  10°  → (218+178·cos10°,  275+178·sin10°)
+               = (218+175, 275+31)  = (393, 306)
+
+    Inner arc endpoints:
+      At 320°  → (218+157·cos320°, 275+157·sin320°)
+               = (218+120, 275−101) = (338, 174)
+      At  10°  → (218+157·cos10°,  275+157·sin10°)
+               = (218+155, 275+27)  = (373, 302)
+  -->
+
+  <!-- Outer ring arc -->
+  <path stroke="url(#gold)" stroke-width="5" stroke-linecap="round"
+        d="M 354 161 A 178 178 0 1 0 393 306"/>
+
+  <!-- Inner ring arc -->
+  <path stroke="url(#gold)" stroke-width="3" stroke-linecap="round"
+        d="M 338 174 A 157 157 0 1 0 373 302"/>
+
+  <!--
+    ═══════════════════════════════════════════════════════
+    WING
+    A filled, pointed wing shape that bridges the ring gap
+    and sweeps upward to the right.
+
+    Anchor points:
+      Root upper  : (354, 161)  [outer ring, 320° position]
+      Root lower  : (393, 306)  [outer ring,  10° position]
+      Tip         : (474,  72)  [upper-right, outside circle]
+
+    Outer (top) edge  : root-upper → tip, convex outward
+    Inner (back) edge : tip → root-lower, slightly concave
+    ═══════════════════════════════════════════════════════
+  -->
+  <path fill="url(#gold)"
+        d="
+          M 354 161
+          C 374 132, 422  90, 474  72
+          C 472  84, 456 104, 436 126
+          C 418 146, 398 172, 382 202
+          C 378 218, 376 254, 378 282
+          C 378 292, 380 300, 393 306
+          C 382 286, 370 256, 364 228
+          C 358 200, 353 178, 354 161
+          Z"/>
+
+  <!-- Wing ridge lines — two subtle internal strokes for feather depth -->
+  <path stroke="url(#gold)" stroke-width="2.2" stroke-linecap="round"
+        d="M 364 178 C 384 156, 418 122, 450 100"/>
+  <path stroke="url(#gold)" stroke-width="2" stroke-linecap="round"
+        d="M 372 202 C 390 180, 424 148, 456 126"/>
+
+  <!--
+    ═══════════════════════════════════════════════════════
+    INTERIOR CALLIGRAPHIC MARK
+    A stylised script element (reads as a flourished "F"
+    or winged quill) centred inside the ring.
+
+    All paths use stroke-only (no fill) with rounded caps
+    and consistent stroke weights for a calligraphic feel.
+    ═══════════════════════════════════════════════════════
+  -->
+
+  <!-- Main diagonal stem — bold stroke, lower-left → upper-right -->
+  <path stroke="url(#gold)" stroke-width="8.5" stroke-linecap="round"
+        d="M 158 316 C 173 294, 222 234, 265 200"/>
+
+  <!-- Top curve — the rounded head of the F, sweeps right then curls down -->
+  <path stroke="url(#gold)" stroke-width="6.5" stroke-linecap="round"
+        d="M 222 202
+           C 240 191, 263 189, 278 202
+           C 292 215, 291 236, 275 248
+           C 263 258, 248 260, 237 254"/>
+
+  <!-- Base foot — curves down from the stem base, then lifts back up -->
+  <path stroke="url(#gold)" stroke-width="6.5" stroke-linecap="round"
+        d="M 158 316
+           C 152 330, 157 346, 173 347
+           C 188 348, 197 332, 193 317"/>
+
+  <!-- Secondary lower loop — small calligraphic flourish beside the foot -->
+  <path stroke="url(#gold)" stroke-width="5.5" stroke-linecap="round"
+        d="M 193 317
+           C 193 306, 204 298, 217 301
+           C 230 304, 234 318, 224 328"/>
+
+</svg>

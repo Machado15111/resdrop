@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResDrop - Instagram Brand Kit & Ad Creatives</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-deep: #0F2E1F;
+    --green-mid: #2D6A4F;
+    --green-light: #40916C;
+    --green-soft: #74C69D;
+    --gold: #CBA052;
+    --gold-light: #E0C882;
+    --bg: #FAF9F6;
+    --white: #FFFFFF;
+    --gray-100: #F5F5F4;
+    --gray-200: #E7E5E4;
+    --gray-400: #A8A29E;
+    --gray-600: #57534E;
+    --gray-800: #292524;
+    --red: #DC2626;
+    --red-light: #FEE2E2;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--gray-100);
+    color: var(--gray-800);
+    line-height: 1.6;
+  }
+
+  /* Page Layout */
+  .page-header {
+    background: var(--green-deep);
+    color: var(--white);
+    padding: 60px 40px;
+    text-align: center;
+  }
+  .page-header h1 {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+  .page-header .subtitle {
+    font-size: 18px;
+    color: var(--gold);
+    font-weight: 500;
+  }
+  .page-header .meta {
+    font-size: 13px;
+    color: var(--gray-400);
+    margin-top: 16px;
+  }
+
+  .section {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 60px 40px;
+  }
+  .section-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--green-deep);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .section-desc {
+    font-size: 16px;
+    color: var(--gray-600);
+    margin-bottom: 40px;
+    max-width: 600px;
+  }
+  .section-divider {
+    border: none;
+    border-top: 2px solid var(--gray-200);
+    margin: 0;
+  }
+
+  /* Template Grid */
+  .template-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 48px;
+    justify-content: center;
+  }
+  .template-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .template-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--green-mid);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+  }
+  .template-note {
+    font-size: 13px;
+    color: var(--gray-600);
+    margin-top: 12px;
+    max-width: 360px;
+    text-align: center;
+  }
+
+  /* Post Container (1080x1080 scaled to 360x360) */
+  .post-frame {
+    width: 360px;
+    height: 360px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    position: relative;
+  }
+  .post-inner {
+    width: 1080px;
+    height: 1080px;
+    transform: scale(0.3333);
+    transform-origin: top left;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Story Container (1080x1920 scaled to 270x480) */
+  .story-frame {
+    width: 270px;
+    height: 480px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    position: relative;
+  }
+  .story-inner {
+    width: 1080px;
+    height: 1920px;
+    transform: scale(0.25);
+    transform-origin: top left;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Shield Logo */
+  .shield-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .shield-icon {
+    width: 48px;
+    height: 56px;
+    position: relative;
+  }
+  .shield-icon svg { width: 100%; height: 100%; }
+  .logo-text {
+    font-weight: 800;
+    font-size: 36px;
+    letter-spacing: -0.5px;
+  }
+  .logo-sm .shield-icon { width: 32px; height: 38px; }
+  .logo-sm .logo-text { font-size: 24px; }
+  .logo-lg .shield-icon { width: 64px; height: 74px; }
+  .logo-lg .logo-text { font-size: 52px; }
+
+  /* Brand Guidelines */
+  .guidelines-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
+  }
+  .guide-card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .guide-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--green-deep);
+    margin-bottom: 20px;
+  }
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .color-swatch {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .color-info { font-size: 14px; }
+  .color-info .name { font-weight: 600; color: var(--gray-800); }
+  .color-info .hex { color: var(--gray-600); font-family: monospace; font-size: 13px; }
+
+  .type-sample { margin-bottom: 16px; }
+  .type-sample .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--gray-400);
+    margin-bottom: 4px;
+  }
+
+  .hashtag-group { margin-bottom: 16px; }
+  .hashtag-group .group-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--green-mid);
+    margin-bottom: 6px;
+  }
+  .hashtag-group .tags {
+    font-size: 13px;
+    color: var(--gray-600);
+    line-height: 1.8;
+  }
+
+  .tone-item { margin-bottom: 14px; }
+  .tone-item .tone-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gold);
+    margin-bottom: 2px;
+  }
+  .tone-item p { font-size: 14px; color: var(--gray-600); }
+
+  /* Reels Section */
+  .reel-card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 36px;
+    margin-bottom: 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .reel-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--green-deep);
+    margin-bottom: 6px;
+  }
+  .reel-card .reel-hook {
+    font-size: 15px;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .storyboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .sb-frame {
+    background: var(--gray-100);
+    border-radius: 10px;
+    padding: 20px;
+    position: relative;
+  }
+  .sb-frame .sb-num {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--green-mid);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .sb-frame .sb-visual {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+  }
+  .sb-frame .sb-desc {
+    font-size: 12px;
+    color: var(--gray-600);
+  }
+  .sb-frame .sb-time {
+    font-size: 11px;
+    color: var(--gray-400);
+    margin-top: 8px;
+  }
+
+  /* Print-ready utility */
+  @media print {
+    body { background: white; }
+    .section { page-break-inside: avoid; }
+    .post-frame, .story-frame { box-shadow: 0 0 0 1px #ddd; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== HEADER ========== -->
+<header class="page-header">
+  <div style="margin-bottom: 20px;">
+    <svg width="56" height="64" viewBox="0 0 56 64" fill="none" style="display:inline-block;vertical-align:middle;margin-right:12px;">
+      <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2.5"/>
+      <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+    </svg>
+    <span style="font-size:48px;font-weight:800;vertical-align:middle;letter-spacing:-1px;">ResDrop</span>
+  </div>
+  <h1>Instagram Brand Kit & Ad Creatives</h1>
+  <p class="subtitle">Guia completo de identidade visual para Instagram</p>
+  <p class="meta">resdrop.app &bull; Abril 2026 &bull; v1.0</p>
+</header>
+
+
+<!-- ========== SECTION 1: INSTAGRAM POSTS ========== -->
+<hr class="section-divider">
+<div class="section">
+  <h2 class="section-title">Instagram Posts (1080 &times; 1080)</h2>
+  <p class="section-desc">5 templates prontos para captura de tela ou exportacao. Cada um renderizado em escala real (1080px) e exibido a 1/3.</p>
+
+  <div class="template-grid">
+
+    <!-- POST 1: Savings Reveal -->
+    <div class="template-wrapper">
+      <div class="template-label">Post 1 &mdash; Savings Reveal</div>
+      <div class="post-frame">
+        <div class="post-inner" style="background: linear-gradient(165deg, #0F2E1F 0%, #1A4030 50%, #2D6A4F 100%);">
+          <!-- Subtle hotel pattern overlay -->
+          <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><rect fill=%22none%22 width=%22120%22 height=%22120%22/><path d=%22M60 0v120M0 60h120%22 stroke=%22%23ffffff%22 stroke-opacity=%220.03%22 stroke-width=%221%22/></svg>');opacity:0.5;"></div>
+
+          <!-- Top badge -->
+          <div style="position:absolute;top:60px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:14px;">
+              <svg width="44" height="52" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <span style="font-family:Inter;font-weight:700;font-size:32px;color:#fff;">ResDrop</span>
+            </div>
+            <div style="background:rgba(203,160,82,0.15);border:1.5px solid #CBA052;border-radius:50px;padding:10px 24px;font-family:Inter;font-weight:600;font-size:22px;color:#CBA052;">Alerta de Economia</div>
+          </div>
+
+          <!-- Main price card -->
+          <div style="position:absolute;top:200px;left:60px;right:60px;background:rgba(255,255,255,0.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:28px;padding:56px;">
+            <div style="font-family:Inter;font-size:22px;color:rgba(255,255,255,0.5);font-weight:500;margin-bottom:8px;text-transform:uppercase;letter-spacing:3px;">Hotel Grand Resort &bull; Rio de Janeiro</div>
+            <div style="font-family:Inter;font-size:26px;color:rgba(255,255,255,0.4);margin-bottom:28px;">5 noites &bull; 2 adultos &bull; Suite Premium</div>
+
+            <div style="display:flex;align-items:center;gap:32px;margin-bottom:36px;">
+              <div>
+                <div style="font-family:Inter;font-size:18px;color:rgba(255,255,255,0.4);margin-bottom:4px;">Preco original</div>
+                <div style="font-family:Inter;font-size:64px;font-weight:300;color:rgba(255,255,255,0.35);text-decoration:line-through;text-decoration-color:#DC2626;text-decoration-thickness:3px;">R$5.400</div>
+              </div>
+              <div>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CBA052" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              </div>
+              <div>
+                <div style="font-family:Inter;font-size:18px;color:#CBA052;margin-bottom:4px;">Novo preco</div>
+                <div style="font-family:Inter;font-size:80px;font-weight:800;color:#fff;letter-spacing:-2px;">R$4.250</div>
+              </div>
+            </div>
+
+            <!-- Savings highlight -->
+            <div style="background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:20px;padding:28px 36px;display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-family:Inter;font-size:18px;color:#0F2E1F;font-weight:500;">Voce economiza</div>
+                <div style="font-family:Inter;font-size:52px;font-weight:800;color:#0F2E1F;letter-spacing:-1px;">R$1.150</div>
+              </div>
+              <div style="background:#0F2E1F;border-radius:50%;width:110px;height:110px;display:flex;align-items:center;justify-content:center;">
+                <span style="font-family:Inter;font-size:42px;font-weight:800;color:#CBA052;">-21%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom bar -->
+          <div style="position:absolute;bottom:60px;left:60px;right:60px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-family:Inter;font-size:22px;color:rgba(255,255,255,0.4);">resdrop.app</div>
+            <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.3);">Monitoramento automatico de precos</div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Mostra economia real com visual premium. Destaque para o percentual de desconto.</p>
+    </div>
+
+    <!-- POST 2: How It Works -->
+    <div class="template-wrapper">
+      <div class="template-label">Post 2 &mdash; How It Works</div>
+      <div class="post-frame">
+        <div class="post-inner" style="background:#FAF9F6;">
+          <!-- Header -->
+          <div style="padding:60px 60px 0;">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:40px;">
+              <svg width="40" height="48" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <span style="font-family:Inter;font-weight:700;font-size:28px;color:#0F2E1F;">ResDrop</span>
+            </div>
+            <h2 style="font-family:Inter;font-size:56px;font-weight:800;color:#0F2E1F;letter-spacing:-1.5px;line-height:1.1;">Como funciona<br><span style="color:#2D6A4F;">em 4 passos</span></h2>
+          </div>
+
+          <!-- Steps grid -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:48px 60px;">
+            <!-- Step 1 -->
+            <div style="background:#fff;border-radius:24px;padding:36px;border:2px solid #E7E5E4;">
+              <div style="width:64px;height:64px;background:#0F2E1F;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+                <span style="font-family:Inter;font-size:30px;font-weight:800;color:#CBA052;">1</span>
+              </div>
+              <div style="font-family:Inter;font-size:26px;font-weight:700;color:#0F2E1F;margin-bottom:8px;">Encaminhe</div>
+              <div style="font-family:Inter;font-size:20px;color:#57534E;line-height:1.4;">Envie seu email de confirmacao para monitor@resdrop.app</div>
+            </div>
+            <!-- Step 2 -->
+            <div style="background:#fff;border-radius:24px;padding:36px;border:2px solid #E7E5E4;">
+              <div style="width:64px;height:64px;background:#0F2E1F;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+                <span style="font-family:Inter;font-size:30px;font-weight:800;color:#CBA052;">2</span>
+              </div>
+              <div style="font-family:Inter;font-size:26px;font-weight:700;color:#0F2E1F;margin-bottom:8px;">Monitoramos</div>
+              <div style="font-family:Inter;font-size:20px;color:#57534E;line-height:1.4;">Checamos o preco do seu hotel todos os dias automaticamente</div>
+            </div>
+            <!-- Step 3 -->
+            <div style="background:#fff;border-radius:24px;padding:36px;border:2px solid #E7E5E4;">
+              <div style="width:64px;height:64px;background:#0F2E1F;border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+                <span style="font-family:Inter;font-size:30px;font-weight:800;color:#CBA052;">3</span>
+              </div>
+              <div style="font-family:Inter;font-size:26px;font-weight:700;color:#0F2E1F;margin-bottom:8px;">Alertamos</div>
+              <div style="font-family:Inter;font-size:20px;color:#57534E;line-height:1.4;">Quando o preco cair, voce recebe um alerta por email ou WhatsApp</div>
+            </div>
+            <!-- Step 4 -->
+            <div style="background:#fff;border-radius:24px;padding:36px;border:2px solid #E7E5E4;">
+              <div style="width:64px;height:64px;background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+                <span style="font-family:Inter;font-size:30px;font-weight:800;color:#0F2E1F;">4</span>
+              </div>
+              <div style="font-family:Inter;font-size:26px;font-weight:700;color:#0F2E1F;margin-bottom:8px;">Economize</div>
+              <div style="font-family:Inter;font-size:20px;color:#57534E;line-height:1.4;">Remarque direto com o hotel e guarde a diferenca no bolso</div>
+            </div>
+          </div>
+
+          <!-- Bottom CTA -->
+          <div style="padding:0 60px 60px;text-align:center;">
+            <div style="background:#0F2E1F;border-radius:20px;padding:28px;display:flex;align-items:center;justify-content:center;gap:12px;">
+              <span style="font-family:Inter;font-size:26px;font-weight:700;color:#CBA052;">Comece gratis em resdrop.app</span>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#CBA052" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Explica o processo em 4 passos simples. Layout clean e informativo.</p>
+    </div>
+
+    <!-- POST 3: Social Proof -->
+    <div class="template-wrapper">
+      <div class="template-label">Post 3 &mdash; Social Proof</div>
+      <div class="post-frame">
+        <div class="post-inner" style="background:linear-gradient(180deg, #0F2E1F 0%, #1B4332 100%);">
+          <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%, rgba(203,160,82,0.08) 0%, transparent 60%);"></div>
+
+          <!-- Content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;">
+            <!-- Logo -->
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:64px;">
+              <svg width="40" height="48" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <span style="font-family:Inter;font-weight:700;font-size:28px;color:#fff;">ResDrop</span>
+            </div>
+
+            <!-- Top label -->
+            <div style="font-family:Inter;font-size:22px;font-weight:500;color:#CBA052;text-transform:uppercase;letter-spacing:4px;margin-bottom:32px;">Nossos usuarios ja economizaram</div>
+
+            <!-- Big number -->
+            <div style="font-family:Inter;font-size:160px;font-weight:900;color:#fff;letter-spacing:-6px;line-height:1;margin-bottom:8px;">R$150<span style="font-size:100px;">.000+</span></div>
+
+            <div style="font-family:Inter;font-size:28px;color:rgba(255,255,255,0.5);margin-bottom:64px;">em reservas de hotel em 2025</div>
+
+            <!-- Stats row -->
+            <div style="display:flex;gap:48px;margin-bottom:56px;">
+              <div style="text-align:center;">
+                <div style="font-family:Inter;font-size:56px;font-weight:800;color:#CBA052;">500+</div>
+                <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.4);">Viajantes ativos</div>
+              </div>
+              <div style="width:1px;background:rgba(255,255,255,0.1);"></div>
+              <div style="text-align:center;">
+                <div style="font-family:Inter;font-size:56px;font-weight:800;color:#CBA052;">2.400+</div>
+                <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.4);">Reservas monitoradas</div>
+              </div>
+              <div style="width:1px;background:rgba(255,255,255,0.1);"></div>
+              <div style="text-align:center;">
+                <div style="font-family:Inter;font-size:56px;font-weight:800;color:#CBA052;">18%</div>
+                <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.4);">Economia media</div>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <div style="background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:60px;padding:24px 56px;">
+              <span style="font-family:Inter;font-size:26px;font-weight:700;color:#0F2E1F;">Faca parte &mdash; resdrop.app</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Numeros grandes e impactantes geram credibilidade e confianca social.</p>
+    </div>
+
+    <!-- POST 4: Pain Point -->
+    <div class="template-wrapper">
+      <div class="template-label">Post 4 &mdash; Pain Point</div>
+      <div class="post-frame">
+        <div class="post-inner" style="background:#FAF9F6;">
+          <!-- Red accent top bar -->
+          <div style="position:absolute;top:0;left:0;right:0;height:8px;background:linear-gradient(90deg,#DC2626,#EF4444);"></div>
+
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:80px;">
+            <!-- Pain message -->
+            <div style="margin-bottom:56px;">
+              <div style="font-family:Inter;font-size:60px;font-weight:800;color:#0F2E1F;line-height:1.15;letter-spacing:-1.5px;">
+                Voce reservou por<br>
+                <span style="color:#DC2626;text-decoration:line-through;text-decoration-thickness:4px;">R$800</span><span style="color:#0F2E1F;">.</span><br><br>
+                Agora o mesmo quarto<br>custa <span style="color:#2D6A4F;">R$620</span>.<br><br>
+                <span style="color:#A8A29E;font-size:52px;">E ninguem te avisou.</span>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div style="width:80px;height:4px;background:#CBA052;border-radius:4px;margin-bottom:40px;"></div>
+
+            <!-- Solution -->
+            <div style="display:flex;align-items:center;gap:20px;">
+              <svg width="44" height="52" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <div>
+                <div style="font-family:Inter;font-size:28px;font-weight:700;color:#0F2E1F;">ResDrop avisa voce.</div>
+                <div style="font-family:Inter;font-size:22px;color:#57534E;">Monitoramos para que voce nunca pague mais do que deveria.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom -->
+          <div style="position:absolute;bottom:48px;left:80px;right:80px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-family:Inter;font-size:22px;color:#A8A29E;">resdrop.app</span>
+            <div style="background:#0F2E1F;border-radius:50px;padding:16px 36px;">
+              <span style="font-family:Inter;font-size:22px;font-weight:600;color:#CBA052;">Comece gratis</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Toca na dor do viajante. Texto direto que gera identificacao imediata.</p>
+    </div>
+
+    <!-- POST 5: CTA -->
+    <div class="template-wrapper">
+      <div class="template-label">Post 5 &mdash; CTA</div>
+      <div class="post-frame">
+        <div class="post-inner" style="background:linear-gradient(160deg, #2D6A4F 0%, #0F2E1F 60%, #0a1f14 100%);">
+          <!-- Gold glow -->
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(203,160,82,0.12) 0%,transparent 55%);"></div>
+
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px;text-align:center;">
+            <!-- Logo -->
+            <svg width="80" height="92" viewBox="0 0 56 64" fill="none" style="margin-bottom:40px;">
+              <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+              <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+            </svg>
+
+            <!-- Headline -->
+            <div style="font-family:Inter;font-size:72px;font-weight:800;color:#fff;line-height:1.1;letter-spacing:-2px;margin-bottom:24px;">
+              Comece<br>gratuitamente
+            </div>
+            <div style="font-family:Inter;font-size:28px;color:rgba(255,255,255,0.5);margin-bottom:56px;max-width:700px;">
+              Sua reserva de hotel pode estar custando mais do que deveria. Descubra em segundos.
+            </div>
+
+            <!-- CTA Button -->
+            <div style="background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:60px;padding:32px 72px;margin-bottom:32px;box-shadow:0 8px 40px rgba(203,160,82,0.3);">
+              <span style="font-family:Inter;font-size:32px;font-weight:800;color:#0F2E1F;">Criar conta gratis</span>
+            </div>
+
+            <div style="font-family:Inter;font-size:22px;color:rgba(255,255,255,0.35);">Sem cartao de credito &bull; Cancele quando quiser</div>
+
+            <!-- Features -->
+            <div style="display:flex;gap:36px;margin-top:56px;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#74C69D" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.6);">Monitoramento diario</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#74C69D" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.6);">Alertas por email e WhatsApp</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#74C69D" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.6);">100% gratuito</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom -->
+          <div style="position:absolute;bottom:48px;left:0;right:0;text-align:center;">
+            <span style="font-family:Inter;font-size:24px;font-weight:600;color:rgba(255,255,255,0.25);">resdrop.app</span>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">CTA forte com visual premium. Foco na conversao com beneficios claros.</p>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ========== SECTION 2: INSTAGRAM STORIES ========== -->
+<hr class="section-divider">
+<div class="section">
+  <h2 class="section-title">Instagram Stories (1080 &times; 1920)</h2>
+  <p class="section-desc">3 templates verticais otimizados para Stories. Renderizados em escala real e exibidos a 1/4.</p>
+
+  <div class="template-grid">
+
+    <!-- STORY 1: Savings Alert -->
+    <div class="template-wrapper">
+      <div class="template-label">Story 1 &mdash; Savings Alert</div>
+      <div class="story-frame">
+        <div class="story-inner" style="background:linear-gradient(180deg, #0F2E1F 0%, #1B4332 100%);">
+          <!-- Radial glow -->
+          <div style="position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);width:900px;height:900px;background:radial-gradient(circle,rgba(203,160,82,0.1) 0%,transparent 50%);"></div>
+
+          <!-- Top bar -->
+          <div style="padding:80px 72px 0;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <span style="font-family:Inter;font-weight:700;font-size:26px;color:#fff;">ResDrop</span>
+            </div>
+            <div style="background:rgba(203,160,82,0.15);border:1px solid rgba(203,160,82,0.4);border-radius:40px;padding:8px 20px;font-family:Inter;font-size:18px;font-weight:600;color:#CBA052;">AGORA</div>
+          </div>
+
+          <!-- Notification mockup -->
+          <div style="padding:120px 72px 0;">
+            <!-- Phone notification style -->
+            <div style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);border-radius:28px;padding:48px;margin-bottom:60px;">
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+                <div style="width:48px;height:48px;background:#2D6A4F;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                  <svg width="24" height="28" viewBox="0 0 56 64" fill="none">
+                    <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                    <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+                  </svg>
+                </div>
+                <div>
+                  <div style="font-family:Inter;font-size:20px;font-weight:600;color:#fff;">ResDrop</div>
+                  <div style="font-family:Inter;font-size:16px;color:rgba(255,255,255,0.4);">agora</div>
+                </div>
+              </div>
+              <div style="font-family:Inter;font-size:24px;color:rgba(255,255,255,0.8);line-height:1.4;">Boa noticia! O preco do seu hotel caiu. Toque para ver os detalhes.</div>
+            </div>
+
+            <!-- Main message -->
+            <div style="text-align:center;">
+              <div style="font-family:Inter;font-size:32px;color:#CBA052;font-weight:600;text-transform:uppercase;letter-spacing:3px;margin-bottom:24px;">Acabamos de encontrar</div>
+              <div style="font-family:Inter;font-size:180px;font-weight:900;color:#fff;line-height:1;letter-spacing:-6px;">-22%</div>
+              <div style="font-family:Inter;font-size:36px;color:rgba(255,255,255,0.5);margin-top:16px;">no seu hotel</div>
+            </div>
+          </div>
+
+          <!-- Price detail -->
+          <div style="padding:80px 72px 0;text-align:center;">
+            <div style="background:rgba(255,255,255,0.05);border-radius:24px;padding:40px;">
+              <div style="display:flex;justify-content:center;align-items:center;gap:32px;">
+                <div>
+                  <div style="font-family:Inter;font-size:18px;color:rgba(255,255,255,0.4);">Antes</div>
+                  <div style="font-family:Inter;font-size:44px;font-weight:700;color:rgba(255,255,255,0.4);text-decoration:line-through;">R$3.200</div>
+                </div>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#CBA052" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                <div>
+                  <div style="font-family:Inter;font-size:18px;color:#CBA052;">Agora</div>
+                  <div style="font-family:Inter;font-size:52px;font-weight:800;color:#fff;">R$2.496</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Savings badge -->
+          <div style="padding:40px 72px 0;text-align:center;">
+            <div style="display:inline-block;background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:60px;padding:24px 56px;">
+              <span style="font-family:Inter;font-size:28px;font-weight:800;color:#0F2E1F;">Economize R$704</span>
+            </div>
+          </div>
+
+          <!-- Swipe up -->
+          <div style="position:absolute;bottom:80px;left:0;right:0;text-align:center;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2" style="margin-bottom:8px;"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.4);font-weight:500;">Arraste para cima</div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Simula notificacao de alerta de queda de preco. Urgencia + resultado.</p>
+    </div>
+
+    <!-- STORY 2: Before/After -->
+    <div class="template-wrapper">
+      <div class="template-label">Story 2 &mdash; Before / After</div>
+      <div class="story-frame">
+        <div class="story-inner" style="background:#FAF9F6;">
+          <!-- Header -->
+          <div style="padding:80px 72px 0;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:48px;">
+              <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+                <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+                <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+              </svg>
+              <span style="font-family:Inter;font-weight:700;font-size:26px;color:#0F2E1F;">ResDrop</span>
+            </div>
+            <div style="font-family:Inter;font-size:24px;color:#A8A29E;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px;">Comparacao real</div>
+            <div style="font-family:Inter;font-size:48px;font-weight:800;color:#0F2E1F;letter-spacing:-1px;line-height:1.15;">O que muda quando<br>voce monitora precos</div>
+          </div>
+
+          <!-- Before card -->
+          <div style="padding:56px 72px 0;">
+            <div style="background:#fff;border-radius:24px;border:2px solid #FEE2E2;padding:44px;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:6px;background:#DC2626;"></div>
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;">
+                <div>
+                  <div style="font-family:Inter;font-size:18px;font-weight:700;color:#DC2626;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Sem ResDrop</div>
+                  <div style="font-family:Inter;font-size:22px;color:#57534E;">Hotel Fasano &bull; Sao Paulo</div>
+                  <div style="font-family:Inter;font-size:18px;color:#A8A29E;">3 noites &bull; Suite Junior</div>
+                </div>
+                <div style="font-size:48px;">&#128548;</div>
+              </div>
+              <div style="font-family:Inter;font-size:64px;font-weight:800;color:#DC2626;letter-spacing:-2px;">R$4.500</div>
+              <div style="font-family:Inter;font-size:20px;color:#A8A29E;margin-top:8px;">Pagou o preco cheio. Depois viu que caiu.</div>
+            </div>
+          </div>
+
+          <!-- Arrow -->
+          <div style="text-align:center;padding:32px 0;">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#CBA052" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          </div>
+
+          <!-- After card -->
+          <div style="padding:0 72px;">
+            <div style="background:#fff;border-radius:24px;border:2px solid #74C69D;padding:44px;position:relative;overflow:hidden;">
+              <div style="position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,#2D6A4F,#74C69D);"></div>
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:20px;">
+                <div>
+                  <div style="font-family:Inter;font-size:18px;font-weight:700;color:#2D6A4F;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Com ResDrop</div>
+                  <div style="font-family:Inter;font-size:22px;color:#57534E;">Hotel Fasano &bull; Sao Paulo</div>
+                  <div style="font-family:Inter;font-size:18px;color:#A8A29E;">3 noites &bull; Suite Junior</div>
+                </div>
+                <div style="font-size:48px;">&#128513;</div>
+              </div>
+              <div style="font-family:Inter;font-size:64px;font-weight:800;color:#2D6A4F;letter-spacing:-2px;">R$3.600</div>
+              <div style="font-family:Inter;font-size:20px;color:#57534E;margin-top:8px;">Recebeu alerta, remarcou e economizou <strong style="color:#2D6A4F;">R$900</strong></div>
+            </div>
+          </div>
+
+          <!-- Savings banner -->
+          <div style="padding:48px 72px 0;">
+            <div style="background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:20px;padding:32px;text-align:center;">
+              <div style="font-family:Inter;font-size:20px;color:#0F2E1F;font-weight:500;">Economia total</div>
+              <div style="font-family:Inter;font-size:56px;font-weight:900;color:#0F2E1F;letter-spacing:-2px;">R$900 (-20%)</div>
+            </div>
+          </div>
+
+          <!-- Swipe CTA -->
+          <div style="position:absolute;bottom:80px;left:0;right:0;text-align:center;">
+            <div style="display:inline-block;background:#0F2E1F;border-radius:60px;padding:20px 48px;margin-bottom:16px;">
+              <span style="font-family:Inter;font-size:24px;font-weight:700;color:#CBA052;">Quero economizar tambem</span>
+            </div>
+            <div style="display:block;">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Contraste visual antes/depois com dados concretos. Altamente compartilhavel.</p>
+    </div>
+
+    <!-- STORY 3: Community -->
+    <div class="template-wrapper">
+      <div class="template-label">Story 3 &mdash; Community</div>
+      <div class="story-frame">
+        <div class="story-inner" style="background:linear-gradient(180deg, #0F2E1F 0%, #14352A 50%, #2D6A4F 100%);">
+          <!-- Decorative dots -->
+          <div style="position:absolute;inset:0;overflow:hidden;">
+            <div style="position:absolute;top:120px;left:80px;width:16px;height:16px;background:rgba(203,160,82,0.2);border-radius:50%;"></div>
+            <div style="position:absolute;top:300px;right:100px;width:12px;height:12px;background:rgba(203,160,82,0.15);border-radius:50%;"></div>
+            <div style="position:absolute;top:600px;left:200px;width:20px;height:20px;background:rgba(203,160,82,0.1);border-radius:50%;"></div>
+            <div style="position:absolute;top:900px;right:150px;width:14px;height:14px;background:rgba(116,198,157,0.15);border-radius:50%;"></div>
+            <div style="position:absolute;top:1200px;left:120px;width:18px;height:18px;background:rgba(203,160,82,0.12);border-radius:50%;"></div>
+          </div>
+
+          <!-- Content -->
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 72px;text-align:center;">
+            <!-- Logo -->
+            <svg width="72" height="84" viewBox="0 0 56 64" fill="none" style="margin-bottom:56px;">
+              <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+              <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+            </svg>
+
+            <div style="font-family:Inter;font-size:24px;color:#CBA052;font-weight:600;text-transform:uppercase;letter-spacing:4px;margin-bottom:32px;">Junte-se a</div>
+
+            <div style="font-family:Inter;font-size:160px;font-weight:900;color:#fff;line-height:0.9;letter-spacing:-4px;">500+</div>
+
+            <div style="font-family:Inter;font-size:44px;font-weight:700;color:rgba(255,255,255,0.8);margin-top:20px;margin-bottom:64px;line-height:1.2;">viajantes<br>inteligentes</div>
+
+            <!-- Avatars row -->
+            <div style="display:flex;align-items:center;margin-bottom:56px;">
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#74C69D,#40916C);border:3px solid #0F2E1F;display:flex;align-items:center;justify-content:center;font-size:28px;">&#128105;</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#CBA052,#E0C882);border:3px solid #0F2E1F;margin-left:-16px;display:flex;align-items:center;justify-content:center;font-size:28px;">&#128104;</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#74C69D,#2D6A4F);border:3px solid #0F2E1F;margin-left:-16px;display:flex;align-items:center;justify-content:center;font-size:28px;">&#128103;</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#E0C882,#CBA052);border:3px solid #0F2E1F;margin-left:-16px;display:flex;align-items:center;justify-content:center;font-size:28px;">&#129489;</div>
+              <div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,0.1);border:3px solid #0F2E1F;margin-left:-16px;display:flex;align-items:center;justify-content:center;font-family:Inter;font-size:22px;font-weight:700;color:#fff;">+496</div>
+            </div>
+
+            <!-- Quote -->
+            <div style="background:rgba(255,255,255,0.06);border-radius:20px;padding:36px;margin-bottom:56px;max-width:800px;">
+              <div style="font-family:Inter;font-size:26px;color:rgba(255,255,255,0.7);font-style:italic;line-height:1.5;">"Economizei R$1.800 na minha viagem para Cancun. Nao viajo mais sem o ResDrop."</div>
+              <div style="font-family:Inter;font-size:20px;color:rgba(255,255,255,0.35);margin-top:12px;">&mdash; Carolina M., Sao Paulo</div>
+            </div>
+
+            <!-- CTA -->
+            <div style="background:linear-gradient(135deg,#CBA052,#E0C882);border-radius:60px;padding:28px 64px;">
+              <span style="font-family:Inter;font-size:28px;font-weight:800;color:#0F2E1F;">Comece gratis agora</span>
+            </div>
+          </div>
+
+          <!-- Swipe -->
+          <div style="position:absolute;bottom:60px;left:0;right:0;text-align:center;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </div>
+        </div>
+      </div>
+      <p class="template-note">Prova social + depoimento real. Cria senso de comunidade e pertencimento.</p>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ========== SECTION 3: BRAND GUIDELINES ========== -->
+<hr class="section-divider">
+<div class="section">
+  <h2 class="section-title">Brand Guidelines</h2>
+  <p class="section-desc">Guia de identidade visual para manter consistencia em todas as pecas.</p>
+
+  <div class="guidelines-grid">
+
+    <!-- Color Palette -->
+    <div class="guide-card">
+      <h3>Paleta de Cores</h3>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#0F2E1F;"></div>
+        <div class="color-info">
+          <div class="name">Deep Forest Green (Primary Dark)</div>
+          <div class="hex">#0F2E1F</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#2D6A4F;"></div>
+        <div class="color-info">
+          <div class="name">Forest Green (Primary)</div>
+          <div class="hex">#2D6A4F</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#40916C;"></div>
+        <div class="color-info">
+          <div class="name">Medium Green (Secondary)</div>
+          <div class="hex">#40916C</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#74C69D;"></div>
+        <div class="color-info">
+          <div class="name">Soft Green (Accent Light)</div>
+          <div class="hex">#74C69D</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#CBA052;"></div>
+        <div class="color-info">
+          <div class="name">Warm Gold (Accent)</div>
+          <div class="hex">#CBA052</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#E0C882;"></div>
+        <div class="color-info">
+          <div class="name">Light Gold (Accent Soft)</div>
+          <div class="hex">#E0C882</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#FAF9F6;"></div>
+        <div class="color-info">
+          <div class="name">Off-White (Background)</div>
+          <div class="hex">#FAF9F6</div>
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" style="background:#DC2626;"></div>
+        <div class="color-info">
+          <div class="name">Alert Red (Utility)</div>
+          <div class="hex">#DC2626</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Typography -->
+    <div class="guide-card">
+      <h3>Tipografia &mdash; Inter</h3>
+      <div class="type-sample">
+        <div class="label">Display / 72px / Black (900)</div>
+        <div style="font-size:48px;font-weight:900;color:#0F2E1F;letter-spacing:-1px;">Economize Agora</div>
+      </div>
+      <div class="type-sample">
+        <div class="label">Heading / 48px / ExtraBold (800)</div>
+        <div style="font-size:32px;font-weight:800;color:#0F2E1F;">Como Funciona</div>
+      </div>
+      <div class="type-sample">
+        <div class="label">Subheading / 32px / Bold (700)</div>
+        <div style="font-size:24px;font-weight:700;color:#2D6A4F;">Monitoramento Diario</div>
+      </div>
+      <div class="type-sample">
+        <div class="label">Body / 24px / Medium (500)</div>
+        <div style="font-size:18px;font-weight:500;color:#57534E;">Sua reserva de hotel pode estar custando mais do que deveria.</div>
+      </div>
+      <div class="type-sample">
+        <div class="label">Caption / 18px / Regular (400)</div>
+        <div style="font-size:14px;font-weight:400;color:#A8A29E;">resdrop.app &bull; Monitoramento automatico</div>
+      </div>
+      <div class="type-sample">
+        <div class="label">Label / 14px / SemiBold (600) / Uppercase</div>
+        <div style="font-size:12px;font-weight:600;color:#CBA052;text-transform:uppercase;letter-spacing:2px;">Alerta de economia</div>
+      </div>
+    </div>
+
+    <!-- Logo Usage -->
+    <div class="guide-card">
+      <h3>Logo Usage</h3>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#A8A29E;margin-bottom:12px;">Primario &mdash; Fundo escuro</div>
+        <div style="background:#0F2E1F;border-radius:12px;padding:24px;display:flex;align-items:center;justify-content:center;gap:12px;">
+          <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+            <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+            <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+          </svg>
+          <span style="font-family:Inter;font-weight:800;font-size:28px;color:#fff;">ResDrop</span>
+        </div>
+      </div>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#A8A29E;margin-bottom:12px;">Primario &mdash; Fundo claro</div>
+        <div style="background:#FAF9F6;border-radius:12px;padding:24px;display:flex;align-items:center;justify-content:center;gap:12px;border:1px solid #E7E5E4;">
+          <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+            <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+            <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+          </svg>
+          <span style="font-family:Inter;font-weight:800;font-size:28px;color:#0F2E1F;">ResDrop</span>
+        </div>
+      </div>
+      <div style="margin-bottom:24px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#A8A29E;margin-bottom:12px;">Icone sozinho</div>
+        <div style="display:flex;gap:16px;">
+          <div style="background:#0F2E1F;border-radius:12px;padding:20px;display:inline-flex;">
+            <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+              <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+              <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+            </svg>
+          </div>
+          <div style="background:#FAF9F6;border-radius:12px;padding:20px;display:inline-flex;border:1px solid #E7E5E4;">
+            <svg width="36" height="42" viewBox="0 0 56 64" fill="none">
+              <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+              <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#DC2626;margin-top:16px;">
+        <strong>Regras:</strong> Minimo 24px de espaco ao redor. Nunca distorcer, rotacionar ou alterar as cores do logo.
+      </div>
+    </div>
+
+    <!-- Tone of Voice -->
+    <div class="guide-card">
+      <h3>Tom de Voz</h3>
+      <div class="tone-item">
+        <div class="tone-label">Personalidade</div>
+        <p>Confiavel, inteligente, acessivel. Como um amigo que entende de viagens e tecnologia.</p>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Portugues (PT-BR)</div>
+        <p>Direto, coloquial mas profissional. Use "voce" (nunca "tu"). Evite jargao tecnico. Foque na economia e praticidade.</p>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">English (EN)</div>
+        <p>Clear, confident, conversational. Focus on savings and simplicity. Avoid corporate speak.</p>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Taglines</div>
+        <p style="margin-bottom:4px;"><strong>PT:</strong> "Sua reserva de hotel pode estar custando mais do que deveria."</p>
+        <p><strong>EN:</strong> "Your hotel booking may be costing more than it should."</p>
+      </div>
+      <div class="tone-item">
+        <div class="tone-label">Princípios</div>
+        <p>1. Lidere com a economia (numero concreto)<br>
+           2. Crie urgencia sem ser agressivo<br>
+           3. Seja transparente sobre como funciona<br>
+           4. Celebre a vitoria do usuario</p>
+      </div>
+    </div>
+
+    <!-- Hashtags -->
+    <div class="guide-card">
+      <h3>Hashtag Sets</h3>
+      <div class="hashtag-group">
+        <div class="group-label">Core Brand</div>
+        <div class="tags">#ResDrop #ResDropApp #MonitoreSeusPrecos #EconomiaNaViagem</div>
+      </div>
+      <div class="hashtag-group">
+        <div class="group-label">Viagem & Hotel</div>
+        <div class="tags">#ViagemBarata #HotelComDesconto #DicasDeViagem #ReservaDeHotel #ViajanteInteligente #FeriasComEconomia #TurismoInteligente</div>
+      </div>
+      <div class="hashtag-group">
+        <div class="group-label">Economia & Lifestyle</div>
+        <div class="tags">#EconomiaDoDia #DicasDeEconomia #VidaInteligente #GasteMenos #EconomizeSempre</div>
+      </div>
+      <div class="hashtag-group">
+        <div class="group-label">English / International</div>
+        <div class="tags">#HotelPriceMonitor #TravelHacks #SaveOnHotels #SmartTravel #PriceDrop #TravelDeals #BookingSavings</div>
+      </div>
+      <div class="hashtag-group">
+        <div class="group-label">Engagement</div>
+        <div class="tags">#VoceJaEconomizou #QuantoVocePagou #DicaDoDia #TruqueDeViagem</div>
+      </div>
+      <div style="margin-top:16px;padding:16px;background:#FAF9F6;border-radius:10px;">
+        <div style="font-size:12px;font-weight:700;color:#2D6A4F;margin-bottom:6px;">DICA DE USO</div>
+        <div style="font-size:13px;color:#57534E;">Use 3-5 Core Brand + 5-8 do nicho relevante + 2-3 Engagement por post. Maximo 20 hashtags. Coloque nos comentarios, nao na legenda.</div>
+      </div>
+    </div>
+
+    <!-- Post Frequency -->
+    <div class="guide-card">
+      <h3>Calendario de Conteudo</h3>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#CBA052;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Segunda</div>
+        <div style="font-size:14px;color:#57534E;">Pain Point / Problema do viajante</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#CBA052;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Quarta</div>
+        <div style="font-size:14px;color:#57534E;">How It Works / Educacional</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#CBA052;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Sexta</div>
+        <div style="font-size:14px;color:#57534E;">Social Proof / Caso real de economia</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;font-weight:700;color:#CBA052;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Stories (diario)</div>
+        <div style="font-size:14px;color:#57534E;">Alertas de queda, antes/depois, bastidores, enquetes</div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#CBA052;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Reels (2x/semana)</div>
+        <div style="font-size:14px;color:#57534E;">Tutoriais rapidos, POVs, resultados reais</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ========== SECTION 4: INSTAGRAM REELS ========== -->
+<hr class="section-divider">
+<div class="section">
+  <h2 class="section-title">Instagram Reels Concepts</h2>
+  <p class="section-desc">3 conceitos de Reels com storyboard detalhado, prontos para producao.</p>
+
+  <!-- Reel 1 -->
+  <div class="reel-card">
+    <h3>Reel 1: "POV: You get a price drop alert at the beach"</h3>
+    <div class="reel-hook">Hook: Comeca com tela de celular na praia, notificacao aparece</div>
+    <p style="font-size:14px;color:#57534E;margin-bottom:8px;"><strong>Formato:</strong> POV / Lifestyle &bull; <strong>Duracao:</strong> 15-20s &bull; <strong>Audio:</strong> Trending beach/chill sound</p>
+    <div class="storyboard">
+      <div class="sb-frame">
+        <div class="sb-num">Cena 1</div>
+        <div class="sb-visual">POV celular na mao, pe na areia, mar ao fundo</div>
+        <div class="sb-desc">Camera em primeira pessoa. Celular com tela de bloqueio visivel.</div>
+        <div class="sb-time">0-3s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 2</div>
+        <div class="sb-visual">Notificacao push do ResDrop aparece</div>
+        <div class="sb-desc">"ResDrop: O preco do seu hotel caiu 22%! Economize R$704." Expressao de surpresa.</div>
+        <div class="sb-time">3-7s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 3</div>
+        <div class="sb-visual">Toque na notificacao, abre o app</div>
+        <div class="sb-desc">Tela do ResDrop mostrando o dashboard com a queda de preco em destaque. Grafico de preco caindo.</div>
+        <div class="sb-time">7-12s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 4</div>
+        <div class="sb-visual">Corte para rosto sorrindo + texto overlay</div>
+        <div class="sb-desc">Texto: "R$704 economizados em 3 segundos" + Logo ResDrop + "Link na bio"</div>
+        <div class="sb-time">12-18s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reel 2 -->
+  <div class="reel-card">
+    <h3>Reel 2: "Hotel price secrets they don't want you to know"</h3>
+    <div class="reel-hook">Hook: "Segredo que os hoteis nao querem que voce saiba..."</div>
+    <p style="font-size:14px;color:#57534E;margin-bottom:8px;"><strong>Formato:</strong> Educacional / Talking Head &bull; <strong>Duracao:</strong> 30-45s &bull; <strong>Audio:</strong> Narration + suspense music</p>
+    <div class="storyboard">
+      <div class="sb-frame">
+        <div class="sb-num">Cena 1 &mdash; Hook</div>
+        <div class="sb-visual">Close no rosto, expressao seria</div>
+        <div class="sb-desc">"Voce sabia que o preco do hotel pode mudar DEPOIS que voce reserva?" Texto grande na tela.</div>
+        <div class="sb-time">0-5s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 2 &mdash; Problema</div>
+        <div class="sb-visual">Screen recording de precos subindo e descendo</div>
+        <div class="sb-desc">"A maioria dos sites muda os precos diariamente. Voce pode ter pago mais do que precisava."</div>
+        <div class="sb-time">5-15s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 3 &mdash; Solucao</div>
+        <div class="sb-visual">Demonstracao rapida do ResDrop</div>
+        <div class="sb-desc">"Eu uso o ResDrop. Ele monitora o preco do meu hotel todo dia. Se cair, eu recebo um alerta."</div>
+        <div class="sb-time">15-30s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 4 &mdash; Prova</div>
+        <div class="sb-visual">Mostra screenshot real de economia</div>
+        <div class="sb-desc">"Olha isso: economizei R$1.150 na minha ultima reserva." End card com CTA.</div>
+        <div class="sb-time">30-40s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reel 3 -->
+  <div class="reel-card">
+    <h3>Reel 3: "I saved R$1,150 in 3 seconds with ResDrop"</h3>
+    <div class="reel-hook">Hook: Numero grande na tela "R$1.150" com som de caixa registradora</div>
+    <p style="font-size:14px;color:#57534E;margin-bottom:8px;"><strong>Formato:</strong> Tutorial Rapido &bull; <strong>Duracao:</strong> 15-20s &bull; <strong>Audio:</strong> Cash register SFX + upbeat music</p>
+    <div class="storyboard">
+      <div class="sb-frame">
+        <div class="sb-num">Cena 1 &mdash; Impact</div>
+        <div class="sb-visual">"R$1.150" grande na tela com efeito de dinheiro caindo</div>
+        <div class="sb-desc">Texto: "Quanto economizei na minha ultima viagem". Som de moedas/caixa registradora.</div>
+        <div class="sb-time">0-3s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 2 &mdash; Passo 1</div>
+        <div class="sb-visual">Screen recording: encaminhando email de confirmacao</div>
+        <div class="sb-desc">Texto overlay: "Passo 1: Encaminhei meu email de reserva para o ResDrop". Acao rapida, 3 segundos.</div>
+        <div class="sb-time">3-8s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 3 &mdash; Resultado</div>
+        <div class="sb-visual">Notificacao de queda de preco</div>
+        <div class="sb-desc">Texto: "5 dias depois..." Notificacao: "-21% no preco do hotel". Reacao de surpresa.</div>
+        <div class="sb-time">8-13s</div>
+      </div>
+      <div class="sb-frame">
+        <div class="sb-num">Cena 4 &mdash; CTA</div>
+        <div class="sb-visual">Tela com logo + "Gratis" piscando</div>
+        <div class="sb-desc">"E o melhor: e gratis. Link na bio." Logo ResDrop + resdrop.app. End screen com CTA forte.</div>
+        <div class="sb-time">13-18s</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ========== FOOTER ========== -->
+<footer style="background:var(--green-deep);padding:40px;text-align:center;">
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px;">
+    <svg width="28" height="32" viewBox="0 0 56 64" fill="none">
+      <path d="M28 2L4 14V34C4 50 28 62 28 62C28 62 52 50 52 34V14L28 2Z" fill="#2D6A4F" stroke="#CBA052" stroke-width="2"/>
+      <path d="M28 18L22 28H26V38L34 28H30V18Z" fill="#CBA052"/>
+    </svg>
+    <span style="font-family:Inter;font-weight:700;font-size:20px;color:#fff;">ResDrop</span>
+  </div>
+  <p style="font-family:Inter;font-size:14px;color:rgba(255,255,255,0.35);">Brand Kit v1.0 &bull; Abril 2026 &bull; resdrop.app &bull; Uso interno</p>
+</footer>
+
+</body>
+</html>

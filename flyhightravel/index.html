@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlyHighTravel — Private Travel Planning</title>
+  <meta name="description" content="Tailored travel planning for executives, private clients, and discerning travelers. Discretion, access, and precision at every step." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── Reset ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    img  { max-width: 100%; display: block; }
+    a    { color: inherit; text-decoration: none; }
+    button { cursor: pointer; font-family: inherit; border: none; background: none; }
+    ul   { list-style: none; }
+
+    /* ─── Tokens ─────────────────────────────────────────────────────────── */
+    :root {
+      --ivory:    #F6F1EA;
+      --ivory2:   #EFE8DC;
+      --ivory3:   #E8DDD0;
+      --dark:     #1C1812;
+      --dark2:    #28231A;
+      --text:     #171410;
+      --text2:    #625D57;
+      --accent:   #A08968;
+      --gold:     #C2A46A;
+      --border:   #DDD3C0;
+      --cream:    #FEFAF3;
+
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans:  'Inter', -apple-system, sans-serif;
+
+      --w:    1220px;
+      --px:   clamp(1.5rem, 5vw, 4rem);
+      --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--text);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap { max-width: var(--w); margin: 0 auto; padding: 0 var(--px); }
+
+    h1, h2, h3 {
+      font-family: var(--serif);
+      font-weight: 400;
+      line-height: 1.06;
+    }
+
+    /* ─── Labels ─────────────────────────────────────────────────────────── */
+    .label {
+      display: block;
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.1rem;
+    }
+    .label-light { color: rgba(196,164,106,0.7); }
+
+    /* ─── Fade-in ─────────────────────────────────────────────────────────── */
+    .fi {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 1s var(--ease), transform 1s var(--ease);
+    }
+    .fi.d1 { transition-delay: 0.1s; }
+    .fi.d2 { transition-delay: 0.22s; }
+    .fi.d3 { transition-delay: 0.34s; }
+    .fi.d4 { transition-delay: 0.46s; }
+    .fi.on { opacity: 1; transform: none; }
+
+    /* ─── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.82rem 2rem;
+      font-family: var(--sans);
+      font-size: 0.67rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 1px solid;
+      transition: background 0.3s var(--ease), border-color 0.3s var(--ease), color 0.3s var(--ease);
+      white-space: nowrap;
+    }
+    .btn-dark    { background: var(--text);  border-color: var(--text);  color: var(--cream); }
+    .btn-dark:hover { background: var(--dark2); border-color: var(--dark2); }
+    .btn-outline { background: transparent; border-color: rgba(23,20,16,0.3); color: var(--text); }
+    .btn-outline:hover { border-color: var(--text); }
+    .btn-ghost   { background: transparent; border-color: rgba(254,250,243,0.35); color: var(--cream); }
+    .btn-ghost:hover   { border-color: rgba(254,250,243,0.8); }
+    .btn-light   { background: var(--cream); border-color: var(--cream); color: var(--text); }
+    .btn-light:hover   { background: var(--ivory); border-color: var(--ivory); }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       HEADER
+    ─────────────────────────────────────────────────────────────────────── */
+    .hdr {
+      position: fixed;
+      inset: 0 0 auto;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem var(--px);
+      transition: background 0.45s var(--ease), border-color 0.45s var(--ease), backdrop-filter 0.45s;
+      border-bottom: 1px solid transparent;
+    }
+    /* Transparent over full hero; goes opaque on scroll */
+    .hdr.over-hero                   { background: transparent; }
+    .hdr.over-hero .logo-name        { color: var(--cream); }
+    .hdr.over-hero .logo-sub         { color: rgba(196,164,106,0.6); }
+    .hdr.over-hero .nav-link         { color: rgba(254,250,243,0.55); }
+    .hdr.over-hero .nav-link:hover   { color: var(--cream); }
+    .hdr.over-hero .nav-link::after  { background: rgba(254,250,243,0.6); }
+    .hdr.over-hero .hdr-cta          { border-color: rgba(254,250,243,0.3); color: var(--cream); }
+    .hdr.over-hero .hdr-cta:hover    { border-color: rgba(254,250,243,0.75); }
+    .hdr.over-hero .hamburger span   { background: var(--cream); }
+
+    .hdr.light {
+      background: rgba(246,241,234,0.95);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-color: var(--border);
+    }
+
+    /* Logo */
+    .logo-link { display: flex; align-items: center; gap: 0.75rem; }
+    .logo-img  {
+      height: 40px;
+      width: auto;
+      /* SVG has transparent background — no blend-mode tricks needed */
+      transition: opacity 0.3s;
+    }
+    .logo-copy { display: flex; flex-direction: column; gap: 3px; }
+    .logo-name {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      line-height: 1;
+      transition: color 0.35s;
+    }
+    .logo-sub {
+      font-size: 0.49rem;
+      font-weight: 400;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--accent);
+      line-height: 1;
+      transition: color 0.35s;
+    }
+
+    /* Primary nav */
+    .hdr-nav   { display: flex; align-items: center; gap: 2.5rem; }
+    .nav-links { display: flex; gap: 1.85rem; }
+    .nav-link  {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text2);
+      position: relative;
+      transition: color 0.25s;
+    }
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: -3px; left: 0; right: 0;
+      height: 1px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.3s var(--ease);
+    }
+    .nav-link:hover           { color: var(--text); }
+    .nav-link:hover::after    { transform: scaleX(1); transform-origin: left; }
+    .hdr-cta {
+      font-size: 0.67rem;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      padding: 0.65rem 1.5rem;
+      color: var(--text);
+      transition: border-color 0.3s, color 0.3s;
+    }
+    .hdr-cta:hover { border-color: var(--text); }
+
+    /* Hamburger */
+    .hamburger { display: none; flex-direction: column; gap: 5px; padding: 4px; }
+    .hamburger span { display: block; width: 22px; height: 1px; background: var(--text); transition: background 0.3s; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       MOBILE NAV
+    ─────────────────────────────────────────────────────────────────────── */
+    .mob-nav {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 199;
+      background: var(--dark);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2.25rem;
+    }
+    .mob-nav.open { display: flex; }
+    .mob-nav a {
+      font-family: var(--serif);
+      font-size: clamp(2.2rem, 7vw, 3.5rem);
+      font-style: italic;
+      color: rgba(254,250,243,0.6);
+      transition: color 0.25s;
+    }
+    .mob-nav a:hover { color: var(--cream); }
+    .mob-close {
+      position: absolute; top: 1.75rem; right: var(--px);
+      font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(254,250,243,0.25); transition: color 0.25s;
+    }
+    .mob-close:hover { color: rgba(254,250,243,0.6); }
+    .mob-cta { position: absolute; bottom: 3rem; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       HERO  — full-viewport, cinematic, dark overlay
+    ─────────────────────────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding-bottom: clamp(4rem, 8vh, 7rem);
+      overflow: hidden;
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      /* Hero image — swap URL for your own asset */
+      background:
+        url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1920&q=85&auto=format&fit=crop&crop=focalpoint')
+        center / cover no-repeat;
+      /* CSS gradient fallback if image fails: */
+      background-color: var(--dark2);
+      transform: scale(1.02);
+      transition: transform 8s ease-out;
+    }
+    .hero-bg.loaded { transform: scale(1); }
+
+    /* Multi-stop overlay: transparent top → dark bottom-left */
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to right,  rgba(15,11,7,0.68) 0%, rgba(15,11,7,0.20) 65%,  transparent 100%),
+        linear-gradient(to top,    rgba(15,11,7,0.75) 0%, rgba(15,11,7,0.10) 55%,  transparent 100%);
+    }
+
+    /* Film-grain texture */
+    .hero-grain {
+      position: absolute;
+      inset: 0;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23g)'/%3E%3C/svg%3E");
+      background-size: 300px;
+      pointer-events: none;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+    }
+
+    /* Horizontal rule above headline */
+    .hero-rule {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .hero-rule-line { width: 2.5rem; height: 1px; background: var(--gold); opacity: 0.5; }
+
+    .hero-h1 {
+      font-size: clamp(3.2rem, 6.5vw, 7.5rem);
+      font-weight: 400;
+      color: var(--cream);
+      letter-spacing: 0.01em;
+      line-height: 1.03;
+      max-width: 16ch;
+      margin-bottom: 1.75rem;
+    }
+    .hero-h1 em { font-style: italic; color: var(--gold); }
+
+    .hero-sub {
+      font-size: clamp(0.875rem, 1.1vw, 1rem);
+      font-weight: 300;
+      color: rgba(254,250,243,0.62);
+      max-width: 46ch;
+      line-height: 1.8;
+      margin-bottom: 2.5rem;
+    }
+
+    .hero-ctas { display: flex; gap: 0.875rem; flex-wrap: wrap; }
+
+    /* Bottom-right scroll indicator */
+    .hero-scroll {
+      position: absolute;
+      bottom: 2.75rem;
+      right: var(--px);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .hero-scroll span {
+      writing-mode: vertical-rl;
+      font-size: 0.56rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(254,250,243,0.25);
+    }
+    .scroll-line {
+      width: 1px;
+      height: 48px;
+      background: linear-gradient(to bottom, transparent, rgba(254,250,243,0.28));
+    }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       POSITIONING — light editorial intro
+    ─────────────────────────────────────────────────────────────────────── */
+    .pos {
+      background: var(--cream);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .pos-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(4rem, 8vw, 10rem);
+      align-items: start;
+    }
+    .pos-h2 {
+      font-size: clamp(1.85rem, 2.9vw, 3.25rem);
+      line-height: 1.18;
+    }
+    .pos-h2 em { font-style: italic; color: var(--gold); }
+    .pos-divider { width: 2.5rem; height: 1px; background: var(--accent); opacity: 0.45; margin-top: 2rem; }
+    .pos-body p { font-size: 0.9rem; color: var(--text2); line-height: 1.82; }
+    .pos-body p + p { margin-top: 1rem; }
+    .pos-body .btn { margin-top: 2.25rem; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       SERVICES
+    ─────────────────────────────────────────────────────────────────────── */
+    .services {
+      background: var(--ivory);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .sec-head { margin-bottom: clamp(3rem, 5vw, 5rem); }
+    .sec-h2   { font-size: clamp(2rem, 3.5vw, 3.75rem); margin-top: 0.75rem; }
+    .sec-h2 em { font-style: italic; }
+
+    .svc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      border: 1px solid var(--border);
+    }
+    .svc {
+      padding: clamp(2.5rem, 4vw, 3.5rem);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.35s var(--ease);
+    }
+    .svc:nth-child(2n)      { border-right: none; }
+    .svc:nth-child(3), .svc:nth-child(4) { border-bottom: none; }
+    .svc:hover              { background: var(--ivory2); }
+    .svc-bar {
+      width: 2rem; height: 1px;
+      background: var(--accent);
+      margin-bottom: 2rem;
+      transition: width 0.4s var(--ease);
+    }
+    .svc:hover .svc-bar { width: 3.5rem; }
+    .svc h3 {
+      font-family: var(--serif);
+      font-size: clamp(1.25rem, 1.9vw, 1.75rem);
+      font-weight: 500;
+      margin-bottom: 0.85rem;
+    }
+    .svc p { font-size: 0.845rem; color: var(--text2); line-height: 1.78; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       WHY — trust section with sticky intro
+    ─────────────────────────────────────────────────────────────────────── */
+    .why {
+      background: var(--ivory2);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .why-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: clamp(4rem, 8vw, 10rem);
+      align-items: start;
+    }
+    .why-left      { position: sticky; top: 7rem; }
+    .why-left .sec-h2 { max-width: 10ch; }
+    .why-left p    { font-size: 0.875rem; color: var(--text2); line-height: 1.8; max-width: 34ch; margin-top: 1rem; }
+    .why-left .btn { margin-top: 2.5rem; }
+
+    .pillars { display: flex; flex-direction: column; gap: clamp(2.5rem, 4vw, 4rem); }
+    .pillar  { padding-top: 1.5rem; border-top: 1px solid var(--border); }
+    .pillar h3 {
+      font-family: var(--serif);
+      font-size: clamp(1.3rem, 1.9vw, 1.75rem);
+      font-weight: 500;
+      margin-bottom: 0.6rem;
+    }
+    .pillar p { font-size: 0.875rem; color: var(--text2); line-height: 1.78; max-width: 46ch; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       PARTNERS
+    ─────────────────────────────────────────────────────────────────────── */
+    .partners {
+      background: var(--cream);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .partners .sec-head p {
+      font-size: 0.875rem;
+      color: var(--text2);
+      max-width: 52ch;
+      line-height: 1.78;
+      margin-top: 0.85rem;
+    }
+    .partner-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border);
+      margin-bottom: 2.5rem;
+    }
+    .p-cell {
+      padding: 1.75rem 2rem;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: background 0.3s var(--ease);
+    }
+    .p-cell:hover { background: var(--ivory); }
+    .p-cell:nth-child(3n)         { border-right: none; }
+    .p-cell:nth-last-child(-n+3)  { border-bottom: none; }
+    .p-cat  { font-size: 0.55rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
+    .p-name { font-family: var(--serif); font-size: 1.1rem; font-weight: 500; color: var(--text2); }
+
+    .partners-note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--accent);
+      opacity: 0.6;
+      letter-spacing: 0.06em;
+    }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       STATEMENT — dark editorial quote
+    ─────────────────────────────────────────────────────────────────────── */
+    .statement {
+      background: var(--dark);
+      padding: clamp(6rem, 12vh, 11rem) 0;
+    }
+    .stmt-inner { max-width: 880px; margin: 0 auto; text-align: center; }
+    .stmt-rule  { width: 2.5rem; height: 1px; background: var(--gold); opacity: 0.35; margin: 0 auto 2.75rem; }
+    .stmt-q {
+      font-family: var(--serif);
+      font-size: clamp(1.5rem, 2.8vw, 2.85rem);
+      font-weight: 300;
+      color: var(--cream);
+      line-height: 1.48;
+    }
+    .stmt-q em   { font-style: italic; color: var(--gold); }
+    .stmt-by     { margin-top: 2.5rem; font-size: 0.58rem; letter-spacing: 0.26em; text-transform: uppercase; color: rgba(254,250,243,0.22); }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       DESTINATIONS — photo strip
+    ─────────────────────────────────────────────────────────────────────── */
+    .destinations {
+      background: var(--ivory);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .dest-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.875rem;
+    }
+    .dest-card {
+      position: relative;
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      cursor: default;
+    }
+    .dest-photo {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      transition: transform 0.7s var(--ease);
+    }
+    .dest-card:hover .dest-photo { transform: scale(1.05); }
+
+    /* Destination background images — swap for your own assets */
+    .dest-card:nth-child(1) .dest-photo {
+      background-image:
+        url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=700&h=950&q=85&auto=format&fit=crop&crop=focalpoint');
+      background-color: #1A2832;
+    }
+    .dest-card:nth-child(2) .dest-photo {
+      background-image:
+        url('https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=700&h=950&q=85&auto=format&fit=crop&crop=focalpoint');
+      background-color: #1E1A14;
+    }
+    .dest-card:nth-child(3) .dest-photo {
+      background-image:
+        url('https://images.unsplash.com/photo-1464822759023-fed107ef2b96?w=700&h=950&q=85&auto=format&fit=crop&crop=focalpoint');
+      background-color: #16201A;
+    }
+    .dest-card:nth-child(4) .dest-photo {
+      background-image:
+        url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=700&h=950&q=85&auto=format&fit=crop&crop=focalpoint');
+      background-color: #1A2230;
+    }
+
+    .dest-veil {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(12,8,4,0.82) 0%, rgba(12,8,4,0.12) 50%, transparent 100%);
+    }
+    .dest-info {
+      position: absolute;
+      bottom: 1.75rem; left: 1.75rem; right: 1.75rem;
+    }
+    .dest-info .label { color: rgba(194,164,106,0.7); margin-bottom: 0.4rem; }
+    .dest-info h3 {
+      font-family: var(--serif);
+      font-size: clamp(1.1rem, 1.65vw, 1.5rem);
+      font-weight: 400;
+      color: var(--cream);
+      line-height: 1.2;
+    }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       CONTACT
+    ─────────────────────────────────────────────────────────────────────── */
+    .contact {
+      background: var(--ivory2);
+      padding: clamp(5rem, 10vh, 9rem) 0;
+    }
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: clamp(4rem, 8vw, 10rem);
+      align-items: start;
+    }
+    .contact-left .sec-h2  { max-width: 12ch; }
+    .contact-left > p      { font-size: 0.9rem; color: var(--text2); line-height: 1.8; margin-top: 1rem; margin-bottom: 2.5rem; }
+
+    .c-details { display: flex; flex-direction: column; gap: 1.25rem; }
+    .c-item  { display: flex; flex-direction: column; gap: 0.2rem; }
+    .c-lbl   { font-size: 0.56rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
+    .c-val   { font-size: 0.875rem; color: var(--text2); }
+    .c-val a:hover { color: var(--text); }
+    .c-rule  { width: 2rem; height: 1px; background: var(--border); }
+
+    /* Form */
+    .form      { display: flex; flex-direction: column; gap: 1.25rem; }
+    .form-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .fg        { display: flex; flex-direction: column; gap: 0.4rem; }
+    .fg label  { font-size: 0.57rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text2); }
+    .fg input, .fg textarea {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 0;
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      color: var(--text);
+      outline: none;
+      -webkit-appearance: none;
+      transition: border-color 0.3s var(--ease);
+    }
+    .fg input::placeholder, .fg textarea::placeholder { color: rgba(98,93,87,0.38); }
+    .fg input:focus, .fg textarea:focus { border-color: var(--accent); }
+    .fg textarea { resize: vertical; min-height: 115px; }
+    .form-actions { display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+    .form-ok { font-size: 0.8rem; color: var(--accent); display: none; }
+    .form-ok.on { display: block; }
+    .form-note { font-size: 0.7rem; color: var(--accent); opacity: 0.55; text-align: center; margin-top: 0.25rem; }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       FOOTER
+    ─────────────────────────────────────────────────────────────────────── */
+    .footer {
+      background: var(--dark);
+      padding: clamp(4rem, 7vh, 6rem) 0 2.5rem;
+    }
+    .footer-top {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 1fr 1fr;
+      gap: clamp(2rem, 5vw, 5rem);
+      padding-bottom: 3rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      margin-bottom: 2rem;
+    }
+
+    /* Footer logo — white logo version ideal; using mix-blend:screen fallback */
+    .ft-logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .ft-logo-img {
+      height: 36px;
+      width: auto;
+      opacity: 0.85;
+    }
+    .ft-logo-copy { display: flex; flex-direction: column; gap: 3px; }
+    .ft-brand { font-family: var(--serif); font-size: 1rem; font-weight: 500; letter-spacing: 0.08em; color: rgba(254,250,243,0.72); }
+    .ft-sub   { font-size: 0.48rem; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(194,164,106,0.45); }
+    .ft-tag   { font-size: 0.78rem; color: rgba(254,250,243,0.22); line-height: 1.72; max-width: 28ch; }
+
+    .ft-col-title { font-size: 0.56rem; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(254,250,243,0.2); margin-bottom: 1.25rem; }
+    .ft-links { display: flex; flex-direction: column; gap: 0.52rem; }
+    .ft-links a { font-size: 0.8rem; color: rgba(254,250,243,0.33); transition: color 0.25s; }
+    .ft-links a:hover { color: rgba(254,250,243,0.65); }
+    .ft-contact-list { display: flex; flex-direction: column; gap: 0.45rem; }
+    .ft-contact-list p { font-size: 0.8rem; color: rgba(254,250,243,0.33); }
+    .ft-contact-list a:hover { color: rgba(254,250,243,0.65); }
+
+    .footer-bot { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .ft-copy    { font-size: 0.65rem; color: rgba(254,250,243,0.15); letter-spacing: 0.06em; }
+    .ft-social  { display: flex; gap: 1.5rem; }
+    .ft-social a { font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(254,250,243,0.2); transition: color 0.25s; }
+    .ft-social a:hover { color: rgba(254,250,243,0.5); }
+
+    /* ───────────────────────────────────────────────────────────────────────
+       RESPONSIVE
+    ─────────────────────────────────────────────────────────────────────── */
+    @media (max-width: 1060px) {
+      .partner-grid { grid-template-columns: repeat(2, 1fr); }
+      .p-cell:nth-child(3n)         { border-right: 1px solid var(--border); }
+      .p-cell:nth-child(2n)         { border-right: none; }
+      .p-cell:nth-last-child(-n+3)  { border-bottom: 1px solid var(--border); }
+      .p-cell:nth-last-child(-n+2)  { border-bottom: none; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+      .footer-top > div:first-child { grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links, .hdr-cta-wrap { display: none; }
+      .hamburger { display: flex; }
+
+      .pos-grid     { grid-template-columns: 1fr; gap: 2.5rem; }
+      .svc-grid     { grid-template-columns: 1fr; }
+      .svc          { border-right: none; }
+      .svc:nth-child(3) { border-bottom: 1px solid var(--border); }
+      .why-grid     { grid-template-columns: 1fr; gap: 3rem; }
+      .why-left     { position: static; }
+      .dest-grid    { grid-template-columns: repeat(2, 1fr); }
+      .contact-grid { grid-template-columns: 1fr; gap: 3.5rem; }
+      .form-row     { grid-template-columns: 1fr; }
+      .footer-top   { grid-template-columns: 1fr; gap: 2.5rem; }
+      .footer-top > div:first-child { grid-column: 1; }
+      .footer-bot   { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 480px) {
+      .dest-grid { grid-template-columns: 1fr 1fr; }
+      .hero-ctas { flex-direction: column; align-items: flex-start; }
+      .hero-scroll { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══ MOBILE NAV ════════════════════════════════════════════════════════ -->
+  <nav class="mob-nav" id="mobNav" aria-label="Mobile navigation">
+    <button class="mob-close" id="mobClose">Close</button>
+    <a href="#hero">Home</a>
+    <a href="#services">Services</a>
+    <a href="#partners">Partners</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <div class="mob-cta">
+      <a href="#contact" class="btn btn-ghost">Request Assistance</a>
+    </div>
+  </nav>
+
+  <!-- ═══ HEADER ════════════════════════════════════════════════════════════ -->
+  <header class="hdr over-hero" id="hdr">
+    <!--
+      ╔═══════════════════════════════════════════════════════════════╗
+      ║  LOGO  — save your file to:  flyhightravel/assets/logo.svg   ║
+      ║  mix-blend-mode: multiply strips white on ivory backgrounds   ║
+      ║  mix-blend-mode: screen   strips white on dark hero/footer    ║
+      ╚═══════════════════════════════════════════════════════════════╝
+    -->
+    <a href="/" class="logo-link" aria-label="FlyHighTravel">
+      <img src="assets/logo.svg" alt="FlyHighTravel" class="logo-img" />
+      <div class="logo-copy">
+        <span class="logo-name">FlyHighTravel</span>
+        <span class="logo-sub">Private Travel Advisory</span>
+      </div>
+    </a>
+
+    <nav class="hdr-nav" aria-label="Primary">
+      <ul class="nav-links" role="list">
+        <li><a href="#hero"        class="nav-link">Home</a></li>
+        <li><a href="#services"    class="nav-link">Services</a></li>
+        <li><a href="#partners"    class="nav-link">Partners</a></li>
+        <li><a href="#about"       class="nav-link">About</a></li>
+        <li><a href="#contact"     class="nav-link">Contact</a></li>
+      </ul>
+      <div class="hdr-cta-wrap">
+        <a href="#contact" class="hdr-cta">Request Assistance</a>
+      </div>
+    </nav>
+
+    <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false">
+      <span></span>
+      <span></span>
+    </button>
+  </header>
+
+  <main>
+
+    <!-- ═══ HERO ══════════════════════════════════════════════════════════════ -->
+    <section class="hero" id="hero">
+      <!--
+        HERO BACKGROUND IMAGE
+        ─────────────────────
+        The background is set via CSS on .hero-bg.
+        To use your own photo, replace the background-image URL in the CSS:
+          background-image: url('assets/hero.jpg');
+        Recommended: luxury aviation, hotel arrival, or executive lounge.
+        Current placeholder: Unsplash aerial/aviation photo.
+      -->
+      <div class="hero-bg" id="heroBg" aria-hidden="true"></div>
+      <div class="hero-overlay" aria-hidden="true"></div>
+      <div class="hero-grain" aria-hidden="true"></div>
+
+      <div class="hero-content">
+        <div class="wrap">
+          <div class="hero-rule fi" aria-hidden="true">
+            <div class="hero-rule-line"></div>
+            <span class="label label-light">Private Travel Planning</span>
+          </div>
+          <h1 class="hero-h1 fi d1">
+            Travel,<br>handled<br><em>personally.</em>
+          </h1>
+          <p class="hero-sub fi d2">
+            FlyHighTravel designs tailored journeys for executives, private clients, and discerning travelers who value discretion, efficiency, and trusted access.
+          </p>
+          <div class="hero-ctas fi d3">
+            <a href="#contact"  class="btn btn-light">Request Assistance</a>
+            <a href="#services" class="btn btn-ghost">View Services</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-scroll" aria-hidden="true">
+        <span>Scroll</span>
+        <div class="scroll-line"></div>
+      </div>
+    </section>
+
+    <!-- ═══ BRAND POSITIONING ════════════════════════════════════════════════ -->
+    <section class="pos" id="intro">
+      <div class="wrap">
+        <div class="pos-grid">
+          <div class="fi">
+            <span class="label">About FlyHighTravel</span>
+            <h2 class="pos-h2">
+              A trusted partner<br>for every journey,<br><em>however personal.</em>
+            </h2>
+            <div class="pos-divider" aria-hidden="true"></div>
+          </div>
+          <div class="pos-body fi d1">
+            <p>We provide highly personalized travel support across luxury hotels, private villas, private aviation, and premium commercial travel. Every itinerary is shaped around your preferences, priorities, and pace.</p>
+            <p>Whether you need seamless business travel coordination, a private family retreat, or a complex multi-destination journey, we ensure every detail is considered well before you depart.</p>
+            <a href="#contact" class="btn btn-outline">Start a Conversation</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ SERVICES ══════════════════════════════════════════════════════════ -->
+    <section class="services" id="services">
+      <div class="wrap">
+        <div class="sec-head fi">
+          <span class="label">What we offer</span>
+          <h2 class="sec-h2">A complete<br><em>travel service.</em></h2>
+        </div>
+
+        <div class="svc-grid">
+          <div class="svc fi">
+            <div class="svc-bar" aria-hidden="true"></div>
+            <h3>Luxury Hotels &amp; Villas</h3>
+            <p>From intimate boutique properties to palatial private villas, we manage every detail of your accommodation — preferred rates, suite selections, pre-arrival preferences, and on-property coordination.</p>
+          </div>
+          <div class="svc fi d1">
+            <div class="svc-bar" aria-hidden="true"></div>
+            <h3>Private Jet &amp; Charter Access</h3>
+            <p>When time and privacy matter most, we coordinate private aviation through a trusted network of operators. Flexible scheduling, discreet arrangements, and seamless ground logistics, handled quietly.</p>
+          </div>
+          <div class="svc fi d1">
+            <div class="svc-bar" aria-hidden="true"></div>
+            <h3>First &amp; Business Class Travel</h3>
+            <p>From optimized premium cabin itineraries to comfort-led routing and preferred scheduling, we make commercial air travel more considered — and more comfortable — at every stage.</p>
+          </div>
+          <div class="svc fi d2">
+            <div class="svc-bar" aria-hidden="true"></div>
+            <h3>End-to-End Coordination</h3>
+            <p>Transfers, visas, dining reservations, security briefings, on-the-ground support. Managed quietly in the background so that every journey, from departure to return, feels entirely effortless.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ WHY ════════════════════════════════════════════════════════════════ -->
+    <section class="why" id="about">
+      <div class="wrap">
+        <div class="why-grid">
+          <div class="why-left fi">
+            <span class="label">Why FlyHighTravel</span>
+            <h2 class="sec-h2">Built on trust.<br><em>Driven by detail.</em></h2>
+            <p>We work with a deliberately select group of clients. That focus is precisely what allows us to deliver at the level we do, consistently and without compromise.</p>
+            <a href="#contact" class="btn btn-dark">Get in Touch</a>
+          </div>
+          <div class="pillars">
+            <div class="pillar fi">
+              <h3>Discreet &amp; Personal</h3>
+              <p>Your preferences, privacy, and time are treated with the same care we would want for ourselves. We do not broadcast our client relationships — and we never will.</p>
+            </div>
+            <div class="pillar fi d1">
+              <h3>Global Partner Access</h3>
+              <p>Preferred relationships with leading hotels, private aviation operators, ground handlers, and concierge partners worldwide — access that goes well beyond standard booking channels.</p>
+            </div>
+            <div class="pillar fi d2">
+              <h3>Detail-Driven Execution</h3>
+              <p>We anticipate, plan, and manage every detail before it becomes a concern. Contingency planning, proactive communication, and a calm presence whenever anything shifts.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ PARTNERS ══════════════════════════════════════════════════════════ -->
+    <section class="partners" id="partners">
+      <div class="wrap">
+        <div class="sec-head fi">
+          <span class="label">Our network</span>
+          <h2 class="sec-h2">Trusted connections,<br><em>globally.</em></h2>
+          <p>We maintain preferred partnerships across every category of luxury travel — relationships built on service, integrity, and consistent delivery.</p>
+        </div>
+
+        <div class="partner-grid">
+          <div class="p-cell fi">
+            <span class="p-cat">Luxury Hotels</span>
+            <span class="p-name">Aman Resorts</span>
+          </div>
+          <div class="p-cell fi d1">
+            <span class="p-cat">Luxury Hotels</span>
+            <span class="p-name">Four Seasons</span>
+          </div>
+          <div class="p-cell fi d2">
+            <span class="p-cat">Luxury Hotels</span>
+            <span class="p-name">Rosewood Hotels</span>
+          </div>
+          <div class="p-cell fi">
+            <span class="p-cat">Luxury Hotels</span>
+            <span class="p-name">Belmond</span>
+          </div>
+          <div class="p-cell fi d1">
+            <span class="p-cat">Private Aviation</span>
+            <span class="p-name">VistaJet</span>
+          </div>
+          <div class="p-cell fi d2">
+            <span class="p-cat">Private Aviation</span>
+            <span class="p-name">NetJets</span>
+          </div>
+          <div class="p-cell fi">
+            <span class="p-cat">Premium Commercial</span>
+            <span class="p-name">Emirates First Class</span>
+          </div>
+          <div class="p-cell fi d1">
+            <span class="p-cat">Premium Commercial</span>
+            <span class="p-name">Singapore Airlines</span>
+          </div>
+          <div class="p-cell fi d2">
+            <span class="p-cat">Hospitality</span>
+            <span class="p-name">Leading Hotels of the World</span>
+          </div>
+        </div>
+
+        <p class="partners-note fi">and many more preferred partners across hospitality, aviation, and ground services worldwide</p>
+      </div>
+    </section>
+
+    <!-- ═══ STATEMENT ═════════════════════════════════════════════════════════ -->
+    <section class="statement">
+      <div class="wrap">
+        <div class="stmt-inner fi">
+          <div class="stmt-rule" aria-hidden="true"></div>
+          <blockquote class="stmt-q">
+            "Luxury is not about excess.<br>
+            It is about <em>ease</em>, access, discretion,<br>
+            and the quiet confidence that every detail<br>
+            has already been considered."
+          </blockquote>
+          <p class="stmt-by">FlyHighTravel</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ DESTINATIONS ══════════════════════════════════════════════════════ -->
+    <section class="destinations" id="destinations">
+      <div class="wrap">
+        <div class="sec-head fi">
+          <span class="label">Travel inspiration</span>
+          <h2 class="sec-h2">Wherever you need to be,<br><em>we'll arrange it.</em></h2>
+        </div>
+
+        <div class="dest-grid">
+          <!--
+            DESTINATION PHOTOS
+            ──────────────────
+            Current images: Unsplash placeholder photography.
+            To use your own assets, update the background-image URL on each
+            .dest-photo element in the CSS, or via inline style below.
+          -->
+          <div class="dest-card fi">
+            <div class="dest-photo"></div>
+            <div class="dest-veil"></div>
+            <div class="dest-info">
+              <span class="label">Mediterranean &amp; Caribbean</span>
+              <h3>Coastal Escapes</h3>
+            </div>
+          </div>
+          <div class="dest-card fi d1">
+            <div class="dest-photo"></div>
+            <div class="dest-veil"></div>
+            <div class="dest-info">
+              <span class="label">Tokyo · London · New York</span>
+              <h3>City Stays</h3>
+            </div>
+          </div>
+          <div class="dest-card fi d2">
+            <div class="dest-photo"></div>
+            <div class="dest-veil"></div>
+            <div class="dest-info">
+              <span class="label">Switzerland · Austria · Japan</span>
+              <h3>Alpine Retreats</h3>
+            </div>
+          </div>
+          <div class="dest-card fi d3">
+            <div class="dest-photo"></div>
+            <div class="dest-veil"></div>
+            <div class="dest-info">
+              <span class="label">Maldives · Seychelles · Greece</span>
+              <h3>Island &amp; Villa Getaways</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ CONTACT ═══════════════════════════════════════════════════════════ -->
+    <section class="contact" id="contact">
+      <div class="wrap">
+        <div class="contact-grid">
+
+          <div class="fi">
+            <span class="label">Get in touch</span>
+            <h2 class="sec-h2">Let's plan your<br>next <em>journey.</em></h2>
+            <p>Share a few details and our team will respond personally — usually within a few hours.</p>
+            <div class="c-details">
+              <div class="c-item">
+                <span class="c-lbl">Email</span>
+                <span class="c-val"><a href="mailto:hello@flyhightravel.com">hello@flyhightravel.com</a></span>
+              </div>
+              <div class="c-rule"></div>
+              <div class="c-item">
+                <span class="c-lbl">WhatsApp / Phone</span>
+                <span class="c-val"><a href="tel:+12120000000">+1 (212) 000-0000</a></span>
+              </div>
+              <div class="c-rule"></div>
+              <div class="c-item">
+                <span class="c-lbl">Office</span>
+                <span class="c-val">New York · London · Miami</span>
+              </div>
+            </div>
+          </div>
+
+          <form class="form fi d1" id="form" novalidate>
+            <div class="form-row">
+              <div class="fg">
+                <label for="fn">Name</label>
+                <input type="text"  id="fn" name="name"  placeholder="Your full name"      autocomplete="name" />
+              </div>
+              <div class="fg">
+                <label for="fe">Email</label>
+                <input type="email" id="fe" name="email" placeholder="your@email.com"       autocomplete="email" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="fg">
+                <label for="fp">Phone / WhatsApp</label>
+                <input type="tel"   id="fp" name="phone" placeholder="+1 (___) ___ ____"   autocomplete="tel" />
+              </div>
+              <div class="fg">
+                <label for="fd">Preferred Dates</label>
+                <input type="text"  id="fd" name="dates" placeholder="e.g. August 2025, flexible" />
+              </div>
+            </div>
+            <div class="fg">
+              <label for="fr">Travel Request</label>
+              <input type="text" id="fr" name="request" placeholder="Destination, type of trip, group size…" />
+            </div>
+            <div class="fg">
+              <label for="fm">Message</label>
+              <textarea id="fm" name="message" placeholder="Any preferences, expectations, or context you'd like to share…"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-dark">Send Inquiry</button>
+              <span class="form-ok" id="formOk">Thank you — we'll be in touch shortly.</span>
+            </div>
+            <p class="form-note">All enquiries are handled with complete discretion.</p>
+          </form>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══ FOOTER ════════════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-top">
+
+        <div>
+          <div class="ft-logo-wrap">
+            <!--
+              For the dark footer, mix-blend-mode: screen renders the gold mark
+              cleanly against the dark background.
+              Ideally use a white/reversed logo variant if available.
+            -->
+            <img src="assets/logo.svg" alt="FlyHighTravel" class="ft-logo-img" />
+            <div class="ft-logo-copy">
+              <span class="ft-brand">FlyHighTravel</span>
+              <span class="ft-sub">Private Travel Advisory</span>
+            </div>
+          </div>
+          <p class="ft-tag">Private travel planning for executives, private clients, and discerning travelers who value discretion and precision.</p>
+        </div>
+
+        <div>
+          <p class="ft-col-title">Navigate</p>
+          <ul class="ft-links">
+            <li><a href="#hero">Home</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#partners">Partners</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="ft-col-title">Services</p>
+          <ul class="ft-links">
+            <li><a href="#services">Luxury Hotels &amp; Villas</a></li>
+            <li><a href="#services">Private Jet &amp; Charter</a></li>
+            <li><a href="#services">First &amp; Business Class</a></li>
+            <li><a href="#services">Full Coordination</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="ft-col-title">Contact</p>
+          <div class="ft-contact-list">
+            <p><a href="mailto:hello@flyhightravel.com">hello@flyhightravel.com</a></p>
+            <p><a href="tel:+12120000000">+1 (212) 000-0000</a></p>
+            <p style="margin-top:0.6rem; font-size:0.72rem; opacity:0.35;">New York · London · Miami</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="footer-bot">
+        <p class="ft-copy">© 2025 FlyHighTravel. All rights reserved.</p>
+        <div class="ft-social">
+          <a href="#">Instagram</a>
+          <a href="#">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Hero Ken Burns subtle zoom on load ─────────────────────────────────
+    window.addEventListener('load', () => {
+      document.getElementById('heroBg').classList.add('loaded');
+    });
+
+    // ── Header: transparent over hero → frosted on scroll ─────────────────
+    const hdr  = document.getElementById('hdr');
+    const hero = document.getElementById('hero');
+
+    const heroObs = new IntersectionObserver(([e]) => {
+      hdr.classList.toggle('over-hero', e.isIntersecting);
+      hdr.classList.toggle('light',    !e.isIntersecting);
+    }, { threshold: 0.05 });
+    heroObs.observe(hero);
+
+    // ── Scroll-triggered fade-in ───────────────────────────────────────────
+    const fiObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('on'); fiObs.unobserve(e.target); }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -36px 0px' });
+
+    document.querySelectorAll('.fi').forEach(el => fiObs.observe(el));
+
+    // Hero elements appear immediately on page load
+    setTimeout(() => {
+      document.querySelectorAll('.hero .fi').forEach(el => el.classList.add('on'));
+    }, 180);
+
+    // ── Mobile nav ─────────────────────────────────────────────────────────
+    const mob = document.getElementById('mobNav');
+    const ham = document.getElementById('hamburger');
+    const open  = () => { mob.classList.add('open');    ham.setAttribute('aria-expanded', 'true');  document.body.style.overflow = 'hidden'; };
+    const close = () => { mob.classList.remove('open'); ham.setAttribute('aria-expanded', 'false'); document.body.style.overflow = '';       };
+    ham.addEventListener('click', open);
+    document.getElementById('mobClose').addEventListener('click', close);
+    mob.querySelectorAll('a').forEach(a => a.addEventListener('click', close));
+
+    // ── Form submit ────────────────────────────────────────────────────────
+    document.getElementById('form').addEventListener('submit', e => {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.textContent = 'Sent';
+      btn.disabled    = true;
+      btn.style.opacity = '0.5';
+      document.getElementById('formOk').classList.add('on');
+    });
+  </script>
+
+</body>
+</html>
