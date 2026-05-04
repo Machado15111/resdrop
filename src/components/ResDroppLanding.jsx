@@ -46,19 +46,19 @@ const STEPS = [
   {
     n: '01',
     title: { en: 'Add your hotel booking', pt: 'Adicione sua reserva de hotel' },
-    desc: { en: 'Forward your confirmation email or paste the booking details. ResDrop reads the hotel, dates, room type, cancellation deadline, and total price — accurately, not approximately.', pt: 'Encaminhe o e-mail de confirmação ou cole os detalhes da reserva. O ResDrop lê o hotel, datas, tipo de quarto, prazo de cancelamento e preço total — com precisão, não de forma aproximada.' },
+    desc: { en: 'Forward your confirmation email or paste the booking details. ResDrop reads the hotel, dates, room type, cancellation deadline, and total price. Every detail, not just the headline numbers.', pt: 'Encaminhe o e-mail de confirmação ou cole os detalhes da reserva. O ResDrop lê o hotel, datas, tipo de quarto, prazo de cancelamento e preço total. Cada detalhe, não só os números principais.' },
     icon: <IcMail />
   },
   {
     n: '02',
     title: { en: 'ResDrop starts monitoring', pt: 'O ResDrop começa a monitorar' },
-    desc: { en: 'We check rates daily — and more frequently as your cancellation deadline approaches. Room type, conditions, taxes, and included benefits are all tracked, not just the headline price.', pt: 'Verificamos tarifas diariamente — e com mais frequência conforme o prazo de cancelamento se aproxima. Tipo de quarto, condições, impostos e benefícios incluídos são todos monitorados, não só o preço principal.' },
+    desc: { en: 'We check rates daily, more frequently as your cancellation deadline approaches. Room type, conditions, taxes, and included benefits are all tracked, not just the headline price.', pt: 'Verificamos tarifas diariamente, com mais frequência conforme o prazo de cancelamento se aproxima. Tipo de quarto, condições, impostos e benefícios incluídos são todos monitorados, não só o preço principal.' },
     icon: <IcActivity />
   },
   {
     n: '03',
     title: { en: 'You get notified when something better appears', pt: 'Você é avisado quando algo melhor aparece' },
-    desc: { en: 'When a lower rate, better room, or improved availability shows up for the same hotel, you receive a clear side-by-side comparison. No noise — only meaningful improvements.', pt: 'Quando uma tarifa mais baixa, quarto melhor ou disponibilidade melhorada aparecer para o mesmo hotel, você recebe uma comparação clara lado a lado. Sem ruído — apenas melhorias que realmente valem.' },
+    desc: { en: 'When a lower rate, better room, or improved availability shows up for the same hotel, you receive a clear side-by-side comparison. We only alert you when something genuinely worth switching to appears.', pt: 'Quando uma tarifa mais baixa, quarto melhor ou disponibilidade melhorada aparecer para o mesmo hotel, você recebe uma comparação clara lado a lado. Só avisamos quando algo realmente vale a troca.' },
     icon: <IcCompare />
   },
   {
@@ -81,7 +81,7 @@ const FOR_WHO = [
   {
     n: '01',
     title: { en: 'You booked a refundable hotel', pt: 'Você reservou um hotel reembolsável' },
-    desc: { en: 'Refundable reservations are where ResDrop adds the most value. You are protected if you switch — so there is no risk in watching for a better option.', pt: 'Reservas reembolsáveis são onde o ResDrop agrega mais valor. Você está protegido caso mude — então não há risco em monitorar uma opção melhor.' },
+    desc: { en: 'Refundable reservations are where ResDrop adds the most value. You can switch without losing anything, so watching for a better option costs you nothing.', pt: 'Reservas reembolsáveis são onde o ResDrop agrega mais valor. Você pode trocar sem perder nada, então monitorar uma opção melhor não custa nada.' },
   },
   {
     n: '02',
@@ -91,7 +91,7 @@ const FOR_WHO = [
   {
     n: '03',
     title: { en: 'You want a better room', pt: 'Você quer um quarto melhor' },
-    desc: { en: 'A room upgrade often becomes available as check-in approaches. ResDrop watches availability and room type — not just the headline price.', pt: 'Um upgrade de quarto frequentemente fica disponível conforme o check-in se aproxima. O ResDrop monitora disponibilidade e tipo de quarto — não só o preço.' },
+    desc: { en: 'A room upgrade often becomes available as check-in approaches. ResDrop watches availability and room type, not just the headline price.', pt: 'Um upgrade de quarto frequentemente fica disponível conforme o check-in se aproxima. O ResDrop monitora disponibilidade e tipo de quarto, não só o preço.' },
   },
   {
     n: '04',
@@ -150,7 +150,7 @@ const FREE_FEATS = [
 
 const PLUS_FEATS = [
   { en: 'Unlimited bookings tracked', pt: 'Reservas ilimitadas monitoradas' },
-  { en: 'Priority monitoring — twice daily', pt: 'Monitoramento prioritário — duas vezes ao dia' },
+  { en: 'Priority monitoring, twice daily', pt: 'Monitoramento prioritário, duas vezes ao dia' },
   { en: 'Email and push notifications', pt: 'Notificações por e-mail e push' },
   { en: 'Savings dashboard', pt: 'Painel de economia' },
   { en: 'Priority support', pt: 'Suporte prioritário' },
@@ -159,11 +159,11 @@ const PLUS_FEATS = [
 const FAQS = [
   {
     q: { en: 'Does ResDrop automatically cancel or rebook my hotel?', pt: 'O ResDrop cancela ou remarca meu hotel automaticamente?' },
-    a: { en: 'No. We never touch your reservation. ResDrop only monitors and alerts. Every action — rebook, upgrade, or do nothing — is always your decision.', pt: 'Não. Nunca tocamos na sua reserva. O ResDrop apenas monitora e alerta. Cada ação — remarcar, fazer upgrade ou não fazer nada — é sempre sua decisão.' },
+    a: { en: 'No. We never touch your reservation. ResDrop only monitors and alerts. Whether you rebook, upgrade, or do nothing is always your call.', pt: 'Não. Nunca tocamos na sua reserva. O ResDrop apenas monitora e alerta. Se você vai remarcar, fazer upgrade ou não fazer nada é sempre sua decisão.' },
   },
   {
     q: { en: 'Which bookings work best with ResDrop?', pt: 'Quais reservas funcionam melhor com o ResDrop?' },
-    a: { en: 'Refundable hotel bookings made in advance — typically 4 to 12 weeks before check-in. The longer the monitoring window, the more opportunities ResDrop has to find a better deal.', pt: 'Reservas de hotel reembolsáveis feitas com antecedência — normalmente 4 a 12 semanas antes do check-in. Quanto maior a janela de monitoramento, mais oportunidades o ResDrop tem de encontrar uma opção melhor.' },
+    a: { en: 'Refundable hotel bookings made in advance, typically 4 to 12 weeks before check-in. The longer the monitoring window, the more opportunities ResDrop has to find a better deal.', pt: 'Reservas de hotel reembolsáveis feitas com antecedência, normalmente 4 a 12 semanas antes do check-in. Quanto maior a janela de monitoramento, mais oportunidades o ResDrop tem de encontrar uma opção melhor.' },
   },
   {
     q: { en: 'Does it work with Booking.com, Expedia, and hotel websites?', pt: 'Funciona com Booking.com, Expedia e sites de hotéis?' },
@@ -175,7 +175,7 @@ const FAQS = [
   },
   {
     q: { en: 'Is ResDrop a hotel booking site?', pt: 'O ResDrop é um site de reservas de hotéis?' },
-    a: { en: 'No. You book through your usual channel — Booking.com, Expedia, the hotel\'s own website. ResDrop is the layer that watches what happens to your rate after you book, and alerts you when it is worth acting.', pt: 'Não. Você reserva pelo canal que preferir — Booking.com, Expedia, o site do próprio hotel. O ResDrop é a camada que monitora o que acontece com sua tarifa depois da reserva — e te avisa quando vale a pena agir.' },
+    a: { en: 'No. You book through your usual channel: Booking.com, Expedia, the hotel\'s own website. ResDrop watches what happens to your rate after you book, and tells you when it is worth acting.', pt: 'Não. Você reserva pelo canal que preferir: Booking.com, Expedia, o site do próprio hotel. O ResDrop monitora o que acontece com sua tarifa depois da reserva e te avisa quando vale a pena agir.' },
   },
 ];
 
@@ -284,7 +284,7 @@ export default function ResDroppLanding() {
               <span className="rdp-hero__h1--accent">{pt ? 'O ResDrop encontra a melhor opção.' : 'ResDrop catches the better deal.'}</span>
             </h1>
             <p className="rdp-hero__sub">
-              {pt ? 'Adicione sua reserva uma vez. O ResDrop monitora tarifas, tipos de quarto e disponibilidade — e te avisa assim que aparecer uma opção genuinamente melhor para o mesmo hotel.' : 'Add your booking once. ResDrop monitors rates, room types, and availability — and alerts you the moment a genuinely better option appears for the same hotel.'}
+              {pt ? 'Adicione sua reserva uma vez. O ResDrop monitora tarifas, tipos de quarto e disponibilidade. Quando aparecer uma opção genuinamente melhor para o mesmo hotel, você é o primeiro a saber.' : 'Add your booking once. ResDrop monitors rates, room types, and availability. When a genuinely better option appears for the same hotel, you will know right away.'}
             </p>
             <div className="rdp-hero__ctas">
               <Link to="/signup" className="rdp-btn rdp-btn--green rdp-btn--lg">
@@ -410,8 +410,8 @@ export default function ResDroppLanding() {
               </h2>
               <p className="rdp-problem__body">
                 {pt
-                  ? 'As tarifas de hotel mudam constantemente — mesmo depois que você reserva. Quartos melhores aparecem. Cancelamentos acontecem. Novas promoções entram no ar. A maioria dos viajantes nunca verifica novamente e perde a chance de economizar ou fazer upgrade.'
-                  : 'Hotel rates move constantly — even after you book. Better rooms open up. Cancellations happen. New promotions appear. Most travelers never check again — and miss the chance to save or upgrade.'}
+                  ? 'As tarifas de hotel mudam constantemente, mesmo depois que você reserva. Quartos melhores aparecem. Cancelamentos acontecem. Novas promoções entram no ar. A maioria dos viajantes nunca verifica novamente e perde a chance de economizar ou fazer upgrade.'
+                  : 'Hotel rates move constantly, even after you book. Better rooms open up. Cancellations happen. New promotions appear. Most travelers never check again and miss the chance to save or upgrade.'}
               </p>
             </div>
             <div className="rdp-problem__stats">
@@ -460,7 +460,7 @@ export default function ResDroppLanding() {
           <div className="rdp-container rdp-trust__inner">
             <div className="rdp-trust__left">
               <div className="rdp-kicker">{pt ? 'O que verificamos' : 'What we check'}</div>
-              <h2 className="rdp-h2">{pt ? 'Um preço menor' : 'A lower price'}<br />{pt ? 'só vale se tudo mais se mantiver.' : 'is only worth it if everything else holds.'}</h2>
+              <h2 className="rdp-h2">{pt ? 'Mais barato não serve' : 'Cheaper means nothing'}<br />{pt ? 'se as condições mudaram.' : 'if the conditions changed.'}</h2>
               <p className="rdp-trust__body">
                 {pt ? 'Antes de te avisar sobre qualquer coisa, o ResDrop verifica tipo de quarto, política de cancelamento, impostos, taxas e benefícios incluídos. Se a alternativa for pior em qualquer aspecto relevante, ficamos quietos.' : 'Before surfacing anything, ResDrop checks room type, cancellation policy, taxes, fees, and included benefits. If the alternative is worse in any meaningful way, we stay quiet.'}
               </p>
@@ -486,9 +486,9 @@ export default function ResDroppLanding() {
           <div className="rdp-container">
             <div className="rdp-section-hd rdp-section-hd--center">
               <div className="rdp-kicker">{pt ? 'Painel' : 'Dashboard'}</div>
-              <h2 className="rdp-h2">{pt ? 'Todas as suas reservas.' : 'All your bookings.'}<br />{pt ? 'Uma visão clara.' : 'One clear view.'}</h2>
+              <h2 className="rdp-h2">{pt ? 'Todas as suas reservas.' : 'All your bookings.'}<br />{pt ? 'Tarifas, alertas, economia.' : 'Rates. Alerts. Savings.'}</h2>
               <p className="rdp-section-sub">
-                {pt ? 'Acompanhe vários hotéis, veja tarifas atuais e aja nos alertas — em um só lugar.' : 'Track multiple hotels, see current rates, and act on alerts — from one place.'}
+                {pt ? 'Acompanhe vários hotéis, veja tarifas atuais e aja nos alertas, tudo em um só lugar.' : 'Track multiple hotels, see current rates, and act on alerts, all from one place.'}
               </p>
             </div>
             <div className="rdp-browser">
@@ -753,7 +753,7 @@ export default function ResDroppLanding() {
               {pt ? 'se você pagou demais.' : 'if you overpaid.'}
             </h2>
             <p className="rdp-cta__sub">
-              {pt ? 'Sua reserva de hotel não termina quando você confirma. Encaminhe para o ResDrop — monitoramos até o prazo de cancelamento gratuito fechar.' : 'Your hotel booking is not done when you confirm it. Forward it to ResDrop — we watch it until your free cancellation window closes.'}
+              {pt ? 'Sua reserva de hotel não termina quando você confirma. Encaminhe para o ResDrop. Monitoramos até o prazo de cancelamento gratuito fechar.' : 'Your hotel booking is not done when you confirm it. Forward it to ResDrop. We watch it until your free cancellation window closes.'}
             </p>
             <div className="rdp-cta__btns">
               <Link to="/signup" className="rdp-btn rdp-btn--white rdp-btn--lg">
