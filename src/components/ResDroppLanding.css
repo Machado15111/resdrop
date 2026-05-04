@@ -751,6 +751,54 @@
   transform: translateY(0);
 }
 
+/* ── Problem ─────────────────────────────────────────────── */
+.rdp-problem { background: var(--rdp-bg-2); }
+
+.rdp-problem__inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.rdp-problem__body {
+  margin-top: 16px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--rdp-text-2);
+  max-width: 480px;
+}
+
+.rdp-problem__stats {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.rdp-problem__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 24px;
+  background: var(--rdp-bg);
+  border: 1px solid var(--rdp-border);
+  border-radius: 12px;
+}
+
+.rdp-problem__stat-num {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--rdp-green);
+  line-height: 1;
+}
+
+.rdp-problem__stat-label {
+  font-size: 14px;
+  color: var(--rdp-text-2);
+  line-height: 1.5;
+}
+
 /* ── Trust ──────────────────────────────────────────────── */
 .rdp-trust { background: var(--rdp-bg); }
 
@@ -1542,6 +1590,8 @@
   .rdp-hero__trust { flex-wrap: wrap; gap: 8px 12px; margin-bottom: 40px; }
   .rdp-hw { max-width: 600px; animation: none; margin-bottom: -20px; }
   .rdp-hw__sidebar { width: 160px; }
+
+  .rdp-problem__inner { grid-template-columns: 1fr; gap: 40px; }
 
   .rdp-trust__inner { grid-template-columns: 1fr; gap: 44px; }
 
