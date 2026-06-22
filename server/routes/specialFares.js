@@ -4,11 +4,16 @@ import * as db from '../db.js';
 export default function specialFaresRoutes(authMiddleware, adminMiddleware) {
   const router = Router();
 
-  // All routes require admin
-  router.use(authMiddleware, adminMiddleware);
+  // All special-fares routes require admin. Apply the guards PER-ROUTE rather
+  // than via an unpathed router.use(): this router is mounted at '/api', so a
+  // global router.use(adminMiddleware) would run on every /api/* request that
+  // reaches it and reject non-admin users with "Admin access denied" — even
+  // requests meant for routes mounted later (e.g. /bookings/from-document,
+  // /inbound/address). Per-route guards let non-matching requests fall through.
+  const adminOnly = [authMiddleware, adminMiddleware];
 
   // ─── List all special fare cases ──────────────────────────
-  router.get('/special-fares', async (req, res) => {
+  router.get('/special-fares', adminOnly, async (req, res) => {
     try {
       const { status, priority, limit = 50, offset = 0 } = req.query;
       const filters = {};
@@ -23,7 +28,7 @@ export default function specialFaresRoutes(authMiddleware, adminMiddleware) {
   });
 
   // ─── Get single case ──────────────────────────────────────
-  router.get('/special-fares/:id', async (req, res) => {
+  router.get('/special-fares/:id', adminOnly, async (req, res) => {
     try {
       const sfCase = await db.getSpecialFare(req.params.id);
       if (!sfCase) return res.status(404).json({ error: 'Not found' });
@@ -35,7 +40,7 @@ export default function specialFaresRoutes(authMiddleware, adminMiddleware) {
   });
 
   // ─── Create new case ─────────────────────────────────────
-  router.post('/special-fares', async (req, res) => {
+  router.post('/special-fares', adminOnly, async (req, res) => {
     try {
       const {
         clientEmail, clientName, clientPhone,
@@ -86,7 +91,7 @@ export default function specialFaresRoutes(authMiddleware, adminMiddleware) {
   });
 
   // ─── Update case ──────────────────────────────────────────
-  router.put('/special-fares/:id', async (req, res) => {
+  router.put('/special-fares/:id', adminOnly, async (req, res) => {
     try {
       const existing = await db.getSpecialFare(req.params.id);
       if (!existing) return res.status(404).json({ error: 'Not found' });
@@ -130,7 +135,7 @@ export default function specialFaresRoutes(authMiddleware, adminMiddleware) {
   });
 
   // ─── Analytics ────────────────────────────────────────────
-  router.get('/special-fares-analytics', async (req, res) => {
+  router.get('/special-fares-analytics', adminOnly, async (req, res) => {
     try {
       const all = await db.getAllSpecialFares({}, 1000, 0);
       const totalCases = all.length;
