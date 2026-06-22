@@ -210,9 +210,11 @@
       </div>
       <div class="actions" style="margin-top:-8px">
         <select id="bFilterStatus" class="rolesel" onchange="renderBookings()"><option value="todas">Todas as reservas</option><option value="proximas">Próximas viagens</option><option value="a_receber">A receber</option><option value="finalizadas">Viagens finalizadas</option><option value="canceladas">Canceladas</option></select>
-        <select id="bFilterMonth" class="rolesel" onchange="renderBookings()"><option value="">Todos os meses</option></select>
+        <select id="bFilterMonth" class="rolesel" onchange="renderBookings()"><option value="">Todos os meses (viagem)</option></select>
+        <select id="bFilterCreated" class="rolesel" onchange="renderBookings()"><option value="">Todos os meses (criação)</option></select>
+        <select id="bFilterCompany" class="rolesel" onchange="renderBookings()"><option value="">Todas as empresas</option></select>
       </div>
-      <div class="tablewrap scroll"><table><thead><tr><th style="width:64px">ID</th><th>Cliente</th><th>Rota</th><th>Serviço</th><th>Viagem</th><th class="num">Venda</th><th class="num">Markup</th><th class="num">Margem</th><th class="num">Falta receber</th><th>Fornecedor</th><th>Reserva</th><th>Pagamento</th></tr></thead><tbody id="brows"></tbody></table><div id="bempty" class="empty" style="display:none">Nenhuma reserva ainda.</div></div>
+      <div class="tablewrap scroll"><table><thead><tr><th style="width:64px">ID</th><th>Cliente</th><th>Rota</th><th>Serviço</th><th>Viagem</th><th class="num">Venda</th><th class="num">Markup</th><th class="num">Margem</th><th class="num">Falta receber</th><th>Fornecedor</th><th>Faturado para</th><th>Reserva</th><th>Pagamento</th></tr></thead><tbody id="brows"></tbody></table><div id="bempty" class="empty" style="display:none">Nenhuma reserva ainda.</div></div>
     </section>
 
     <section id="tab-creditos" class="content" hidden>
@@ -434,7 +436,13 @@ function renderBookings(){
   const q=(document.getElementById('q').value||'').trim().toLowerCase();
   const fs=(document.getElementById('bFilterStatus')||{}).value||'todas';
   const msel=document.getElementById('bFilterMonth');const fm=msel?msel.value:'';
-  if(msel){const months=[...new Set(bookings.map(b=>parseDate(b.travel)).filter(Boolean).map(monthKey))].sort().reverse();const cur=msel.value;msel.innerHTML='<option value="">Todos os meses</option>'+months.map(m=>'<option value="'+m+'"'+(cur===m?' selected':'')+'>'+monthLabel(m)+'</option>').join('');}
+  const csel=document.getElementById('bFilterCreated');const fc=csel?csel.value:'';
+  const esel=document.getElementById('bFilterCompany');const fe=esel?esel.value:'';
+
+  if(msel){const months=[...new Set(bookings.map(b=>parseDate(b.travel)).filter(Boolean).map(monthKey))].sort().reverse();const cur=msel.value;msel.innerHTML='<option value="">Todos os meses (viagem)</option>'+months.map(m=>'<option value="'+m+'"'+(cur===m?' selected':'')+'>'+monthLabel(m)+'</option>').join('');}
+  if(csel){const createdMonths=[...new Set(bookings.map(b=>b.createdAt?monthKey(new Date(b.createdAt)):null).filter(Boolean))].sort().reverse();const curC=csel.value;csel.innerHTML='<option value="">Todos os meses (criação)</option>'+createdMonths.map(m=>'<option value="'+m+'"'+(curC===m?' selected':'')+'>'+monthLabel(m)+'</option>').join('');}
+  if(esel){const companyNames=[...new Set(bookings.map(b=>b.faturado||'').filter(Boolean))].sort();const curE=esel.value;esel.innerHTML='<option value="">Todas as empresas</option>'+companyNames.map(c=>'<option value="'+c+'"'+(curE===c?' selected':'')+'>'+esc(c)+'</option>').join('');}
+
   const today=todayStart();
   const list=bookings.filter(b=>{
     if(q&&![b.client,b.route,b.pnr,b.supplier,b.id,b.advisor].join(' ').toLowerCase().includes(q))return false;
@@ -444,9 +452,11 @@ function renderBookings(){
     if(fs==='finalizadas'&&!(!cancel&&dt&&dt<today))return false;
     if(fs==='canceladas'&&!cancel)return false;
     if(fm&&(!dt||monthKey(dt)!==fm))return false;
+    if(fc&&(!b.createdAt||monthKey(new Date(b.createdAt))!==fc))return false;
+    if(fe&&(b.faturado||'')!==fe)return false;
     return true;
   });
-  el.innerHTML=list.map(b=>{const f=fin(b),p=payInfo(b);return '<tr class="'+(isCancel(b)?'cancel':'')+'" onclick="openBooking(\''+b.id+'\')"><td><span class="cid">'+esc(b.id)+'</span></td><td><span class="nm">'+esc(b.client||'')+'</span></td><td>'+esc(b.route||'')+'</td><td>'+esc(b.service||'')+'</td><td>'+esc(b.travel||'')+(b.return?' <span style="color:var(--muted)">→ '+esc(b.return)+'</span>':'')+'</td><td class="num">'+money(num(b.gross))+'</td><td class="num">'+money(num(b.markup))+'</td><td class="num">'+money(f.margin)+'</td><td class="num">'+(p.aReceber>0?'<b style="color:var(--accent)">'+money(p.aReceber)+'</b>':money(0))+'</td><td>'+esc(b.supplier||'')+'</td><td><span class="badge '+statusClass(b.bstatus)+'">'+esc(b.bstatus||'—')+'</span></td><td><span class="badge '+p.cls+'">'+esc(p.label)+'</span></td></tr>';}).join('');
+  el.innerHTML=list.map(b=>{const f=fin(b),p=payInfo(b);return '<tr class="'+(isCancel(b)?'cancel':'')+'" onclick="openBooking(\''+b.id+'\')"><td><span class="cid">'+esc(b.id)+'</span></td><td><span class="nm">'+esc(b.client||'')+'</span></td><td>'+esc(b.route||'')+'</td><td>'+esc(b.service||'')+'</td><td>'+esc(b.travel||'')+(b.return?' <span style="color:var(--muted)">→ '+esc(b.return)+'</span>':'')+'</td><td class="num">'+money(num(b.gross))+'</td><td class="num">'+money(num(b.markup))+'</td><td class="num">'+money(f.margin)+'</td><td class="num">'+(p.aReceber>0?'<b style="color:var(--accent)">'+money(p.aReceber)+'</b>':money(0))+'</td><td>'+esc(b.supplier||'')+'</td><td><span style="font-size:12px;color:var(--muted)">'+esc(b.faturado||'—')+'</span></td><td><span class="badge '+statusClass(b.bstatus)+'">'+esc(b.bstatus||'—')+'</span></td><td><span class="badge '+p.cls+'">'+esc(p.label)+'</span></td></tr>';}).join('');
   document.getElementById('bempty').style.display=bookings.length?'none':'block';
   let cnt=0,gross=0,markup=0,margin=0,recv=0;list.forEach(b=>{if(isCancel(b))return;const f=fin(b),p=payInfo(b);cnt++;gross+=num(b.gross);markup+=num(b.markup);margin+=f.margin;recv+=p.aReceber;});const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   set('s_count',cnt);set('s_gross',money(gross));set('s_margin',money(margin));set('s_recv',money(recv));
