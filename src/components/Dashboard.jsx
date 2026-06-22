@@ -10,7 +10,7 @@ function formatCurrency(amount, currencyCode) {
   return `${symbol}${Number(amount).toLocaleString(locale, { minimumFractionDigits: 0 })}`;
 }
 
-function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, currentUser, bookingStates = {} }) {
+function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, currentUser, bookingStates = {} }) {
   const { t, lang } = useI18n();
   const currency = currentUser?.currency || 'BRL';
   const fmt = (amount) => formatCurrency(amount, currency);
@@ -43,10 +43,18 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, current
               {t('dash.greetingSub')}
             </p>
           </div>
-          <button className="btn-primary" onClick={onNewBooking}>
-            <IconPlus size={18} />
-            {t('dash.addBooking')}
-          </button>
+          <div className="dash-welcome-actions">
+            <button className="btn-primary" onClick={onNewBooking}>
+              <IconPlus size={18} />
+              {t('dash.addBooking')}
+            </button>
+            {onViewAnalytics && (
+              <button className="btn-secondary" onClick={onViewAnalytics}>
+                <IconBarChart size={18} />
+                Analytics
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats cards */}

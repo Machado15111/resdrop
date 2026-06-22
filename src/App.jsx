@@ -27,6 +27,7 @@ import PremiumLanding from './components/PremiumLanding';
 import TravelerLanding from './components/TravelerLanding';
 import ResDroppLanding from './components/ResDroppLanding';
 import ResDroppLogin from './components/ResDroppLogin';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
 
 
 function LayoutWithHeader() {
@@ -117,6 +118,7 @@ function App() {
               <Route path="/submit" element={<SubmitBookingPage />} />
               <Route path="/account" element={<Account />} />
               <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
             </Route>
 
             {/* Public */}

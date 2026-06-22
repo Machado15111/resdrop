@@ -1,0 +1,384 @@
+.analytics-dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 40px 20px;
+}
+
+.analytics-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.analytics-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1a5c37;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.analytics-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 500px;
+  font-size: 18px;
+  color: #666;
+}
+
+/* Grid Layout */
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.analytics-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+/* Cards */
+.analytics-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Metric Cards */
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1a5c37;
+  margin-bottom: 8px;
+}
+
+.metric-subtext {
+  font-size: 13px;
+  color: #999;
+  line-height: 1.4;
+}
+
+/* Best Deal Card */
+.best-deal-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #1a5c37 0%, #2e7a52 100%);
+  color: white;
+}
+
+.best-deal-header {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.best-deal-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.best-deal-hotel {
+  font-size: 20px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+}
+
+.best-deal-location {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.best-deal-savings {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.savings-amount {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.best-deal-meta {
+  font-size: 13px;
+  opacity: 0.85;
+  grid-column: 1 / -1;
+}
+
+/* Charts */
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a5c37;
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  min-height: 200px;
+  gap: 8px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  width: 100%;
+  height: 200px;
+  gap: 8px;
+  padding-bottom: 20px;
+}
+
+.bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.bar {
+  width: 100%;
+  background: linear-gradient(180deg, #1a5c37 0%, #2e7a52 100%);
+  border-radius: 8px 8px 0 0;
+  min-height: 20px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.bar:hover {
+  opacity: 0.8;
+  box-shadow: 0 4px 12px rgba(26, 92, 55, 0.2);
+}
+
+.bar-label {
+  font-size: 11px;
+  color: #666;
+  margin-top: 8px;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Status Breakdown */
+.status-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-monitoring {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-lower_fare_found {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-savings_found {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-dismissed {
+  background-color: #fce4ec;
+  color: #c2185b;
+}
+
+.status-expired {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.status-count {
+  font-weight: 700;
+  color: #333;
+  font-size: 14px;
+}
+
+.status-bar-bg {
+  flex: 1;
+  height: 24px;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.status-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #1a5c37 0%, #2e7a52 100%);
+  border-radius: 12px;
+  transition: width 0.3s ease;
+}
+
+/* ROI Card */
+.roi-card {
+  grid-column: 1 / -1;
+}
+
+.roi-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a5c37;
+  margin-bottom: 20px;
+}
+
+.roi-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.roi-stat {
+  padding: 16px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  border-left: 4px solid #1a5c37;
+}
+
+.roi-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.roi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1a5c37;
+}
+
+/* Empty State */
+.analytics-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.analytics-empty h3 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.analytics-empty p {
+  font-size: 14px;
+  color: #999;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .analytics-title {
+    font-size: 24px;
+    margin-bottom: 30px;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .analytics-chart-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+
+  .best-deal-content {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-value {
+    font-size: 24px;
+  }
+
+  .chart-container {
+    min-height: 150px;
+  }
+
+  .chart-bars {
+    height: 150px;
+  }
+
+  .analytics-card {
+    padding: 16px;
+  }
+}

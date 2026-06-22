@@ -91,6 +91,7 @@ function DashboardPage() {
       onRefresh={handleRefreshPrices}
       stats={stats}
       onNewBooking={() => navigate('/submit')}
+      onViewAnalytics={() => navigate('/analytics')}
       currentUser={user}
       bookingStates={bookingStates}
     />

@@ -50,13 +50,18 @@
   margin-top: 4px;
 }
 
-.dash-welcome .btn-primary {
+.dash-welcome-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.dash-welcome .btn-primary,
+.dash-welcome .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 12px 24px;
-  background: var(--tl-bg-dark);
-  color: var(--tl-text-light);
   border: none;
   border-radius: 6px;
   font-size: 14px;
@@ -66,10 +71,27 @@
   transition: all 0.3s ease;
 }
 
+.dash-welcome .btn-primary {
+  background: var(--tl-bg-dark);
+  color: var(--tl-text-light);
+}
+
 .dash-welcome .btn-primary:hover {
   background: var(--tl-bg-darker);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(15, 46, 31, 0.2);
+}
+
+.dash-welcome .btn-secondary {
+  background: var(--tl-bg-soft-green);
+  color: var(--tl-bg-dark);
+  border: 1px solid var(--tl-border);
+}
+
+.dash-welcome .btn-secondary:hover {
+  background: #E8F5ED;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 46, 31, 0.1);
 }
 
 /* ─── KPI CARDS ─── */
