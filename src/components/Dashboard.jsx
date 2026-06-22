@@ -1,4 +1,5 @@
-import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconShield, IconBarChart, IconDollar } from './Icons';
+import { useState, useMemo } from 'react';
+import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconBarChart, IconDollar, IconSearch, IconUpload, IconExternalLink, IconClock } from './Icons';
 import { useI18n } from '../i18n';
 import './Dashboard.css';
 
@@ -10,10 +11,14 @@ function formatCurrency(amount, currencyCode) {
   return `${symbol}${Number(amount).toLocaleString(locale, { minimumFractionDigits: 0 })}`;
 }
 
-function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, currentUser, bookingStates = {} }) {
+function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, onExport, onImport, onArchive, currentUser, bookingStates = {} }) {
   const { t, lang } = useI18n();
   const currency = currentUser?.currency || 'BRL';
   const fmt = (amount) => formatCurrency(amount, currency);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('recent');
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
@@ -26,9 +31,56 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   };
 
   const now = new Date();
-  const active = bookings.filter(b => new Date(b.checkoutDate) >= now);
-  const past = bookings.filter(b => new Date(b.checkoutDate) < now);
   const firstName = currentUser?.name?.split(' ')[0] || '';
+
+  // Deadline alerts: bookings with a cancellationDeadline within 72h
+  const deadlineAlerts = useMemo(() => {
+    return bookings
+      .filter(b => {
+        if (!b.cancellationDeadline || b.status === 'archived') return false;
+        const dl = new Date(b.cancellationDeadline);
+        const hours = (dl - now) / (1000 * 60 * 60);
+        return hours > 0 && hours <= 72;
+      })
+      .map(b => ({ ...b, hoursLeft: Math.round((new Date(b.cancellationDeadline) - now) / (1000 * 60 * 60)) }))
+      .sort((a, b) => a.hoursLeft - b.hoursLeft);
+  }, [bookings]);
+
+  // Apply search + status filter
+  const filtered = useMemo(() => {
+    let list = bookings.slice();
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter(b =>
+        (b.hotelName || '').toLowerCase().includes(q) ||
+        (b.destination || '').toLowerCase().includes(q)
+      );
+    }
+    if (statusFilter === 'archived') {
+      list = list.filter(b => b.status === 'archived');
+    } else {
+      list = list.filter(b => b.status !== 'archived');
+      if (statusFilter === 'monitoring') {
+        list = list.filter(b => ['monitoring', 'received', 'processing'].includes(b.status));
+      } else if (statusFilter === 'savings') {
+        list = list.filter(b => ['savings_found', 'lower_fare_found', 'confirmed_savings'].includes(b.status));
+      } else if (statusFilter === 'needs_review') {
+        list = list.filter(b => b.status === 'needs_review');
+      }
+    }
+    if (sortBy === 'savings') {
+      list.sort((a, b) => (b.potentialSavings || b.totalSavings || 0) - (a.potentialSavings || a.totalSavings || 0));
+    } else if (sortBy === 'checkin') {
+      list.sort((a, b) => new Date(a.checkinDate) - new Date(b.checkinDate));
+    } else {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+    return list;
+  }, [bookings, search, statusFilter, sortBy]);
+
+  const active = filtered.filter(b => new Date(b.checkoutDate) >= now);
+  const past = filtered.filter(b => new Date(b.checkoutDate) < now);
+  const hasFilters = search.trim() || statusFilter !== 'all';
 
   return (
     <div className="dashboard-page">
@@ -55,6 +107,65 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
               </button>
             )}
           </div>
+        </div>
+
+        {/* Deadline alerts banner */}
+        {deadlineAlerts.length > 0 && (
+          <div className="dash-deadline-banner">
+            <div className="ddb-icon"><IconClock size={20} /></div>
+            <div className="ddb-body">
+              <div className="ddb-title">
+                {t('dash.deadlineTitle')}
+                <span className="ddb-count">{deadlineAlerts.length}</span>
+              </div>
+              <div className="ddb-list">
+                {deadlineAlerts.slice(0, 3).map(b => (
+                  <button key={b.id} className="ddb-item" onClick={() => onSelect(b)}>
+                    <span className="ddb-hotel">{b.hotelName}</span>
+                    <span className="ddb-hours">{t('dash.deadlineHours').replace('{h}', b.hoursLeft)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toolbar: search, filter, sort, export, import */}
+        <div className="dash-toolbar">
+          <div className="dash-search">
+            <IconSearch size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('dash.searchPlaceholder')}
+            />
+          </div>
+          <select className="dash-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="all">{t('dash.filterAll')}</option>
+            <option value="monitoring">{t('dash.filterMonitoring')}</option>
+            <option value="savings">{t('dash.filterSavings')}</option>
+            <option value="needs_review">{t('dash.filterNeedsReview')}</option>
+            <option value="archived">{t('dash.filterArchived')}</option>
+          </select>
+          <select className="dash-select" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="recent">{t('dash.sortRecent')}</option>
+            <option value="savings">{t('dash.sortSavings')}</option>
+            <option value="checkin">{t('dash.sortCheckin')}</option>
+          </select>
+          <div className="dash-toolbar-spacer" />
+          {onImport && (
+            <button className="dash-tool-btn" onClick={onImport}>
+              <IconUpload size={15} /> {t('dash.import')}
+            </button>
+          )}
+          {onExport && (
+            <div className="dash-export-wrap">
+              <button className="dash-tool-btn" onClick={() => onExport('csv')}>
+                <IconExternalLink size={15} /> {t('dash.exportCsv')}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats cards */}
@@ -97,16 +208,25 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
           </h2>
 
           {active.length === 0 ? (
-            <div className="dash-empty">
-              <div className="empty-icon-wrap">
-                <IconHotel size={32} />
+            hasFilters ? (
+              <div className="dash-empty dash-empty--filtered">
+                <p>{t('dash.noResults')}</p>
+                <button className="btn-outline" onClick={() => { setSearch(''); setStatusFilter('all'); }}>
+                  {t('dash.clearFilters')}
+                </button>
               </div>
-              <h3>{t('dash.noBookings')}</h3>
-              <p>{t('dash.noBookingsDesc')}</p>
-              <button className="btn-primary" onClick={onNewBooking}>
-                {t('dash.addFirst')}
-              </button>
-            </div>
+            ) : (
+              <div className="dash-empty">
+                <div className="empty-icon-wrap">
+                  <IconHotel size={32} />
+                </div>
+                <h3>{t('dash.noBookings')}</h3>
+                <p>{t('dash.noBookingsDesc')}</p>
+                <button className="btn-primary" onClick={onNewBooking}>
+                  {t('dash.addFirst')}
+                </button>
+              </div>
+            )
           ) : (
             <div className="dash-bookings-list">
               {active.map((booking) => (
@@ -115,6 +235,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
                   booking={booking}
                   onSelect={onSelect}
                   onRefresh={onRefresh}
+                  onArchive={onArchive}
                   formatDate={formatDate}
                   getNights={getNights}
                   t={t}
@@ -157,7 +278,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   );
 }
 
-function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, lang, fmt, isPast, bookingState }) {
+function BookingCard({ booking, onSelect, onRefresh, onArchive, formatDate, getNights, t, lang, fmt, isPast, bookingState }) {
   const statusMap = {
     received: { label: t('dash.received'), cls: 'status-pending' },
     processing: { label: t('dash.processing'), cls: 'status-pending' },
@@ -243,6 +364,15 @@ function BookingCard({ booking, onSelect, onRefresh, formatDate, getNights, t, l
         <button className="btn-outline">
           {t('dash.viewDetails')} <IconArrowRight size={14} />
         </button>
+        {onArchive && (
+          <button
+            className="btn-archive"
+            onClick={(e) => { e.stopPropagation(); onArchive(booking); }}
+            title={booking.status === 'archived' ? t('dash.unarchive') : t('dash.archive')}
+          >
+            {booking.status === 'archived' ? t('dash.unarchive') : t('dash.archive')}
+          </button>
+        )}
       </div>
     </div>
   );

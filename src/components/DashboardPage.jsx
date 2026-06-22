@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API } from '../api';
 import Dashboard from './Dashboard';
+import BulkImportModal from './BulkImportModal';
 
 function DashboardPage() {
   const { user, authFetch, updateUser } = useAuth();
@@ -10,6 +11,7 @@ function DashboardPage() {
   const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState(null);
   const [bookingStates, setBookingStates] = useState({});
+  const [showImport, setShowImport] = useState(false);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -84,17 +86,79 @@ function DashboardPage() {
     navigate(`/bookings/${booking.id}`);
   };
 
+  // Export bookings as CSV/JSON — triggers a file download
+  const handleExport = async (format = 'csv') => {
+    try {
+      const res = await authFetch(`${API}/bookings/export?format=${format}`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `resdrop-bookings.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  };
+
+  // Bulk import — returns the API result so the modal can show a summary
+  const handleImport = async (bookingsToImport) => {
+    const res = await authFetch(`${API}/bookings/bulk-import`, {
+      method: 'POST',
+      body: JSON.stringify({ bookings: bookingsToImport }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || data.error || 'Import failed');
+    }
+    await fetchBookings();
+    fetchStats();
+    return data;
+  };
+
+  // Archive / unarchive a booking
+  const handleArchive = async (booking) => {
+    const newStatus = booking.status === 'archived' ? 'monitoring' : 'archived';
+    try {
+      const res = await authFetch(`${API}/bookings/${booking.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
+      }
+    } catch (err) {
+      console.error('Archive failed:', err);
+    }
+  };
+
   return (
-    <Dashboard
-      bookings={bookings}
-      onSelect={openBooking}
-      onRefresh={handleRefreshPrices}
-      stats={stats}
-      onNewBooking={() => navigate('/submit')}
-      onViewAnalytics={() => navigate('/analytics')}
-      currentUser={user}
-      bookingStates={bookingStates}
-    />
+    <>
+      <Dashboard
+        bookings={bookings}
+        onSelect={openBooking}
+        onRefresh={handleRefreshPrices}
+        stats={stats}
+        onNewBooking={() => navigate('/submit')}
+        onViewAnalytics={() => navigate('/analytics')}
+        onExport={handleExport}
+        onImport={() => setShowImport(true)}
+        onArchive={handleArchive}
+        currentUser={user}
+        bookingStates={bookingStates}
+      />
+      {showImport && (
+        <BulkImportModal
+          onClose={() => setShowImport(false)}
+          onImport={handleImport}
+        />
+      )}
+    </>
   );
 }
 
