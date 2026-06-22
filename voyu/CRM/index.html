@@ -510,8 +510,10 @@ let selectedBookings=[];
 function toggleBooking(id){if(selectedBookings.includes(id)){selectedBookings=selectedBookings.filter(x=>x!==id);}else{selectedBookings.push(id);}updateSelectionUI();}
 function toggleSelectAll(checked){if(checked){selectedBookings=bookings.map(b=>b.id);}else{selectedBookings=[];}updateSelectionUI();}
 function updateSelectionUI(){
-  document.getElementById('bSelectAll').checked=selectedBookings.length===bookings.length&&bookings.length>0;
-  bookings.forEach(b=>{const chk=document.querySelector('#brow-'+b.id+' input[type="checkbox"]');if(chk)chk.checked=selectedBookings.includes(b.id);});
+  const allChks=document.querySelectorAll('#brows input[type="checkbox"]');
+  allChks.forEach(chk=>{const tr=chk.closest('tr');if(tr){const id=tr.id.replace('brow-','');chk.checked=selectedBookings.includes(id);}});
+  const visible=[...document.querySelectorAll('#brows tr')].map(tr=>tr.id.replace('brow-','')).filter(Boolean);
+  document.getElementById('bSelectAll').checked=selectedBookings.filter(x=>visible.includes(x)).length===visible.length&&visible.length>0;
   const btn=document.getElementById('bMultiDownload');if(btn)btn.style.display=selectedBookings.length>0?'inline-flex':'none';
 }
 async function downloadMultipleInvoices(){
