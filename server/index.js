@@ -177,7 +177,7 @@ if (isEmailConfigured()) {
 
 // ─── Plan definitions ────────────────────────────────────────
 const PLANS = {
-  free:     { bookingsPerMonth: 1,  searchesPerDay: 1,   price: 0   },
+  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   price: 0   },
   viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  price: 25  },
   premium:  { bookingsPerMonth: 50, searchesPerDay: 200, price: 100 },
 };
@@ -355,6 +355,13 @@ async function applyBestResult(booking, results) {
           if (booking.status !== 'confirmed_savings') {
             booking.status = 'lower_fare_found';
           }
+          // Issue 14: Add booking history entry
+          if (!booking.bookingHistory) booking.bookingHistory = [];
+          booking.bookingHistory.push({
+            date: new Date().toISOString(),
+            action: 'offer_found',
+            details: { price: currentPrice, source: bestMatch.source, savings: diff, roomType: bestMatch.roomType },
+          });
         }
         alertType = 'price_drop';
         alertMessage = `📉 Price drop: R$${currentPrice} via ${bestMatch.source} — savings R$${diff}`;
@@ -513,6 +520,13 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
     const status = optionalMissing.length > 0 ? 'needs_review' : 'monitoring';
 
     const id = generateId();
+    const originalPriceFloat = parseFloat(originalPrice);
+
+    // Issue 7: Validate price is reasonable
+    const priceWarnings = [];
+    if (originalPriceFloat < 10) priceWarnings.push('price_too_low');
+    if (originalPriceFloat > 50000) priceWarnings.push('price_unusually_high');
+
     const booking = {
       id,
       hotelName,
@@ -520,9 +534,15 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       checkinDate,
       checkoutDate,
       roomType: roomType || null,
-      originalPrice: parseFloat(originalPrice),
+      originalPrice: originalPriceFloat,
       guestName: guestName || req.user.name || null,
       confirmationNumber: confirmationNumber || null,
+      // Issue 13: Multi-guest support
+      guests: req.body.guests || [{ name: guestName || req.user.name || 'Guest', email: req.userEmail, role: 'primary' }],
+      // Issue 12: Multi-room support
+      rooms: req.body.rooms || [{ type: roomType || 'Standard', count: 1, occupants: req.body.occupants || 1 }],
+      // Issue 16: Document attachments
+      attachments: [],
       email: req.userEmail,
       cancellationPolicy: cancellationPolicy || 'free_cancellation',
       status,
@@ -540,15 +560,42 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       roomTypeCustom: roomTypeCustom || null,
       rawSource: rawSource || null,
       parseMethod: parseMethod || 'manual',
+      currency: req.body.currency || 'USD',
+      bookingSource: req.body.bookingSource || detectOTA(req.body),
+      bookingUrl: req.body.bookingUrl || null,
+      cancellationDeadlineAlert: req.body.cancellationDeadlineAlert || '48_hours_before',
+      cancellationDeadline: req.body.cancellationDeadline || null,
+      // Issue 22: Timezone awareness
+      timezone: req.body.timezone || 'UTC',
+      // Issue 23: Currency conversion (store original + user currency)
+      originalCurrency: req.body.currency || 'USD',
+      userCurrency: req.user.currency || 'USD',
+      priceInUserCurrency: null,  // calculated based on exchange rate
+      exchangeRate: 1.0,  // to be set by scheduler
+      priceValidationWarnings: priceWarnings,
+      alertPreferences: {
+        email: true,
+        push: false,
+        sms: false,
+        minSavings: 0,
+      },
+      rejectedOffers: [],
       priceHistory: [
         {
           date: new Date().toISOString(),
-          price: parseFloat(originalPrice),
+          price: originalPriceFloat,
           source: 'Reserva Original',
         },
       ],
       alerts: [],
       changeHistory: [],
+      bookingHistory: [
+        {
+          date: new Date().toISOString(),
+          action: 'created',
+          details: { source: parseMethod || 'manual', parseMethod },
+        },
+      ],
       apiMode: API_MODE,
     };
 
@@ -557,8 +604,19 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
       return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
     }
 
-    // Fire-and-forget booking created email
+    // Fire-and-forget: booking created email
     sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created, req.user).catch(() => {});
+
+    // Fire-and-forget: immediate first price check (don't wait for scheduled checks)
+    (async () => {
+      try {
+        const user = await db.getUser(req.userEmail);
+        const results = await searchPrices(created, { currency: user?.currency || 'BRL' });
+        await applyBestResult(created, results);
+      } catch (err) {
+        console.warn(`[Check] First check for ${created.id} (${created.hotelName}): ${err.message}`);
+      }
+    })().catch(() => {});
 
     res.status(201).json(created);
   } catch (err) {
@@ -567,10 +625,138 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
   }
 });
 
-// Get bookings (LGPD: always filtered by authenticated user)
+// Get bookings with filtering & search (Issue 20)
 app.get('/api/bookings', authMiddleware, async (req, res) => {
   const results = await db.getBookingsByEmail(req.userEmail);
-  res.json(results.map(filterBookingResults));
+
+  // Filter by status
+  let filtered = results;
+  if (req.query.status) {
+    const statuses = req.query.status.split(',');
+    filtered = filtered.filter(b => statuses.includes(b.status));
+  }
+
+  // Filter by min savings
+  if (req.query.minSavings) {
+    const min = parseFloat(req.query.minSavings);
+    filtered = filtered.filter(b => (b.totalSavings || 0) >= min);
+  }
+
+  // Search by hotel name or destination
+  if (req.query.search) {
+    const q = req.query.search.toLowerCase();
+    filtered = filtered.filter(b =>
+      b.hotelName.toLowerCase().includes(q) ||
+      b.destination.toLowerCase().includes(q)
+    );
+  }
+
+  // Filter by date range
+  if (req.query.checkinAfter) {
+    filtered = filtered.filter(b => b.checkinDate >= req.query.checkinAfter);
+  }
+  if (req.query.checkinBefore) {
+    filtered = filtered.filter(b => b.checkinDate <= req.query.checkinBefore);
+  }
+
+  // Sort
+  const sort = req.query.sort || 'createdAt_desc';
+  const [field, direction] = sort.split('_');
+  filtered.sort((a, b) => {
+    const aVal = a[field] || 0;
+    const bVal = b[field] || 0;
+    return direction === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+
+  // Exclude archived by default
+  if (req.query.includeArchived !== 'true') {
+    filtered = filtered.filter(b => b.status !== 'archived');
+  }
+
+  res.json(filtered.map(filterBookingResults));
+});
+
+// Bulk import bookings (Issue 10)
+app.post('/api/bookings/bulk-import', authMiddleware, bookingRateLimit, async (req, res) => {
+  const { bookings } = req.body;
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    return res.status(400).json({ error: 'bookings array required' });
+  }
+
+  const plan = PLANS[req.user.plan] || PLANS.free;
+  const currentCount = req.user.bookingsCount || 0;
+  const remainingSlots = plan.bookingsPerMonth - currentCount;
+
+  if (bookings.length > remainingSlots) {
+    return res.status(403).json({
+      error: 'plan_limit',
+      message: `Plan limit exceeded. Can create ${remainingSlots} more bookings this month.`,
+      limit: plan.bookingsPerMonth,
+      current: currentCount,
+      requested: bookings.length,
+    });
+  }
+
+  const results = { created: [], failed: [] };
+
+  for (let i = 0; i < bookings.length; i++) {
+    const bookingData = bookings[i];
+    try {
+      const validation = validateBookingData(bookingData);
+      if (!validation.valid) {
+        results.failed.push({ index: i, errors: validation.errors });
+        continue;
+      }
+
+      const duplicate = await findDuplicateBooking(req.userEmail, bookingData.hotelName, bookingData.checkinDate, bookingData.checkoutDate);
+      if (duplicate) {
+        results.failed.push({ index: i, error: 'Duplicate booking' });
+        continue;
+      }
+
+      const id = generateId();
+      const booking = {
+        id,
+        hotelName: bookingData.hotelName,
+        destination: bookingData.destination || '',
+        checkinDate: bookingData.checkinDate,
+        checkoutDate: bookingData.checkoutDate,
+        roomType: bookingData.roomType || null,
+        originalPrice: parseFloat(bookingData.originalPrice),
+        guestName: bookingData.guestName || req.user.name || null,
+        confirmationNumber: bookingData.confirmationNumber || null,
+        email: req.userEmail,
+        cancellationPolicy: bookingData.cancellationPolicy || 'free_cancellation',
+        status: 'monitoring',
+        createdAt: new Date().toISOString(),
+        lastChecked: null,
+        bestPrice: null,
+        bestSource: null,
+        totalSavings: 0,
+        currency: bookingData.currency || 'USD',
+        bookingSource: bookingData.bookingSource || detectOTA(bookingData),
+        priceHistory: [{ date: new Date().toISOString(), price: parseFloat(bookingData.originalPrice), source: 'Bulk Import' }],
+        alerts: [],
+        changeHistory: [],
+        bookingHistory: [{ date: new Date().toISOString(), action: 'created', details: { source: 'bulk_import' } }],
+        apiMode: API_MODE,
+      };
+
+      const created = await db.createBooking(booking);
+      if (created) {
+        results.created.push(created);
+      } else {
+        results.failed.push({ index: i, error: 'Database error' });
+      }
+    } catch (err) {
+      results.failed.push({ index: i, error: err.message });
+    }
+  }
+
+  res.status(201).json({
+    ...results,
+    summary: { total: bookings.length, created: results.created.length, failed: results.failed.length },
+  });
 });
 
 // Get a single booking (ownership check)
@@ -579,6 +765,100 @@ app.get('/api/bookings/:id', authMiddleware, async (req, res) => {
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
   res.json(filterBookingResults(booking));
+});
+
+// Export bookings as CSV or JSON (Issue 10)
+app.get('/api/bookings/export', authMiddleware, async (req, res) => {
+  const format = req.query.format || 'json'; // 'csv' or 'json'
+  const bookings = await db.getBookingsByEmail(req.userEmail);
+
+  if (format === 'json') {
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', 'attachment; filename="resdrop-bookings.json"');
+    return res.json(bookings.map(b => ({
+      id: b.id,
+      hotelName: b.hotelName,
+      destination: b.destination,
+      checkinDate: b.checkinDate,
+      checkoutDate: b.checkoutDate,
+      roomType: b.roomType,
+      originalPrice: b.originalPrice,
+      currency: b.currency,
+      confirmationNumber: b.confirmationNumber,
+      bookingSource: b.bookingSource,
+      bookingUrl: b.bookingUrl,
+      bestPrice: b.bestPrice,
+      totalSavings: b.totalSavings,
+      status: b.status,
+      createdAt: b.createdAt,
+    })));
+  } else if (format === 'csv') {
+    const headers = ['ID', 'Hotel', 'Destination', 'Check-in', 'Check-out', 'Room Type', 'Original Price', 'Currency', 'Best Price', 'Savings', 'Status', 'Created'];
+    const rows = bookings.map(b => [
+      b.id,
+      b.hotelName,
+      b.destination,
+      b.checkinDate,
+      b.checkoutDate,
+      b.roomType || '',
+      b.originalPrice,
+      b.currency,
+      b.bestPrice || '',
+      b.totalSavings || '',
+      b.status,
+      b.createdAt,
+    ]).map(row => row.map(cell => `"${cell}"`).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="resdrop-bookings.csv"');
+    return res.send(csv);
+  } else {
+    return res.status(400).json({ error: 'format must be json or csv' });
+  }
+});
+
+// Upload attachment to booking (Issue 16: confirmation email, screenshots, etc)
+app.post('/api/bookings/:id/attachments', authMiddleware, async (req, res) => {
+  const booking = await db.getBooking(req.params.id);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+
+  const { type, url, fileName } = req.body;
+  if (!type || !url) {
+    return res.status(400).json({ error: 'type and url required' });
+  }
+
+  const attachments = booking.attachments || [];
+  attachments.push({
+    id: generateId(),
+    type, // confirmation_email, screenshot, booking_confirmation, boarding_pass
+    url,
+    fileName: fileName || 'document',
+    uploadedAt: new Date().toISOString(),
+  });
+
+  const updated = await db.updateBooking(req.params.id, { attachments });
+  res.json(updated);
+});
+
+// Get bookings with upcoming cancellation deadlines (Issue 11)
+app.get('/api/bookings/upcoming-deadlines', authMiddleware, async (req, res) => {
+  const bookings = await db.getBookingsByEmail(req.userEmail);
+  const now = new Date();
+  const hoursAhead = 72; // Check deadlines within 72 hours
+  const deadline = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+
+  const upcoming = bookings.filter(b => {
+    if (!b.cancellationDeadline || !['monitoring', 'lower_fare_found'].includes(b.status)) return false;
+    const dl = new Date(b.cancellationDeadline);
+    return dl > now && dl <= deadline;
+  }).map(b => ({
+    ...b,
+    hoursUntilDeadline: Math.round((new Date(b.cancellationDeadline) - now) / (1000 * 60 * 60)),
+  })).sort((a, b) => a.hoursUntilDeadline - b.hoursUntilDeadline);
+
+  res.json(upcoming);
 });
 
 // Refresh price check (ownership check)
@@ -600,6 +880,37 @@ app.post('/api/bookings/:id/check', authMiddleware, async (req, res) => {
   }
 });
 
+// Reject offer (Issue 9: track rejected offers with reason)
+app.post('/api/bookings/:id/reject-offer', authMiddleware, async (req, res) => {
+  const booking = await db.getBooking(req.params.id);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+
+  const { offeredPrice, source, reason } = req.body;
+  if (!offeredPrice || !source) {
+    return res.status(400).json({ error: 'offeredPrice and source required' });
+  }
+
+  const rejectedOffers = booking.rejectedOffers || [];
+  rejectedOffers.push({
+    date: new Date().toISOString(),
+    offeredPrice: parseFloat(offeredPrice),
+    source,
+    reason: reason || 'user_decision',
+  });
+
+  // Issue 14: Add booking history entry
+  const bookingHistory = booking.bookingHistory || [];
+  bookingHistory.push({
+    date: new Date().toISOString(),
+    action: 'offer_rejected',
+    details: { price: parseFloat(offeredPrice), source, reason: reason || 'user_decision' },
+  });
+
+  const updated = await db.updateBooking(req.params.id, { rejectedOffers, bookingHistory });
+  res.json(updated);
+});
+
 // Edit a booking (ownership check)
 app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
@@ -611,7 +922,7 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_BOOKING_STATUSES.join(', ')}` });
   }
 
-  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType', 'status', 'cancellationPolicy'];
+  const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType', 'status', 'cancellationPolicy', 'bookingSource', 'currency', 'bookingUrl', 'alertPreferences'];
   const changes = [];
   const updates = {};
 
@@ -1439,8 +1750,25 @@ app.post('/api/admin/send-email', authMiddleware, adminMiddleware, async (req, r
 const VALID_BOOKING_STATUSES = [
   'received', 'processing', 'needs_review', 'monitoring',
   'lower_fare_found', 'savings_found', 'confirmed_savings',
-  'dismissed', 'expired',
+  'dismissed', 'expired', 'archived', 'draft',  // Issue 21: add archive & draft
 ];
+
+// Auto-detect OTA from email, URL, or confirmation number (Issue 5)
+function detectOTA(data) {
+  const { otpEmail = '', bookingUrl = '', rawSource = '', confirmationNumber = '' } = data;
+  const text = `${otpEmail} ${bookingUrl} ${rawSource} ${confirmationNumber}`.toLowerCase();
+
+  if (text.includes('booking.com') || text.includes('bookingcombr')) return 'booking.com';
+  if (text.includes('expedia') || text.includes('expediabr')) return 'expedia';
+  if (text.includes('airbnb') || text.includes('abnb')) return 'airbnb';
+  if (text.includes('agoda')) return 'agoda';
+  if (text.includes('kayak')) return 'kayak';
+  if (text.includes('trip.com') || text.includes('tripadvisor')) return 'tripadvisor';
+  if (text.includes('hotels.com')) return 'hotels.com';
+  if (text.includes('vrbo') || text.includes('homeaway')) return 'vrbo';
+
+  return 'unknown';
+}
 
 function validateBookingData(data) {
   const errors = [];
@@ -1497,6 +1825,10 @@ function validateBookingData(data) {
       errors.push('originalPrice must be a valid number');
     } else if (price <= 0) {
       errors.push('originalPrice must be greater than zero');
+    } else if (price < 10) {
+      warnings.push('Very low price (<$10) — likely error?');
+    } else if (price > 50000) {
+      warnings.push('Unusually high price (>$50k) — verify this is correct');
     }
   }
 
