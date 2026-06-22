@@ -324,7 +324,7 @@
 <script>
 const SUPABASE_URL='https://sinyinnovnhfmtritdyb.supabase.co';
 const SUPABASE_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpbnlpbm5vdm5oZm10cml0ZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDIzMTgsImV4cCI6MjA5NzM3ODMxOH0.tk05sjLwqXSSvC5PbSpghhnzj5LMkeYToW0aywbuuPc';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+let sb;const initSB=()=>{if(!window.supabase){setTimeout(initSB,50);return;}sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON);sb.auth.onAuthStateChange((event,session)=>{if(session&&document.getElementById('app').classList.contains('hidden'))onSignedIn();});(async()=>{const {data:{session}}=await sb.auth.getSession();if(session)onSignedIn();})();};initSB();
 let clients=[],bookings=[],companies=[],credits=[],me=null,curTab='dashboard';
 
 function esc(s){return(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -674,9 +674,6 @@ document.getElementById('bOverlay').addEventListener('click',e=>{if(e.target.id=
 document.getElementById('crOverlay').addEventListener('click',e=>{if(e.target.id==='crOverlay')closeCr()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeC();closeB();closeCr();closeE();}});
 document.getElementById('lg_pass').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth();});
-
-sb.auth.onAuthStateChange((event,session)=>{if(session&&document.getElementById('app').classList.contains('hidden'))onSignedIn();});
-(async()=>{const {data:{session}}=await sb.auth.getSession();if(session)onSignedIn();})();
 </script>
 </body>
 </html>
