@@ -507,8 +507,9 @@ async function downloadInvoice(id){
 }
 
 let selectedBookings=[];
+function visibleBookingIds(){return [...document.querySelectorAll('#brows tr')].map(tr=>tr.id.replace('brow-','')).filter(Boolean);}
 function toggleBooking(id){if(selectedBookings.includes(id)){selectedBookings=selectedBookings.filter(x=>x!==id);}else{selectedBookings.push(id);}updateSelectionUI();}
-function toggleSelectAll(checked){if(checked){selectedBookings=bookings.map(b=>b.id);}else{selectedBookings=[];}updateSelectionUI();}
+function toggleSelectAll(checked){const vis=visibleBookingIds();if(checked){vis.forEach(id=>{if(!selectedBookings.includes(id))selectedBookings.push(id);});}else{selectedBookings=selectedBookings.filter(id=>!vis.includes(id));}updateSelectionUI();}
 function updateSelectionUI(){
   const allChks=document.querySelectorAll('#brows input[type="checkbox"]');
   allChks.forEach(chk=>{const tr=chk.closest('tr');if(tr){const id=tr.id.replace('brow-','');chk.checked=selectedBookings.includes(id);}});
@@ -517,10 +518,12 @@ function updateSelectionUI(){
   const btn=document.getElementById('bMultiDownload');if(btn)btn.style.display=selectedBookings.length>0?'inline-flex':'none';
 }
 async function downloadMultipleInvoices(){
-  if(!selectedBookings.length){alert('Selecione pelo menos uma reserva.');return;}
+  // Read exactly the checkboxes that are currently ticked in the table — no stale state.
+  const checkedIds=[...document.querySelectorAll('#brows tr input[type="checkbox"]:checked')].map(chk=>chk.closest('tr').id.replace('brow-',''));
+  if(!checkedIds.length){alert('Selecione pelo menos uma reserva (marque os quadradinhos).');return;}
   if(!window.jspdf){alert('Gerador de PDF ainda carregando, tente de novo.');return;}
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'a4'});
-  const selected=selectedBookings.map(id=>bookings.find(x=>x.id===id)).filter(Boolean);if(!selected.length)return;
+  const selected=checkedIds.map(id=>bookings.find(x=>x.id===id)).filter(Boolean);if(!selected.length)return;
   const W=595,M=40;const GREY=[140,140,140],BODY=[60,55,50],HEAD=[20,18,16];
   const logo=await getLogo();
   const faturado=selected[0].faturado||selected[0].client;
