@@ -519,26 +519,46 @@ function updateSelectionUI(){
 async function downloadMultipleInvoices(){
   if(!selectedBookings.length){alert('Selecione pelo menos uma reserva.');return;}
   if(!window.jspdf){alert('Gerador de PDF ainda carregando, tente de novo.');return;}
-  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'a4'});
   const selected=selectedBookings.map(id=>bookings.find(x=>x.id===id)).filter(Boolean);if(!selected.length)return;
-  const W=210,M=15,lineH=8;let y=M;const faturado=selected[0].faturado||selected[0].client;
-  const addHeader=()=>{y=M;doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text(String(faturado||'FATURA'),M,y);y+=10;
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Voyu Travel Agência de Viagens Ltda  |  CNPJ 56.897.332/0001-75',M,y);y+=6;doc.text('Luxemburgo, 844 – Apto 102, Santa Regina, Camboriú – SC',M,y);y+=8;
-    doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=6;
-    doc.setFontSize(9);const now=new Date().toLocaleDateString('pt-BR');doc.text('Data: '+now,M,y);doc.text('Referência: '+selected.length+' reservas',W/2,y);y+=8;doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=4;};
-  const addFooter=()=>{doc.setFontSize(7);doc.setTextColor(150);doc.text('Voyu Travel Agência de Viagens Ltda  |  CNPJ 56.897.332/0001-75  |  voyutravel.com',W/2,280,{align:'center'});};
-  addHeader();
-  doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text('Item',M,y);doc.text('Cliente / Tipo',M+10,y);doc.text('Período',M+100,y);doc.text('Valor',W-M-20,y,{align:'right'});y+=6;
-  doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=4;
-  let totalGross=0;doc.setFont('helvetica','normal');doc.setFontSize(9);
-  selected.forEach((b,idx)=>{totalGross+=num(b.gross);
-    if(y>260){doc.addPage();addHeader();doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text('Item',M,y);doc.text('Cliente / Tipo',M+10,y);doc.text('Período',M+100,y);doc.text('Valor',W-M-20,y,{align:'right'});y+=6;doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=4;doc.setFont('helvetica','normal');}
-    const item=(idx+1)+'.';const desc=esc(b.client||'—')+' • '+esc(b.service||'');const periodo=b.travel+(b.return?' → '+b.return:'');const valor=money(num(b.gross));
-    doc.text(item,M,y);doc.text(desc,M+10,y);doc.text(periodo,M+100,y);doc.text(valor,W-M-20,y,{align:'right'});y+=lineH;});
-  y+=4;doc.setDrawColor(200);doc.line(M,y,W-M,y);y+=6;
-  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text('TOTAL',M,y);doc.text(money(totalGross),W-M-20,y,{align:'right'});
-  addFooter();
-  doc.save('Faturas-'+String(faturado||'Consolidada').replace(/[^a-zA-Z0-9]+/g,'_')+'-'+new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')+'.pdf');
+  const W=595,M=40;const GREY=[140,140,140],BODY=[60,55,50],HEAD=[20,18,16];
+  const addHeader=(pageNum)=>{
+    doc.setFillColor(15,15,15);doc.rect(0,0,W,118,'F');
+    const logo=await getLogo();if(logo){try{doc.addImage(logo,'PNG',M,26,30,42);}catch(e){}}
+    doc.setTextColor(225,222,216);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('V O Y U   T R A V E L',M,84);
+    doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(30);doc.text('FATURA',W-M,60,{align:'right'});
+    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(190,190,190);doc.text('Nº CONS-'+new Date().getFullYear()+(pageNum>1?'-P'+pageNum:''),W-M,84,{align:'right'});
+    let y=152;doc.setTextColor(HEAD[0],HEAD[1],HEAD[2]);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('Voyu Travel Agência de Viagens Ltda',M,y);
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(BODY[0],BODY[1],BODY[2]);
+    ['56.897.332/0001-75','Luxemburgo, 844 – Apto 102, Santa Regina','Camboriú – SC, CEP 88.345-738','junior13machadojr@gmail.com'].forEach((t,i)=>doc.text(t,M,y+20+i*17));
+    y+=20+4*17+24;const faturado=selected[0].faturado||selected[0].client;const co=companies.find(c=>(c.name||'').toLowerCase()===String(faturado||'').toLowerCase());
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(GREY[0],GREY[1],GREY[2]);doc.text('COBRAR DE',M,y);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(HEAD[0],HEAD[1],HEAD[2]);doc.text(String(faturado||(co&&co.name)||'—'),M,y+18);
+    doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(BODY[0],BODY[1],BODY[2]);
+    let cob=[];if(co){if(co.address)cob=cob.concat(String(co.address).split('\n').map(s=>s.trim()).filter(Boolean));if(co.cnpj)cob.push(co.cnpj);}
+    cob.slice(0,5).forEach((t,i)=>doc.text(String(t),M,y+38+i*16));
+    y+=38+Math.max(cob.length,1)*16+18;doc.setDrawColor(228,224,218);doc.line(M,y,W-M,y);y+=24;
+    const meta=[['Data de Emissão',new Date().toLocaleDateString('pt-BR')],['Condições de Pagamento','À vista'],['Referência',selected.length+' reservas']];
+    meta.forEach((m,i)=>{const x=M+i*((W-2*M)/3);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(GREY[0],GREY[1],GREY[2]);doc.text(m[0],x,y);doc.setFontSize(11);doc.setTextColor(HEAD[0],HEAD[1],HEAD[2]);doc.text(m[1],x,y+18);});
+    y+=46;doc.setFillColor(15,15,15);doc.rect(M,y,W-2*M,30,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9.5);
+    doc.text('ITEM',M+12,y+19);doc.text('DESCRIÇÃO',M+50,y+19);doc.text('PERÍODO',M+350,y+19);doc.text('VALOR (BRL)',W-M-12,y+19,{align:'right'});return y+30;
+  };
+  let pageNum=1,y=await addHeader(pageNum);let totalGross=0;const pageLimit=750;
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(BODY[0],BODY[1],BODY[2]);
+  selected.forEach((b,idx)=>{
+    totalGross+=num(b.gross);
+    if(y>pageLimit){doc.setDrawColor(228,224,218);doc.line(M,790,W-M,790);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(150,150,150);
+      doc.text('Voyu Travel Agência de Viagens Ltda  |  CNPJ 56.897.332/0001-75  |  voyutravel.com',M,806);
+      doc.addPage();pageNum++;y=await addHeader(pageNum);}
+    const desc=[b.client,b.service,b.route,b.supplier].filter(Boolean).join(' • ');y+=20;
+    doc.text(String(idx+1),M+12,y);doc.text(desc.substring(0,60),M+50,y);doc.text(b.travel+(b.return?' → '+b.return:''),M+350,y);doc.text(money(num(b.gross)),W-M-12,y,{align:'right'});
+    if(y>pageLimit-40)y=pageLimit;
+  });
+  y+=20;const lx=W-M-150,rx=W-M;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(GREY[0],GREY[1],GREY[2]);doc.text('TOTAL',lx,y,{align:'right'});
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(HEAD[0],HEAD[1],HEAD[2]);doc.text(money(totalGross),rx,y,{align:'right'});
+  doc.setDrawColor(228,224,218);doc.line(M,790,W-M,790);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(150,150,150);
+  doc.text('Voyu Travel Agência de Viagens Ltda  |  CNPJ 56.897.332/0001-75  |  voyutravel.com',M,806);
+  const faturado=selected[0].faturado||selected[0].client;doc.save('Faturas-'+String(faturado||'Consolidada').replace(/[^a-zA-Z0-9]+/g,'_')+'.pdf');
   selectedBookings=[];updateSelectionUI();
 }
 
