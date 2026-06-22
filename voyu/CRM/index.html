@@ -522,7 +522,7 @@ async function downloadMultipleInvoices(){
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'a4'});
   const selected=selectedBookings.map(id=>bookings.find(x=>x.id===id)).filter(Boolean);if(!selected.length)return;
   const W=595,M=40;const GREY=[140,140,140],BODY=[60,55,50],HEAD=[20,18,16];
-  const addHeader=(pageNum)=>{
+  const addHeader=async(pageNum)=>{
     doc.setFillColor(15,15,15);doc.rect(0,0,W,118,'F');
     const logo=await getLogo();if(logo){try{doc.addImage(logo,'PNG',M,26,30,42);}catch(e){}}
     doc.setTextColor(225,222,216);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('V O Y U   T R A V E L',M,84);
