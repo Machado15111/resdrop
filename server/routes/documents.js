@@ -3,6 +3,7 @@ import multer from 'multer';
 import { readFile } from 'fs/promises';
 import * as db from '../db.js';
 import { sendBookingCreated } from '../email.js';
+import { isAiParserConfigured, extractBookingFromDocument } from '../aiParser.js';
 
 // Multer config — store in memory for processing
 const upload = multer({
@@ -193,13 +194,29 @@ export default function documentRoutes(authMiddleware) {
       let extractedText = '';
       let extractedData = {};
       let confidenceScores = {};
+      let parseMethod = 'manual';
 
-      if (mimetype === 'application/pdf') {
+      // Primary: Claude vision/PDF extraction — reads images, screenshots, and PDFs.
+      if (isAiParserConfigured()) {
+        try {
+          const ai = await extractBookingFromDocument(buffer, mimetype);
+          extractedData = ai.fields;
+          confidenceScores = ai.confidence;
+          parseMethod = 'ai';
+        } catch (err) {
+          console.error('[Documents] AI extraction failed:', err.message);
+          // Fall through to regex (PDFs only) or empty (images) below.
+        }
+      }
+
+      // Fallback for PDFs when AI is unavailable or failed: regex over extracted text.
+      if (parseMethod !== 'ai' && mimetype === 'application/pdf') {
         try {
           extractedText = await extractTextFromPdf(buffer);
           const result = extractBookingFields(extractedText);
           extractedData = result.fields;
           confidenceScores = result.confidence;
+          parseMethod = 'regex';
         } catch (err) {
           console.error('[Documents] PDF extraction failed:', err.message);
           await db.updateDocumentUpload(docRecord.id, {
@@ -208,11 +225,8 @@ export default function documentRoutes(authMiddleware) {
           });
           return res.status(422).json({ error: 'Failed to extract text from PDF', documentId: docRecord.id });
         }
-      } else {
-        // For images, we can't extract text without OCR — return empty fields for manual entry
-        extractedData = {};
-        confidenceScores = {};
       }
+      // For images with no AI configured, extractedData stays empty → manual entry.
 
       // Update document record with extracted data
       await db.updateDocumentUpload(docRecord.id, {
@@ -227,6 +241,7 @@ export default function documentRoutes(authMiddleware) {
         fileType: mimetype,
         extractedData,
         confidenceScores,
+        parseMethod,
         rawTextLength: extractedText.length,
       });
     } catch (err) {

@@ -6,6 +6,7 @@
     "start": "node run-migration.js; node index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@supabase/supabase-js": "^2.99.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
