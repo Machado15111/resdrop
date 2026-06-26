@@ -21,9 +21,15 @@ const upload = multer({
 
 // ─── PDF text extraction ────────────────────────────────────
 async function extractTextFromPdf(buffer) {
-  const pdfParse = (await import('pdf-parse')).default;
-  const data = await pdfParse(buffer);
-  return data.text;
+  // pdf-parse v2 exports a PDFParse class (not a default function).
+  const { PDFParse } = await import('pdf-parse');
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    return result.text || '';
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
 }
 
 // ─── Field extraction with confidence scoring ───────────────

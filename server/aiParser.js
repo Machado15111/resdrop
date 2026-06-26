@@ -1,28 +1,23 @@
 // AI-powered booking-confirmation parser.
-// Uses Claude's native vision (images/screenshots) and PDF support to read a
-// booking confirmation and extract structured fields — replacing the brittle
-// regex parser and enabling image/screenshot uploads (which had no OCR before).
+// Reads an uploaded booking confirmation (PDF, image, or screenshot) and extracts
+// structured fields — replacing the brittle regex parser and enabling image/
+// screenshot uploads (which previously had no OCR and returned empty fields).
+//
+// Uses OpenAI:
+//   - images/screenshots  -> GPT-4o vision
+//   - PDFs                -> text extracted via pdf-parse, then GPT-4o text
+// Both paths use Structured Outputs so the response is guaranteed-valid JSON.
 
-import Anthropic from '@anthropic-ai/sdk';
-
-const MODEL = 'claude-opus-4-8';
-
-let client = null;
-function getClient() {
-  if (client) return client;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  client = new Anthropic({ apiKey });
-  return client;
-}
+const MODEL = 'gpt-4o';
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 export function isAiParserConfigured() {
-  return !!process.env.ANTHROPIC_API_KEY;
+  return !!process.env.OPENAI_API_KEY;
 }
 
-// JSON schema for structured outputs. All fields nullable so the model can omit
-// what isn't present in the document, but every key is required + additionalProperties:false
-// (a structured-outputs requirement).
+// JSON schema for OpenAI Structured Outputs. Strict mode requires every property
+// in `required` and additionalProperties:false; optional values are expressed as
+// nullable so the model can omit what the document doesn't contain.
 const BOOKING_SCHEMA = {
   type: 'object',
   properties: {
@@ -31,7 +26,7 @@ const BOOKING_SCHEMA = {
     checkinDate: { type: ['string', 'null'], description: 'Check-in date as YYYY-MM-DD' },
     checkoutDate: { type: ['string', 'null'], description: 'Check-out date as YYYY-MM-DD' },
     roomType: { type: ['string', 'null'], description: 'Room type/category, e.g. "Deluxe Room"' },
-    originalPrice: { type: ['number', 'null'], description: 'Total price paid, as a number (no currency symbol)' },
+    originalPrice: { type: ['number', 'null'], description: 'Total price paid for the whole stay, as a number (no currency symbol)' },
     currency: { type: ['string', 'null'], description: 'ISO currency code, e.g. USD, BRL, EUR' },
     guestName: { type: ['string', 'null'], description: 'Primary guest name' },
     confirmationNumber: { type: ['string', 'null'], description: 'Booking/confirmation/reservation number' },
@@ -42,7 +37,7 @@ const BOOKING_SCHEMA = {
     },
     bookingSource: {
       type: ['string', 'null'],
-      description: 'OTA/platform the booking was made on, e.g. booking.com, expedia, airbnb, agoda, hotels.com, or the hotel name if booked direct',
+      description: 'OTA/platform booked on: booking.com, expedia, airbnb, agoda, hotels.com, or the hotel name if booked direct',
     },
   },
   required: [
@@ -54,77 +49,93 @@ const BOOKING_SCHEMA = {
 };
 
 const SYSTEM_PROMPT = `You extract hotel booking details from a confirmation document (email, PDF, or screenshot).
-Read carefully and return only what the document actually states — never invent or guess values.
-Dates must be YYYY-MM-DD. If a field is not present or you are unsure, return null for it.
+Return only what the document actually states — never invent or guess values.
+Dates must be formatted YYYY-MM-DD. If a field is not present or you are unsure, return null for it.
 For originalPrice, return the total amount paid for the whole stay as a plain number.`;
 
 function mediaTypeFor(mimetype) {
-  if (mimetype === 'image/jpg') return 'image/jpeg';
-  return mimetype;
+  return mimetype === 'image/jpg' ? 'image/jpeg' : mimetype;
+}
+
+async function extractPdfText(buffer) {
+  // pdf-parse v2 exports a PDFParse class (not a default function).
+  const { PDFParse } = await import('pdf-parse');
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    return result.text || '';
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
+async function callOpenAI(userContent) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+
+  const res = await fetch(OPENAI_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'booking_extraction', strict: true, schema: BOOKING_SCHEMA },
+      },
+      max_tokens: 700,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`OpenAI API ${res.status}: ${body.slice(0, 300)}`);
+  }
+
+  const json = await res.json();
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new Error('No content in OpenAI response');
+  return JSON.parse(content);
 }
 
 /**
- * Extract booking fields from a document buffer using Claude.
+ * Extract booking fields from a document buffer.
  * @param {Buffer} buffer - the file bytes
  * @param {string} mimetype - application/pdf | image/png | image/jpeg | image/jpg
  * @returns {Promise<{fields: object, confidence: object}>}
  */
 export async function extractBookingFromDocument(buffer, mimetype) {
-  const anthropic = getClient();
-  if (!anthropic) throw new Error('ANTHROPIC_API_KEY not configured');
+  let userContent;
 
-  const base64 = buffer.toString('base64');
-
-  let documentBlock;
   if (mimetype === 'application/pdf') {
-    documentBlock = {
-      type: 'document',
-      source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-    };
+    const text = await extractPdfText(buffer);
+    if (!text.trim()) throw new Error('No extractable text in PDF');
+    userContent = [
+      { type: 'text', text: `Extract the booking details from this confirmation:\n\n${text.slice(0, 12000)}` },
+    ];
   } else {
-    documentBlock = {
-      type: 'image',
-      source: { type: 'base64', media_type: mediaTypeFor(mimetype), data: base64 },
-    };
+    const dataUrl = `data:${mediaTypeFor(mimetype)};base64,${buffer.toString('base64')}`;
+    userContent = [
+      { type: 'text', text: 'Extract the booking details from this confirmation.' },
+      { type: 'image_url', image_url: { url: dataUrl } },
+    ];
   }
 
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    output_config: {
-      effort: 'low',
-      format: { type: 'json_schema', schema: BOOKING_SCHEMA },
-    },
-    messages: [
-      {
-        role: 'user',
-        content: [
-          documentBlock,
-          { type: 'text', text: 'Extract the booking details from this confirmation.' },
-        ],
-      },
-    ],
-  });
+  const parsed = await callOpenAI(userContent);
 
-  // output_config.format guarantees the first text block is valid JSON for our schema.
-  const textBlock = response.content.find(b => b.type === 'text');
-  if (!textBlock) throw new Error('No text content in AI response');
-
-  let parsed;
-  try {
-    parsed = JSON.parse(textBlock.text);
-  } catch {
-    throw new Error('AI response was not valid JSON');
-  }
-
-  // Drop null/empty fields and assign a confidence score to each populated field.
+  // Drop null/empty fields and attach a confidence score to each populated one.
   const fields = {};
   const confidence = {};
   for (const [key, value] of Object.entries(parsed)) {
     if (value === null || value === '') continue;
     fields[key] = value;
-    confidence[key] = 0.9; // vision/document extraction is high-confidence; user confirms in review
+    confidence[key] = 0.9; // AI extraction is high-confidence; user confirms in review
   }
 
   return { fields, confidence };
