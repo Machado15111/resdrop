@@ -179,6 +179,28 @@
 }
 .doc-input-low {
   border-color: #fca5a5;
+  background-color: #fffbeb;
+}
+.doc-input-error {
+  border-color: #ef4444 !important;
+  background-color: #fef2f2 !important;
+}
+
+.doc-field-error-msg {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.doc-warning-banner {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
 }
 
 /* Duplicate warning */

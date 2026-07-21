@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
@@ -16,14 +16,16 @@ function getConfidenceLevel(score) {
   return 'low';
 }
 
-function DocumentUpload({ onSubmit, userEmail, onBack }) {
-  const { t, lang } = useI18n();
+function DocumentUpload({ onSubmit, onBack }) {
+  const { lang } = useI18n();
   const { authFetch } = useAuth();
   const fileInputRef = useRef(null);
 
   const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [documentId, setDocumentId] = useState(null);
+  const [importId, setImportId] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
   const [confidenceScores, setConfidenceScores] = useState({});
   const [error, setError] = useState(null);
@@ -38,31 +40,64 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
     checkoutDate: '',
     roomType: 'Standard Room',
     originalPrice: '',
+    currency: 'USD',
     guestName: '',
     confirmationNumber: '',
   });
 
-  const handleFileSelect = (e) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      setFile(selected);
-      setError(null);
-      setExtractedData(null);
-      setDocumentId(null);
-      setDuplicateWarning(null);
+  const handleFileSelect = useCallback((selectedFile) => {
+    if (!selectedFile) return;
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowed.includes(selectedFile.type)) {
+      setError(lang === 'pt' ? 'Apenas arquivos PDF, PNG, JPG e WEBP são permitidos' : 'Only PDF, PNG, JPG, and WEBP files allowed');
+      return;
     }
-  };
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError(lang === 'pt' ? 'O arquivo deve ter no máximo 10MB' : 'File must be max 10MB');
+      return;
+    }
+
+    setFile(selectedFile);
+    setError(null);
+    setExtractedData(null);
+    setDocumentId(null);
+    setImportId(null);
+    setDuplicateWarning(null);
+
+    if (selectedFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selectedFile);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [lang]);
 
   const handleDrop = (e) => {
     e.preventDefault();
     const dropped = e.dataTransfer.files?.[0];
-    if (dropped) {
-      setFile(dropped);
-      setError(null);
-      setExtractedData(null);
-      setDocumentId(null);
-    }
+    if (dropped) handleFileSelect(dropped);
   };
+
+  // Clipboard Paste handler
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const pastedFile = items[i].getAsFile();
+          if (pastedFile) {
+            handleFileSelect(pastedFile);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [handleFileSelect]);
 
   const handleUpload = async () => {
     if (!file) return;
@@ -87,42 +122,55 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
 
       const data = await res.json();
       setDocumentId(data.documentId);
-      setExtractedData(data.extractedData);
+      setImportId(data.importId);
+      setExtractedData(data.extractedData || {});
       setConfidenceScores(data.confidenceScores || {});
 
       // Pre-fill form with extracted data
       setForm(prev => ({
         ...prev,
         hotelName: data.extractedData.hotelName || '',
-        destination: data.extractedData.destination || '',
+        destination: data.extractedData.destination || data.extractedData.city || '',
         checkinDate: data.extractedData.checkinDate || '',
         checkoutDate: data.extractedData.checkoutDate || '',
         roomType: data.extractedData.roomType || 'Standard Room',
         originalPrice: data.extractedData.originalPrice || '',
+        currency: data.extractedData.currency || 'USD',
         guestName: data.extractedData.guestName || '',
         confirmationNumber: data.extractedData.confirmationNumber || '',
       }));
-    } catch (err) {
-      setError('Connection error');
+    } catch {
+      setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
     }
     setUploading(false);
   };
 
-  const handleCreateBooking = async () => {
-    if (!form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice) {
-      setError(lang === 'pt' ? 'Preencha os campos obrigatórios' : 'Fill in required fields');
-      return;
-    }
+  // Validation checks for essential fields
+  const missingHotelName = !form.hotelName?.trim();
+  const missingCheckin = !form.checkinDate;
+  const missingCheckout = !form.checkoutDate;
+  const missingPrice = !form.originalPrice || parseFloat(form.originalPrice) <= 0;
+  const missingCurrency = !form.currency?.trim();
+
+  const isMissingEssential = missingHotelName || missingCheckin || missingCheckout || missingPrice || missingCurrency;
+
+  const handleConfirmBooking = async () => {
+    if (isMissingEssential) return;
 
     setCreating(true);
     setError(null);
     setDuplicateWarning(null);
 
     try {
-      const res = await authFetch(`${API}/documents/${documentId}/create-booking`, {
+      const targetEndpoint = documentId
+        ? `${API}/documents/${documentId}/create-booking`
+        : `${API}/documents/${importId}/create-booking`;
+
+      const res = await authFetch(targetEndpoint, {
         method: 'POST',
         body: JSON.stringify({
           ...form,
+          importId,
           originalPrice: parseFloat(form.originalPrice),
         }),
       });
@@ -136,18 +184,17 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
 
       if (!res.ok) {
         const err = await res.json();
-        setError(err.error || 'Failed to create booking');
+        setError(err.error || 'Failed to confirm booking');
         setCreating(false);
         return;
       }
 
       const data = await res.json();
-      // Call parent onSubmit to navigate to dashboard
       if (onSubmit) {
         onSubmit(data.booking);
       }
-    } catch (err) {
-      setError('Connection error');
+    } catch {
+      setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
     }
     setCreating(false);
   };
@@ -155,6 +202,8 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
   const handleFieldChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
+
+  const hasLowConfidence = Object.values(confidenceScores).some(score => score < 0.7);
 
   return (
     <div className="doc-upload animate-in">
@@ -170,8 +219,8 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={handleFileSelect}
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              onChange={e => handleFileSelect(e.target.files?.[0])}
               style={{ display: 'none' }}
             />
             <div className="doc-dropzone-icon">
@@ -185,25 +234,32 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
             </div>
             <p className="doc-dropzone-text">
               {lang === 'pt'
-                ? 'Arraste seu PDF ou clique para selecionar'
-                : 'Drag your PDF or click to select'}
+                ? 'Arraste, selecione um arquivo ou cole (Ctrl+V) sua imagem/PDF'
+                : 'Drag, select a file, or paste (Ctrl+V) your image/PDF'}
             </p>
-            <p className="doc-dropzone-hint">PDF, PNG, JPG (max 10MB)</p>
+            <p className="doc-dropzone-hint">PDF, PNG, JPG, WEBP (max 10MB)</p>
           </div>
 
           {file && (
-            <div className="doc-file-preview">
-              <span className="doc-file-name">{file.name}</span>
-              <span className="doc-file-size">{(file.size / 1024).toFixed(0)} KB</span>
-              <button
-                className="doc-upload-btn"
-                onClick={handleUpload}
-                disabled={uploading}
-              >
-                {uploading
-                  ? (lang === 'pt' ? 'Processando...' : 'Processing...')
-                  : (lang === 'pt' ? 'Extrair Dados' : 'Extract Data')}
-              </button>
+            <div className="doc-file-preview-box">
+              {previewUrl && (
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <img src={previewUrl} alt="Preview" style={{ maxHeight: 150, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                </div>
+              )}
+              <div className="doc-file-preview">
+                <span className="doc-file-name">{file.name}</span>
+                <span className="doc-file-size">{(file.size / 1024).toFixed(0)} KB</span>
+                <button
+                  className="doc-upload-btn"
+                  onClick={handleUpload}
+                  disabled={uploading}
+                >
+                  {uploading
+                    ? (lang === 'pt' ? 'Extraindo...' : 'Extracting...')
+                    : (lang === 'pt' ? 'Extrair Dados' : 'Extract Data')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -213,23 +269,33 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
         /* Review extracted data */
         <div className="doc-review">
           <div className="doc-review-header">
-            <h3>{lang === 'pt' ? 'Dados Extraídos' : 'Extracted Data'}</h3>
+            <h3>{lang === 'pt' ? 'Revisar Dados da Reserva' : 'Review Booking Details'}</h3>
             <p className="doc-review-hint">
               {lang === 'pt'
-                ? 'Revise e corrija os campos abaixo antes de criar a reserva.'
-                : 'Review and correct fields below before creating the booking.'}
+                ? 'Revise os campos abaixo. O monitoramento só iniciará após a confirmação.'
+                : 'Review fields below. Monitoring will only start after confirmation.'}
             </p>
           </div>
 
+          {hasLowConfidence && (
+            <div className="doc-warning-banner">
+              ⚠️ {lang === 'pt'
+                ? 'Alguns campos foram extraídos com baixa confiança. Por favor, confira com atenção.'
+                : 'Some fields were extracted with low confidence. Please double-check them.'}
+            </div>
+          )}
+
           <div className="doc-review-form">
             <DocField
-              label={lang === 'pt' ? 'Hotel *' : 'Hotel *'}
+              label={lang === 'pt' ? 'Nome do Hotel *' : 'Hotel Name *'}
               value={form.hotelName}
               onChange={v => handleFieldChange('hotelName', v)}
               confidence={confidenceScores.hotelName}
+              isError={missingHotelName}
+              errorMessage={lang === 'pt' ? 'Adicione o nome do hotel para continuar.' : 'Add the hotel name to continue.'}
             />
             <DocField
-              label={lang === 'pt' ? 'Destino' : 'Destination'}
+              label={lang === 'pt' ? 'Destino / Cidade' : 'Destination / City'}
               value={form.destination}
               onChange={v => handleFieldChange('destination', v)}
               confidence={confidenceScores.destination}
@@ -240,6 +306,8 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
               onChange={v => handleFieldChange('checkinDate', v)}
               confidence={confidenceScores.checkinDate}
               type="date"
+              isError={missingCheckin}
+              errorMessage={lang === 'pt' ? 'Adicione a data de check-in para continuar.' : 'Add the check-in date to continue.'}
             />
             <DocField
               label="Check-out *"
@@ -247,6 +315,25 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
               onChange={v => handleFieldChange('checkoutDate', v)}
               confidence={confidenceScores.checkoutDate}
               type="date"
+              isError={missingCheckout}
+              errorMessage={lang === 'pt' ? 'Adicione a data de check-out para continuar.' : 'Add the check-out date to continue.'}
+            />
+            <DocField
+              label={lang === 'pt' ? 'Preço Total *' : 'Total Price *'}
+              value={form.originalPrice}
+              onChange={v => handleFieldChange('originalPrice', v)}
+              confidence={confidenceScores.originalPrice}
+              type="number"
+              isError={missingPrice}
+              errorMessage={lang === 'pt' ? 'Adicione o preço total para continuar.' : 'Add total price to continue.'}
+            />
+            <DocField
+              label={lang === 'pt' ? 'Moeda *' : 'Currency *'}
+              value={form.currency}
+              onChange={v => handleFieldChange('currency', v.toUpperCase())}
+              confidence={confidenceScores.currency}
+              isError={missingCurrency}
+              errorMessage={lang === 'pt' ? 'Adicione a moeda para continuar.' : 'Add currency to continue.'}
             />
             <DocField
               label={lang === 'pt' ? 'Tipo de Quarto' : 'Room Type'}
@@ -255,20 +342,13 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
               confidence={confidenceScores.roomType}
             />
             <DocField
-              label={lang === 'pt' ? 'Preço Original *' : 'Original Price *'}
-              value={form.originalPrice}
-              onChange={v => handleFieldChange('originalPrice', v)}
-              confidence={confidenceScores.originalPrice}
-              type="number"
-            />
-            <DocField
               label={lang === 'pt' ? 'Hóspede' : 'Guest'}
               value={form.guestName}
               onChange={v => handleFieldChange('guestName', v)}
               confidence={confidenceScores.guestName}
             />
             <DocField
-              label={lang === 'pt' ? 'Confirmação' : 'Confirmation'}
+              label={lang === 'pt' ? 'Código de Confirmação' : 'Confirmation Code'}
               value={form.confirmationNumber}
               onChange={v => handleFieldChange('confirmationNumber', v)}
               confidence={confidenceScores.confirmationNumber}
@@ -285,17 +365,24 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
           {error && <p className="doc-error">{error}</p>}
 
           <div className="doc-review-actions">
-            <button className="doc-btn-back" onClick={() => { setExtractedData(null); setFile(null); }}>
+            <button
+              className="doc-btn-back"
+              onClick={() => {
+                setExtractedData(null);
+                setFile(null);
+                if (onBack) onBack();
+              }}
+            >
               {lang === 'pt' ? 'Voltar' : 'Back'}
             </button>
             <button
               className="doc-btn-create"
-              onClick={handleCreateBooking}
-              disabled={creating}
+              onClick={handleConfirmBooking}
+              disabled={creating || isMissingEssential}
             >
               {creating
                 ? '...'
-                : (lang === 'pt' ? 'Criar Reserva' : 'Create Booking')}
+                : (lang === 'pt' ? 'Confirmar Reserva' : 'Confirm Booking')}
             </button>
           </div>
         </div>
@@ -304,14 +391,21 @@ function DocumentUpload({ onSubmit, userEmail, onBack }) {
   );
 }
 
-function DocField({ label, value, onChange, confidence, type = 'text' }) {
+function DocField({ label, value, onChange, confidence, type = 'text', isError = false, errorMessage = '' }) {
   const level = confidence != null ? getConfidenceLevel(confidence) : null;
+
+  let inputClass = 'doc-input';
+  if (isError) {
+    inputClass += ' doc-input-error';
+  } else if (level) {
+    inputClass += ` doc-input-${level}`;
+  }
 
   return (
     <div className="doc-field">
       <div className="doc-field-header">
         <label>{label}</label>
-        {level && (
+        {!isError && level && (
           <span
             className={`doc-confidence doc-confidence-${level}`}
             style={{ color: CONFIDENCE_COLORS[level] }}
@@ -324,8 +418,11 @@ function DocField({ label, value, onChange, confidence, type = 'text' }) {
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className={level ? `doc-input doc-input-${level}` : 'doc-input'}
+        className={inputClass}
       />
+      {isError && errorMessage && (
+        <span className="doc-field-error-msg">{errorMessage}</span>
+      )}
     </div>
   );
 }

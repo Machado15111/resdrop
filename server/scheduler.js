@@ -1,3 +1,5 @@
+import { pollInboundEmails } from './routes/inbound-email.js';
+
 /**
  * Price Monitoring Scheduler
  *
@@ -128,6 +130,8 @@ async function runPriceCheckCycle(bookingsMap, searchPricesFn, applyBestResultFn
 /**
  * Start the automated price monitoring scheduler
  */
+let inboundEmailInterval = null;
+
 export function startScheduler(bookingsMap, searchPricesFn, applyBestResultFn) {
   if (schedulerInterval) {
     console.log('[Scheduler] Already running');
@@ -137,7 +141,7 @@ export function startScheduler(bookingsMap, searchPricesFn, applyBestResultFn) {
   const checkHours = getCheckHours();
   console.log(`[Scheduler] 🕐 Starting scheduler — ${checkHours.length}x daily at: ${checkHours.map(h => `${String(h).padStart(2, '0')}:00`).join(', ')}`);
 
-  // Check every minute if it's time to run
+  // Check every minute if it's time to run price check
   let lastRunHour = -1;
   let lastRunDate = '';
 
@@ -146,7 +150,6 @@ export function startScheduler(bookingsMap, searchPricesFn, applyBestResultFn) {
     const currentHour = now.getHours();
     const currentDate = now.toISOString().split('T')[0];
 
-    // Only run if current hour matches a check hour AND we haven't run this hour today
     if (
       checkHours.includes(currentHour) &&
       (lastRunHour !== currentHour || lastRunDate !== currentDate)
@@ -155,24 +158,41 @@ export function startScheduler(bookingsMap, searchPricesFn, applyBestResultFn) {
       lastRunDate = currentDate;
       await runPriceCheckCycle(bookingsMap, searchPricesFn, applyBestResultFn);
     }
-  }, 60 * 1000); // Check every minute
+  }, 60 * 1000);
 
-  // Also run an initial check on startup (after 10 seconds)
+  // Inbound Email Poller
+  const pollMinutes = parseInt(process.env.INBOUND_EMAIL_POLL_MINUTES || '2', 10);
+  if (process.env.INBOUND_EMAIL_ENABLED === 'true') {
+    console.log(`[Scheduler] 📧 Starting inbound email poller (every ${pollMinutes} minute(s))`);
+    inboundEmailInterval = setInterval(async () => {
+      try {
+        await pollInboundEmails();
+      } catch (e) {
+        console.error('[Scheduler] Inbound email poller error:', e.message);
+      }
+    }, pollMinutes * 60 * 1000);
+  }
+
+  // Initial checks on startup
   setTimeout(async () => {
     console.log('[Scheduler] Running initial price check...');
     await runPriceCheckCycle(bookingsMap, searchPricesFn, applyBestResultFn);
+    if (process.env.INBOUND_EMAIL_ENABLED === 'true') {
+      await pollInboundEmails();
+    }
   }, 10000);
 }
 
-/**
- * Stop the scheduler
- */
 export function stopScheduler() {
   if (schedulerInterval) {
     clearInterval(schedulerInterval);
     schedulerInterval = null;
-    console.log('[Scheduler] Stopped');
   }
+  if (inboundEmailInterval) {
+    clearInterval(inboundEmailInterval);
+    inboundEmailInterval = null;
+  }
+  console.log('[Scheduler] Stopped');
 }
 
 /**

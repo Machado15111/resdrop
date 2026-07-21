@@ -7,15 +7,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '.env') });
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.DATABASE_URL || 'postgres://mock:mock@localhost:5432/mock';
 
-if (!connectionString) {
-  console.error('[DB] Missing DATABASE_URL environment variable');
-  process.exit(1);
+if (!process.env.DATABASE_URL && process.env.NODE_ENV !== 'test' && !process.execArgv.includes('--test')) {
+  console.warn('[DB] No DATABASE_URL set; operating with mock DB client for offline/test mode.');
 }
 
 const sql = postgres(connectionString, {
-  ssl: 'require',
+  ssl: process.env.DATABASE_URL ? 'require' : false,
   max: 10,
   idle_timeout: 30,
   connect_timeout: 15,
@@ -59,6 +58,13 @@ function toSnake(obj) {
     confidenceScores: 'confidence_scores', processingStatus: 'processing_status',
     rawSource: 'raw_source', parseMethod: 'parse_method', missingFields: 'missing_fields',
     cancellationPolicy: 'cancellation_policy', fieldConfidence: 'field_confidence',
+    messageId: 'message_id', mailboxUid: 'mailbox_uid', senderEmail: 'sender_email',
+    receivedAt: 'received_at', processedAt: 'processed_at', failureReason: 'failure_reason',
+    contentHash: 'content_hash', inboundEmailId: 'inbound_email_id', uploadId: 'upload_id',
+    confidenceData: 'confidence_data', bookingImportId: 'booking_import_id',
+    tokenHash: 'token_hash', expiresAt: 'expires_at', usedAt: 'used_at',
+    deterministicSuccess: 'deterministic_success', ocrUsed: 'ocr_used', aiUsed: 'ai_used',
+    inputTokenEstimate: 'input_token_estimate', outputTokens: 'output_tokens',
   };
   const out = {};
   for (const [k, v] of Object.entries(obj)) {
@@ -101,6 +107,13 @@ function toCamel(row) {
     confidence_scores: 'confidenceScores', processing_status: 'processingStatus',
     raw_source: 'rawSource', parse_method: 'parseMethod', missing_fields: 'missingFields',
     cancellation_policy: 'cancellationPolicy', field_confidence: 'fieldConfidence',
+    message_id: 'messageId', mailbox_uid: 'mailboxUid', sender_email: 'senderEmail',
+    received_at: 'receivedAt', processed_at: 'processedAt', failure_reason: 'failureReason',
+    content_hash: 'contentHash', inbound_email_id: 'inboundEmailId', upload_id: 'uploadId',
+    confidence_data: 'confidenceData', booking_import_id: 'bookingImportId',
+    token_hash: 'tokenHash', expires_at: 'expiresAt', used_at: 'usedAt',
+    deterministic_success: 'deterministicSuccess', ocr_used: 'ocrUsed', ai_used: 'aiUsed',
+    input_token_estimate: 'inputTokenEstimate', output_tokens: 'outputTokens',
   };
   const out = {};
   for (const [k, v] of Object.entries(row)) {
@@ -645,6 +658,134 @@ export async function markPasswordResetUsed(token) {
     await sql`UPDATE password_resets SET used = true WHERE token = ${token}`;
   } catch (e) {
     console.error('[DB] markPasswordResetUsed:', e.message);
+  }
+}
+
+// ─── Inbound Emails ──────────────────────────────────────────
+
+export async function createInboundEmail(data) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO inbound_emails ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createInboundEmail:', e.message);
+    return null;
+  }
+}
+
+export async function getInboundEmailByMessageId(messageId) {
+  try {
+    const rows = await sql`SELECT * FROM inbound_emails WHERE message_id = ${messageId} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getInboundEmailByMessageId:', e.message);
+    return null;
+  }
+}
+
+export async function getInboundEmailByHash(hash) {
+  try {
+    const rows = await sql`SELECT * FROM inbound_emails WHERE content_hash = ${hash} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getInboundEmailByHash:', e.message);
+    return null;
+  }
+}
+
+export async function updateInboundEmail(id, updates) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(updates)).filter(([, v]) => v !== undefined));
+    if (Object.keys(row).length === 0) return null;
+    const rows = await sql`UPDATE inbound_emails SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateInboundEmail:', e.message);
+    return null;
+  }
+}
+
+// ─── Booking Imports ─────────────────────────────────────────
+
+export async function createBookingImport(data) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO booking_imports ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createBookingImport:', e.message);
+    return null;
+  }
+}
+
+export async function getBookingImport(id) {
+  try {
+    const rows = await sql`SELECT * FROM booking_imports WHERE id = ${id} LIMIT 1`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getBookingImport:', e.message);
+    return null;
+  }
+}
+
+export async function updateBookingImport(id, updates) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(updates)).filter(([, v]) => v !== undefined));
+    if (Object.keys(row).length === 0) return await getBookingImport(id);
+    const rows = await sql`UPDATE booking_imports SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] updateBookingImport:', e.message);
+    return null;
+  }
+}
+
+// ─── Pending Import Tokens ───────────────────────────────────
+
+export async function createPendingImportToken(data) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO pending_import_tokens ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] createPendingImportToken:', e.message);
+    return null;
+  }
+}
+
+export async function getPendingImportTokenByHash(tokenHash) {
+  try {
+    const rows = await sql`
+      SELECT * FROM pending_import_tokens
+      WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > NOW()
+      LIMIT 1
+    `;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] getPendingImportTokenByHash:', e.message);
+    return null;
+  }
+}
+
+export async function markPendingImportTokenUsed(id) {
+  try {
+    await sql`UPDATE pending_import_tokens SET used_at = NOW() WHERE id = ${id}`;
+  } catch (e) {
+    console.error('[DB] markPendingImportTokenUsed:', e.message);
+  }
+}
+
+// ─── Extraction Usage ────────────────────────────────────────
+
+export async function logExtractionUsage(data) {
+  try {
+    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const rows = await sql`INSERT INTO extraction_usage ${sql(row)} RETURNING *`;
+    return rows[0] ? toCamel(rows[0]) : null;
+  } catch (e) {
+    console.error('[DB] logExtractionUsage:', e.message);
+    return null;
   }
 }
 

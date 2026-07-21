@@ -293,6 +293,72 @@ try {
     END; $fn$`);
   console.log('✓ Nuitée tables + functions');
 
+  // ─── Inbound Email & Extraction Tables ───────────────────────
+  await sql`
+    CREATE TABLE IF NOT EXISTS inbound_emails (
+      id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id      TEXT,
+      mailbox_uid     INTEGER,
+      sender_email    TEXT NOT NULL,
+      subject         TEXT,
+      received_at     TIMESTAMPTZ DEFAULT now(),
+      processed_at    TIMESTAMPTZ,
+      status          TEXT DEFAULT 'RECEIVED',
+      failure_reason  TEXT,
+      content_hash    TEXT,
+      created_at      TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inbound_emails_msgid ON inbound_emails(message_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inbound_emails_hash ON inbound_emails(content_hash)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS booking_imports (
+      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_email        TEXT REFERENCES users(email) ON DELETE SET NULL,
+      inbound_email_id  UUID REFERENCES inbound_emails(id) ON DELETE SET NULL,
+      upload_id         UUID REFERENCES document_uploads(id) ON DELETE SET NULL,
+      source            TEXT NOT NULL,
+      extracted_data    JSONB DEFAULT '{}',
+      confidence_data   JSONB DEFAULT '{}',
+      missing_fields    JSONB DEFAULT '[]',
+      status            TEXT DEFAULT 'NEEDS_REVIEW',
+      confirmed_at      TIMESTAMPTZ,
+      created_at        TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_imports_user ON booking_imports(user_email)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_booking_imports_status ON booking_imports(status)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS pending_import_tokens (
+      id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      booking_import_id UUID NOT NULL REFERENCES booking_imports(id) ON DELETE CASCADE,
+      email             TEXT NOT NULL,
+      token_hash        TEXT NOT NULL,
+      expires_at        TIMESTAMPTZ NOT NULL,
+      used_at           TIMESTAMPTZ,
+      created_at        TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_pending_tokens_hash ON pending_import_tokens(token_hash)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_pending_tokens_import ON pending_import_tokens(booking_import_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS extraction_usage (
+      id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      source                 TEXT NOT NULL,
+      deterministic_success  BOOLEAN DEFAULT false,
+      ocr_used               BOOLEAN DEFAULT false,
+      ai_used                BOOLEAN DEFAULT false,
+      input_token_estimate   INTEGER DEFAULT 0,
+      output_tokens          INTEGER DEFAULT 0,
+      cached                 BOOLEAN DEFAULT false,
+      created_at             TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  console.log('✓ Inbound email and extraction tables');
+
   console.log('\n✓ Migration complete');
 } catch (e) {
   console.error('Migration error:', e.message);

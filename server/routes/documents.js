@@ -201,52 +201,70 @@ export default function documentRoutes(authMiddleware) {
       let extractedData = {};
       let confidenceScores = {};
       let parseMethod = 'manual';
+      let deterministicSuccess = false;
 
-      // Primary: Claude vision/PDF extraction — reads images, screenshots, and PDFs.
-      if (isAiParserConfigured()) {
-        try {
-          const ai = await extractBookingFromDocument(buffer, mimetype);
-          extractedData = ai.fields;
-          confidenceScores = ai.confidence;
-          parseMethod = 'ai';
-        } catch (err) {
-          console.error('[Documents] AI extraction failed:', err.message);
-          // Fall through to regex (PDFs only) or empty (images) below.
-        }
-      }
-
-      // Fallback for PDFs when AI is unavailable or failed: regex over extracted text.
-      if (parseMethod !== 'ai' && mimetype === 'application/pdf') {
+      // Step 1: Deterministic parser for PDFs
+      if (mimetype === 'application/pdf') {
         try {
           extractedText = await extractTextFromPdf(buffer);
           const result = extractBookingFields(extractedText);
           extractedData = result.fields;
           confidenceScores = result.confidence;
-          parseMethod = 'regex';
+          parseMethod = 'deterministic';
+
+          const essential = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'];
+          const missingEssential = essential.filter(f => !extractedData[f]);
+          if (missingEssential.length === 0) {
+            deterministicSuccess = true;
+          }
         } catch (err) {
-          console.error('[Documents] PDF extraction failed:', err.message);
-          await db.updateDocumentUpload(docRecord.id, {
-            status: 'failed',
-            extractedData: { error: err.message },
-          });
-          return res.status(422).json({ error: 'Failed to extract text from PDF', documentId: docRecord.id });
+          console.error('[Documents] PDF text extraction failed:', err.message);
         }
       }
-      // For images with no AI configured, extractedData stays empty → manual entry.
 
-      // Update document record with extracted data
+      // Step 2: AI Parser if missing essential fields or if image upload
+      if (!deterministicSuccess && isAiParserConfigured()) {
+        try {
+          const ai = await extractBookingFromDocument(buffer, mimetype, { source: 'upload' });
+          extractedData = { ...extractedData, ...ai.fields };
+          confidenceScores = { ...confidenceScores, ...ai.confidence };
+          parseMethod = parseMethod === 'deterministic' ? 'hybrid' : 'ai';
+        } catch (err) {
+          console.error('[Documents] AI extraction failed:', err.message);
+        }
+      }
+
+      const essentialFields = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
+      const missingFields = essentialFields.filter(f => !extractedData[f]);
+      const importStatus = missingFields.length === 0 ? 'READY_FOR_CONFIRMATION' : 'NEEDS_REVIEW';
+
+      // Update document upload record
       await db.updateDocumentUpload(docRecord.id, {
         extractedData,
         confidenceScores,
         status: Object.keys(extractedData).length > 0 ? 'extracted' : 'uploaded',
       });
 
+      // Create draft BookingImport
+      const importRecord = await db.createBookingImport({
+        userEmail: req.userEmail,
+        uploadId: docRecord.id,
+        source: mimetype.startsWith('image/') ? 'image_upload' : 'pdf_upload',
+        extractedData,
+        confidenceData: confidenceScores,
+        missingFields,
+        status: importStatus,
+      });
+
       res.json({
         documentId: docRecord.id,
+        importId: importRecord.id,
         filename: originalname,
         fileType: mimetype,
         extractedData,
         confidenceScores,
+        missingFields,
+        status: importStatus,
         parseMethod,
         rawTextLength: extractedText.length,
       });
@@ -256,21 +274,33 @@ export default function documentRoutes(authMiddleware) {
     }
   });
 
-  // ─── Create booking from document ─────────────────────────
+  // ─── Create/Confirm booking from document or draft import ─────────────────────────
   router.post('/documents/:id/create-booking', authMiddleware, async (req, res) => {
     try {
-      const doc = await db.getDocumentUpload(req.params.id);
-      if (!doc) return res.status(404).json({ error: 'Document not found' });
-      // Security: Verify document belongs to the requesting user
-      if (doc.userEmail !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+      let doc = await db.getDocumentUpload(req.params.id);
+      let importRecord = null;
+      if (!doc) {
+        importRecord = await db.getBookingImport(req.params.id);
+        if (!importRecord) return res.status(404).json({ error: 'Document or Import record not found' });
+      }
+
+      const userEmail = doc ? doc.userEmail : importRecord.userEmail;
+      if (userEmail && userEmail !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
 
       const bookingData = req.body;
 
-      if (!bookingData.hotelName || !bookingData.checkinDate || !bookingData.checkoutDate || !bookingData.originalPrice) {
-        return res.status(400).json({ error: 'Missing required fields: hotelName, checkinDate, checkoutDate, originalPrice' });
+      // Essential fields validation: hotel name, check-in, check-out, total price, currency
+      const essentialFields = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
+      const missing = essentialFields.filter(f => !bookingData[f]);
+
+      if (missing.length > 0) {
+        return res.status(400).json({
+          error: 'Missing required essential fields',
+          missingFields: missing,
+        });
       }
 
-      // Duplicate detection — check if similar booking exists
+      // Duplicate detection
       const existingBookings = await db.getBookingsByEmail(req.userEmail);
       const duplicate = existingBookings.find(b =>
         b.hotelName?.toLowerCase() === bookingData.hotelName?.toLowerCase() &&
@@ -286,7 +316,7 @@ export default function documentRoutes(authMiddleware) {
         });
       }
 
-      // Create the booking
+      // Create active booking
       const booking = await db.createBooking({
         ...bookingData,
         email: req.userEmail,
@@ -296,24 +326,33 @@ export default function documentRoutes(authMiddleware) {
         latestResults: [],
       });
 
-      // Link document to booking
-      await db.updateDocumentUpload(doc.id, {
-        bookingId: booking.id,
-        status: 'created',
-      });
+      if (doc) {
+        await db.updateDocumentUpload(doc.id, {
+          bookingId: booking.id,
+          status: 'created',
+        });
+      }
+
+      if (importRecord || bookingData.importId) {
+        const impId = importRecord ? importRecord.id : bookingData.importId;
+        await db.updateBookingImport(impId, {
+          status: 'CONFIRMED',
+          confirmedAt: new Date().toISOString(),
+        });
+      }
 
       await db.logActivity({
         entityType: 'booking',
         entityId: booking.id,
-        action: 'created_from_document',
+        action: 'confirmed_from_import',
         actorEmail: req.userEmail,
-        details: { documentId: doc.id, filename: doc.filename },
+        details: { documentId: doc?.id, importId: importRecord?.id },
       });
 
       // Fire-and-forget confirmation email
       sendBookingCreated(req.userEmail, req.user?.name || 'Traveler', booking, req.user || {}).catch(() => {});
 
-      res.status(201).json({ booking, documentId: doc.id });
+      res.status(201).json({ booking, documentId: doc?.id, importId: importRecord?.id });
     } catch (err) {
       console.error('[Documents] Create booking error:', err.message);
       res.status(500).json({ error: 'Failed to create booking from document' });

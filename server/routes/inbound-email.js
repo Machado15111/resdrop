@@ -1,50 +1,101 @@
 import { Router } from 'express';
+import crypto from 'crypto';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
+import nodemailer from 'nodemailer';
 import * as db from '../db.js';
-import { sendBookingCreated, sendAdminNotification } from '../email.js';
+import { isAiParserConfigured, extractBookingFromDocument } from '../aiParser.js';
 
 /**
- * Inbound Email Webhook — Resend
- *
- * Resend forwards emails sent to reservas@in.resdrop.app (or similar)
- * as a POST webhook with the full email content.
- *
- * Flow:
- *   1. User forwards their hotel confirmation email to reservas@in.resdrop.app
- *   2. Resend receives it and POSTs the parsed email here
- *   3. We extract booking data from the email body
- *   4. Create a booking in 'needs_review' state
- *   5. Notify the user to review the extracted data
- *
- * Resend inbound webhook payload:
- * {
- *   "type": "email.received",
- *   "data": {
- *     "from": "user@example.com",
- *     "to": ["reservas@in.resdrop.app"],
- *     "subject": "Fwd: Your booking confirmation",
- *     "text": "plain text body",
- *     "html": "<html>body</html>",
- *     "headers": [...],
- *     "attachments": [{ "filename": "...", "content_type": "...", "content": "base64..." }]
- *   }
- * }
+ * IMAP Poller & Inbound Email Processing
  */
 
-// ─── Field extraction from email text ──────────────────────────
+// Rate limiter map for per-sender limits
+const senderRateLimitMap = new Map();
+function checkSenderRateLimit(senderEmail) {
+  const now = Date.now();
+  const entry = senderRateLimitMap.get(senderEmail) || { count: 0, resetAt: now + 3600000 };
+  if (now > entry.resetAt) {
+    entry.count = 0;
+    entry.resetAt = now + 3600000;
+  }
+  entry.count++;
+  senderRateLimitMap.set(senderEmail, entry);
+  return entry.count <= 20; // max 20 emails per hour per sender
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function getSmtpTransporter() {
+  const host = process.env.SMTP_HOST;
+  if (!host) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  });
+}
+
+async function sendReplyEmail(to, subject, htmlText, textCopy) {
+  const from = process.env.INBOUND_EMAIL_ADDRESS || 'reservas@resdrop.app';
+  const transporter = getSmtpTransporter();
+
+  if (transporter) {
+    try {
+      await transporter.sendMail({
+        from: `ResDrop <${from}>`,
+        to,
+        subject,
+        html: htmlText,
+        text: textCopy,
+      });
+      console.log(`[Inbound Poller] Reply sent via SMTP to ${to}`);
+      return;
+    } catch (err) {
+      console.error(`[Inbound Poller] SMTP send failed: ${err.message}`);
+    }
+  }
+
+  // Fallback to Resend API
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: `ResDrop <${process.env.RESEND_FROM || 'notifications@resdrop.app'}>`,
+          to,
+          subject,
+          html: htmlText,
+        }),
+      });
+      console.log(`[Inbound Poller] Reply sent via Resend to ${to}`);
+    } catch (err) {
+      console.error(`[Inbound Poller] Resend send failed: ${err.message}`);
+    }
+  }
+}
+
+// Deterministic text parser
 function extractBookingFromEmail(text, subject = '') {
   const combined = `${subject}\n${text}`;
   const fields = {};
   const confidence = {};
 
-  // Hotel name
   const hotelPatterns = [
     /(?:hotel|resort|inn|lodge|pousada)\s*[:.]?\s*(.+)/i,
     /(?:property|accommodation|propriedade)\s*[:.]?\s*(.+)/i,
     /(?:nome do hotel|hotel name)\s*[:.]?\s*(.+)/i,
     /(?:your (?:stay|reservation|booking) at)\s+(.+)/i,
     /(?:sua (?:reserva|estadia) (?:no|na|em))\s+(.+)/i,
-    /(?:confirmation for)\s+(.+)/i,
-    /(?:confirma[çc][ãa]o (?:de reserva )?(?:no|na|em|para|-))\s+(.+)/i,
   ];
   for (const p of hotelPatterns) {
     const m = combined.match(p);
@@ -52,50 +103,40 @@ function extractBookingFromEmail(text, subject = '') {
       let name = m[1].trim().split(/[,\n\r|]/)[0].trim();
       if (name.length > 3 && name.length < 100) {
         fields.hotelName = name;
-        confidence.hotelName = 0.65;
+        confidence.hotelName = 0.7;
         break;
       }
     }
   }
 
-  // Check-in date
   const checkinPatterns = [
     /check[\s-]*in\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
     /check[\s-]*in\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    /(?:entrada|arrival|chegada)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    /(?:entrada|arrival|chegada)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /check[\s-]*in\s*[:.]?\s*(\w+\s+\d{1,2},?\s*\d{4})/i,
   ];
   for (const p of checkinPatterns) {
     const m = combined.match(p);
     if (m) {
       fields.checkinDate = normalizeDate(m[1]);
-      confidence.checkinDate = 0.75;
+      confidence.checkinDate = 0.8;
       break;
     }
   }
 
-  // Check-out date
   const checkoutPatterns = [
     /check[\s-]*out\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
     /check[\s-]*out\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    /(?:sa[ií]da|departure|partida)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    /(?:sa[ií]da|departure|partida)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /check[\s-]*out\s*[:.]?\s*(\w+\s+\d{1,2},?\s*\d{4})/i,
   ];
   for (const p of checkoutPatterns) {
     const m = combined.match(p);
     if (m) {
       fields.checkoutDate = normalizeDate(m[1]);
-      confidence.checkoutDate = 0.75;
+      confidence.checkoutDate = 0.8;
       break;
     }
   }
 
-  // Price
   const pricePatterns = [
     /(?:total|valor|amount|price|pre[çc]o)\s*[:.]?\s*R?\$\s*([\d.,]+)/i,
-    /R\$\s*([\d.,]+)/,
     /(?:USD|BRL|EUR)\s*([\d.,]+)/i,
     /\$\s*([\d.,]+)/,
   ];
@@ -105,73 +146,28 @@ function extractBookingFromEmail(text, subject = '') {
       const price = parsePrice(m[1]);
       if (price > 0) {
         fields.originalPrice = price;
-        confidence.originalPrice = 0.6;
+        confidence.originalPrice = 0.7;
         break;
       }
     }
   }
 
-  // Confirmation number
+  const currMatch = combined.match(/(USD|BRL|EUR|GBP)/i);
+  if (currMatch) {
+    fields.currency = currMatch[1].toUpperCase();
+    confidence.currency = 0.9;
+  }
+
   const confPatterns = [
     /(?:confirma[çc][ãa]o|confirmation|booking\s*(?:id|number|ref|#))\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
     /(?:reserva|reservation)\s*(?:#|n[°o]\.?)\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
-    /(?:itinerary|itin[eé]rario)\s*(?:#|n[°o]\.?)?\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
-    /(?:reference|refer[eê]ncia)\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
   ];
   for (const p of confPatterns) {
     const m = combined.match(p);
     if (m) {
       fields.confirmationNumber = m[1].trim();
-      confidence.confirmationNumber = 0.7;
+      confidence.confirmationNumber = 0.8;
       break;
-    }
-  }
-
-  // Guest name
-  const guestPatterns = [
-    /(?:guest|h[óo]spede|nome|name)\s*[:.]?\s*([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,3})/,
-    /(?:sr\.|sra\.|mr\.|mrs\.|ms\.)\s*([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+[A-Z][a-záàâãéèêíïóôõöúçñ]+){1,3})/i,
-    /(?:dear|prezado|prezada)\s+([A-Z][a-záàâãéèêíïóôõöúçñ]+(?:\s+[A-Z][a-záàâãéèêíïóôõöúçñ]+){0,3})/i,
-  ];
-  for (const p of guestPatterns) {
-    const m = combined.match(p);
-    if (m) {
-      fields.guestName = m[1].trim();
-      confidence.guestName = 0.5;
-      break;
-    }
-  }
-
-  // Room type
-  const roomPatterns = [
-    /(?:room\s*type|tipo\s*(?:de\s*)?quarto|categoria|category)\s*[:.]?\s*(.+)/i,
-    /(?:room|quarto)\s*[:.]?\s*(\w[\w\s]{2,40})/i,
-  ];
-  for (const p of roomPatterns) {
-    const m = combined.match(p);
-    if (m) {
-      let room = m[1].trim().split(/[\n\r,|]/)[0].trim();
-      if (room.length > 2 && room.length < 60) {
-        fields.roomType = room;
-        confidence.roomType = 0.5;
-        break;
-      }
-    }
-  }
-
-  // Destination
-  const destPatterns = [
-    /(?:destino|destination|cidade|city|localiza[çc][ãa]o|location)\s*[:.]?\s*(.+)/i,
-  ];
-  for (const p of destPatterns) {
-    const m = combined.match(p);
-    if (m) {
-      let dest = m[1].trim().split(/[\n\r,|]/)[0].trim();
-      if (dest.length > 2 && dest.length < 100) {
-        fields.destination = dest;
-        confidence.destination = 0.5;
-        break;
-      }
     }
   }
 
@@ -180,25 +176,16 @@ function extractBookingFromEmail(text, subject = '') {
 
 function normalizeDate(dateStr) {
   if (!dateStr) return null;
-  // Already ISO format
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-  // Try English format: March 15, 2024
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-  } catch {}
-  // dd/mm/yyyy or dd-mm-yyyy or dd.mm.yyyy
   const parts = dateStr.split(/[\/\-\.]/);
   if (parts.length !== 3) return dateStr;
   let [d, m, y] = parts;
   if (y.length === 2) y = '20' + y;
-  // Brazilian/European: dd/mm/yyyy
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
 function parsePrice(str) {
   if (!str) return 0;
-  // Brazilian: 1.234,56
   if (str.includes(',') && str.includes('.')) {
     return parseFloat(str.replace(/\./g, '').replace(',', '.'));
   }
@@ -208,265 +195,308 @@ function parsePrice(str) {
   return parseFloat(str.replace(/[^\d.]/g, ''));
 }
 
-// Strip HTML tags to get plain text
-function stripHtml(html) {
-  if (!html) return '';
-  return html
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// Find the user account matching the sender email
-async function findUserByEmail(senderEmail) {
-  if (!senderEmail) return null;
-  // Normalize: the "from" field may be "Name <email>" format
-  const match = senderEmail.match(/<([^>]+)>/) || [null, senderEmail];
-  const email = (match[1] || senderEmail).toLowerCase().trim();
-  try {
-    const user = await db.getUser(email);
-    return user;
-  } catch {
-    return null;
+/**
+ * Poll IMAP inbox and process new booking confirmation emails
+ */
+export async function pollInboundEmails() {
+  if (process.env.INBOUND_EMAIL_ENABLED !== 'true') {
+    return { status: 'disabled' };
   }
+
+  const imapHost = process.env.IMAP_HOST;
+  if (!imapHost) {
+    console.warn('[Inbound Poller] IMAP_HOST not set — skipping');
+    return { status: 'unconfigured' };
+  }
+
+  console.log('[Inbound Poller] 📧 Checking mailbox for new confirmations...');
+
+  const client = new ImapFlow({
+    host: imapHost,
+    port: parseInt(process.env.IMAP_PORT || '993', 10),
+    secure: process.env.IMAP_SECURE !== 'false',
+    auth: {
+      user: process.env.IMAP_USER,
+      pass: process.env.IMAP_PASSWORD,
+    },
+    logger: false,
+  });
+
+  let processedCount = 0;
+
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock('INBOX');
+
+    try {
+      // Search for unseen messages
+      const messages = client.fetch({ seen: false }, { source: true, uid: true, envelope: true });
+
+      for await (const message of messages) {
+        try {
+          const uid = message.uid;
+          const envelope = message.envelope || {};
+          const messageId = envelope.messageId || `uid-${uid}-${Date.now()}`;
+          const senderEmail = (envelope.from?.[0]?.address || '').toLowerCase();
+          const subject = envelope.subject || '';
+
+          if (!senderEmail) continue;
+
+          // Rate limit check
+          if (!checkSenderRateLimit(senderEmail)) {
+            console.warn(`[Inbound Poller] Rate limit exceeded for sender: ${senderEmail}`);
+            continue;
+          }
+
+          // Compute content hash
+          const rawSource = message.source ? message.source.toString('utf8') : '';
+          const contentHash = crypto.createHash('sha256').update(rawSource || `${messageId}-${subject}`).digest('hex');
+
+          // Idempotency check by messageId or contentHash
+          const existingByMsg = await db.getInboundEmailByMessageId(messageId);
+          const existingByHash = await db.getInboundEmailByHash(contentHash);
+
+          if (existingByMsg || existingByHash) {
+            console.log(`[Inbound Poller] Duplicate email skipped (${messageId})`);
+            // Mark as seen
+            await client.messageFlagsAdd({ uid }, ['\\Seen']);
+            continue;
+          }
+
+          // Create InboundEmail record in DB
+          const inboundRecord = await db.createInboundEmail({
+            messageId,
+            mailboxUid: uid,
+            senderEmail,
+            subject,
+            status: 'PROCESSING',
+            contentHash,
+          });
+
+          // Parse raw email structure
+          const parsedMail = await simpleParser(message.source);
+          const textContent = parsedMail.text || parsedMail.html || '';
+
+          let extractedData = {};
+          let confidenceScores = {};
+          let deterministicSuccess = false;
+
+          // 1. Deterministic text extraction
+          const det = extractBookingFromEmail(textContent, subject);
+          extractedData = det.fields;
+          confidenceScores = det.confidence;
+
+          const essential = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
+          const missingEssential = essential.filter(f => !extractedData[f]);
+          if (missingEssential.length === 0) {
+            deterministicSuccess = true;
+          }
+
+          // 2. Extract PDF / image attachments if available
+          let attachmentBuffer = null;
+          let attachmentMime = null;
+
+          if (parsedMail.attachments && parsedMail.attachments.length > 0) {
+            const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+            const validAttachment = parsedMail.attachments.find(a => allowedTypes.includes(a.contentType));
+            if (validAttachment) {
+              attachmentBuffer = validAttachment.content;
+              attachmentMime = validAttachment.contentType;
+            }
+          }
+
+          // 3. AI fallback if essential missing or attachments exist
+          if (!deterministicSuccess && isAiParserConfigured()) {
+            try {
+              let aiRes = null;
+              if (attachmentBuffer && attachmentMime) {
+                aiRes = await extractBookingFromDocument(attachmentBuffer, attachmentMime, { source: 'inbound_email' });
+              } else if (textContent.length > 30) {
+                aiRes = await extractBookingFromDocument(Buffer.from(textContent), 'text/plain', { source: 'inbound_email' });
+              }
+
+              if (aiRes) {
+                extractedData = { ...extractedData, ...aiRes.fields };
+                confidenceScores = { ...confidenceScores, ...aiRes.confidence };
+              }
+            } catch (err) {
+              console.error('[Inbound Poller] AI extraction error:', err.message);
+            }
+          }
+
+          const missingFields = essential.filter(f => !extractedData[f]);
+          const importStatus = missingFields.length === 0 ? 'READY_FOR_CONFIRMATION' : 'NEEDS_REVIEW';
+
+          // Match sender with registered user
+          const user = await db.getUser(senderEmail);
+          const baseUrl = process.env.APP_BASE_URL || 'https://resdrop.app';
+
+          if (user) {
+            // Registered User Flow
+            const bookingImport = await db.createBookingImport({
+              userEmail: user.email,
+              inboundEmailId: inboundRecord.id,
+              source: 'inbound_email',
+              extractedData,
+              confidenceData: confidenceScores,
+              missingFields,
+              status: importStatus,
+            });
+
+            const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport.id}`;
+
+            const lang = user.country === 'BR' || user.currency === 'BRL' ? 'pt' : 'en';
+            const emailSubject = lang === 'pt' ? 'Recebemos sua reserva' : 'We received your booking';
+
+            const ptHtml = `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
+                <h2>Olá ${user.name || 'Viajante'},</h2>
+                <p>Recebemos sua confirmação de hotel e começamos a preparar o monitoramento.</p>
+                <p>Revise os dados extraídos e complete qualquer informação necessária pelo link abaixo:</p>
+                <p><a href="${reviewUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Revisar Reserva</a></p>
+                <p><em>O monitoramento será iniciado após a sua confirmação.</em></p>
+                <p>Atenciosamente,<br>Equipe ResDrop</p>
+              </div>`;
+
+            const enHtml = `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
+                <h2>Hello ${user.name || 'Traveler'},</h2>
+                <p>We received your hotel confirmation and started preparing price monitoring.</p>
+                <p>Please review the extracted details and complete any missing fields using the link below:</p>
+                <p><a href="${reviewUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Review Booking Details</a></p>
+                <p><em>Monitoring will start after your confirmation.</em></p>
+                <p>Best regards,<br>ResDrop Team</p>
+              </div>`;
+
+            await sendReplyEmail(
+              user.email,
+              emailSubject,
+              lang === 'pt' ? ptHtml : enHtml,
+              `Revisar reserva: ${reviewUrl}`
+            );
+
+            await db.updateInboundEmail(inboundRecord.id, {
+              status: 'PROCESSED',
+              processedAt: new Date().toISOString(),
+            });
+          } else {
+            // Unregistered User Flow
+            const bookingImport = await db.createBookingImport({
+              inboundEmailId: inboundRecord.id,
+              source: 'inbound_email',
+              extractedData,
+              confidenceData: confidenceScores,
+              missingFields,
+              status: importStatus,
+            });
+
+            // Generate single-use expiring token
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const tokenHashVal = hashToken(rawToken);
+            const expiryHours = parseInt(process.env.INBOUND_IMPORT_TOKEN_EXPIRY_HOURS || '72', 10);
+            const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
+
+            await db.createPendingImportToken({
+              bookingImportId: bookingImport.id,
+              email: senderEmail,
+              tokenHash: tokenHashVal,
+              expiresAt,
+            });
+
+            const signupUrl = `${baseUrl}/signup?token=${rawToken}`;
+
+            const ptHtml = `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
+                <h2>Crie sua conta para acompanhar sua reserva</h2>
+                <p>Recebemos sua confirmação de hotel enviado por email.</p>
+                <p>Para ativar o monitoramento automático de menor preço, crie sua conta no ResDrop:</p>
+                <p><a href="${signupUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Criar Minha Conta</a></p>
+                <p>Atenciosamente,<br>Equipe ResDrop</p>
+              </div>`;
+
+            const enHtml = `
+              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
+                <h2>Create your account to monitor your booking</h2>
+                <p>We received your hotel confirmation forwarded via email.</p>
+                <p>To enable automatic price drop monitoring, create your ResDrop account below:</p>
+                <p><a href="${signupUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Create Account</a></p>
+                <p>Best regards,<br>ResDrop Team</p>
+              </div>`;
+
+            await sendReplyEmail(
+              senderEmail,
+              'Crie sua conta para acompanhar sua reserva / Create your account to monitor your booking',
+              ptHtml,
+              `Criar conta: ${signupUrl}`
+            );
+
+            await db.updateInboundEmail(inboundRecord.id, {
+              status: 'PROCESSED',
+              processedAt: new Date().toISOString(),
+            });
+          }
+
+          // Mark message as seen in IMAP
+          await client.messageFlagsAdd({ uid }, ['\\Seen']);
+          processedCount++;
+        } catch (msgErr) {
+          console.error(`[Inbound Poller] Error processing message:`, msgErr.message);
+        }
+      }
+    } finally {
+      lock.release();
+    }
+
+    await client.logout();
+  } catch (err) {
+    console.error('[Inbound Poller] Connection/Mailbox error:', err.message);
+  }
+
+  console.log(`[Inbound Poller] Processed ${processedCount} new email(s).`);
+  return { status: 'completed', processedCount };
 }
 
 export default function inboundEmailRoutes(authMiddleware) {
   const router = Router();
 
   /**
-   * POST /api/webhooks/inbound-email
-   *
-   * Resend inbound webhook endpoint.
-   * No auth middleware — webhook is validated by checking the sender
-   * against registered user accounts.
+   * GET /api/inbound/pending-import
+   * Public token validation endpoint when user clicks signup link carrying ?token=
    */
-  router.post('/webhooks/inbound-email', async (req, res) => {
+  router.get('/inbound/pending-import', async (req, res) => {
     try {
-      const payload = req.body;
+      const { token } = req.query;
+      if (!token) return res.status(400).json({ error: 'Token is required' });
 
-      // Resend webhook wraps the email data
-      const emailData = payload?.data || payload;
-      const fromEmail = emailData.from || emailData.sender || '';
-      const subject = emailData.subject || '';
-      const textBody = emailData.text || '';
-      const htmlBody = emailData.html || '';
-      const toAddresses = emailData.to || [];
+      const tHash = hashToken(token);
+      const pendingToken = await db.getPendingImportTokenByHash(tHash);
 
-      console.log(`[Inbound] Email received from: ${fromEmail} | Subject: "${subject}" | To: ${JSON.stringify(toAddresses)}`);
-
-      // Get usable text content
-      const plainText = textBody || stripHtml(htmlBody);
-
-      if (!plainText || plainText.length < 20) {
-        console.warn('[Inbound] Email body too short or empty — skipping');
-        return res.status(200).json({ status: 'skipped', reason: 'empty_body' });
+      if (!pendingToken) {
+        return res.status(404).json({ error: 'Invalid or expired registration token' });
       }
 
-      // Find the user account that matches the sender
-      const user = await findUserByEmail(fromEmail);
-
-      if (!user) {
-        console.warn(`[Inbound] No registered user found for sender: ${fromEmail}`);
-        // Still return 200 to acknowledge receipt (prevent retries)
-        // Notify admin about unrecognized sender
-        await sendAdminNotification(
-          'Inbound email from unregistered sender',
-          `<p>Email from: <strong>${fromEmail}</strong></p>
-           <p>Subject: ${subject}</p>
-           <p>No matching user account found. The email was not processed.</p>`
-        );
-        return res.status(200).json({ status: 'skipped', reason: 'unknown_sender' });
-      }
-
-      console.log(`[Inbound] Matched user: ${user.email} (${user.name || 'unnamed'})`);
-
-      // Extract booking data from email content
-      const { fields, confidence } = extractBookingFromEmail(plainText, subject);
-
-      console.log(`[Inbound] Extracted fields:`, Object.keys(fields));
-
-      // Determine required fields present
-      const requiredFields = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice'];
-      const missingRequired = requiredFields.filter(f => !fields[f]);
-      const hasEnoughData = missingRequired.length <= 2; // At least hotel + 1 date or price
-
-      // Check for duplicates
-      let duplicate = null;
-      if (fields.hotelName && fields.checkinDate && fields.checkoutDate) {
-        const existingBookings = await db.getBookingsByEmail(user.email);
-        duplicate = existingBookings.find(b =>
-          b.hotelName?.toLowerCase().includes(fields.hotelName.toLowerCase().substring(0, 10)) &&
-          b.checkinDate === fields.checkinDate &&
-          b.checkoutDate === fields.checkoutDate &&
-          !['expired', 'dismissed'].includes(b.status)
-        );
-      }
-
-      if (duplicate) {
-        console.log(`[Inbound] Duplicate booking detected for ${fields.hotelName} — skipping`);
-        return res.status(200).json({
-          status: 'duplicate',
-          existingBookingId: duplicate.id,
-        });
-      }
-
-      // Create booking in needs_review state
-      const status = missingRequired.length === 0 ? 'monitoring' : 'needs_review';
-
-      const booking = await db.createBooking({
-        email: user.email,
-        hotelName: fields.hotelName || null,
-        destination: fields.destination || null,
-        checkinDate: fields.checkinDate || null,
-        checkoutDate: fields.checkoutDate || null,
-        roomType: fields.roomType || null,
-        originalPrice: fields.originalPrice || null,
-        confirmationNumber: fields.confirmationNumber || null,
-        guestName: fields.guestName || null,
-        status,
-        alerts: [],
-        priceHistory: [],
-        latestResults: [],
-        rawSource: plainText.substring(0, 5000), // Keep first 5K chars
-        parseMethod: 'inbound_email',
-        missingFields: missingRequired,
-        fieldConfidence: confidence,
-      });
-
-      // Log the activity
-      await db.logActivity({
-        entityType: 'booking',
-        entityId: booking.id,
-        action: 'created_from_inbound_email',
-        actorEmail: user.email,
-        details: {
-          fromEmail,
-          subject,
-          extractedFields: Object.keys(fields),
-          missingRequired,
-          confidence,
-          status,
-        },
-      });
-
-      console.log(`[Inbound] Booking created: ${booking.id} | Status: ${status} | Hotel: ${fields.hotelName || 'unknown'}`);
-
-      // Send notification email to user
-      if (status === 'monitoring') {
-        await sendBookingCreated(user.email, user.name, {
-          hotelName: fields.hotelName,
-          destination: fields.destination,
-          checkinDate: fields.checkinDate,
-          checkoutDate: fields.checkoutDate,
-          originalPrice: fields.originalPrice,
-        });
-      } else {
-        // Send a "review needed" email
-        await sendInboundReviewEmail(user.email, user.name, fields, missingRequired);
-      }
-
-      res.status(200).json({
-        status: 'created',
-        bookingId: booking.id,
-        bookingStatus: status,
-        extractedFields: Object.keys(fields),
-        missingRequired,
+      const bookingImport = await db.getBookingImport(pendingToken.bookingImportId);
+      res.json({
+        email: pendingToken.email,
+        importId: bookingImport?.id,
+        extractedData: bookingImport?.extractedData || {},
+        missingFields: bookingImport?.missingFields || [],
       });
     } catch (err) {
-      console.error('[Inbound] Webhook error:', err.message, err.stack);
-      // Always return 200 to prevent Resend from retrying
-      res.status(200).json({ status: 'error', error: err.message });
+      res.status(500).json({ error: 'Failed to validate token' });
     }
   });
 
   /**
    * GET /api/inbound/address
-   * Returns the user's forwarding email address.
-   * Authenticated endpoint.
    */
   router.get('/inbound/address', authMiddleware, (req, res) => {
     const inboundDomain = process.env.INBOUND_EMAIL_DOMAIN || 'resdrop.app';
     res.json({
-      addresses: [
-        `reservas@${inboundDomain}`,
-        `reservations@${inboundDomain}`,
-      ],
+      addresses: [`reservas@${inboundDomain}`],
       primary: `reservas@${inboundDomain}`,
     });
   });
 
   return router;
-}
-
-// ─── Review needed email ──────────────────────────────────────
-async function sendInboundReviewEmail(to, name, fields, missingFields) {
-  const { sendAdminNotification } = await import('../email.js');
-
-  // Use the Resend client directly for this custom email
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) return;
-
-  const extractedRows = Object.entries(fields)
-    .map(([key, value]) => `<tr><td style="padding:6px 12px;color:#666;font-size:13px;font-weight:600;">${key}</td><td style="padding:6px 12px;color:#0F2E1F;font-size:14px;">${value}</td></tr>`)
-    .join('');
-
-  const missingList = missingFields.length > 0
-    ? `<p style="color:#92400e;font-size:14px;margin:12px 0;padding:12px 16px;background:#fef3c7;border-radius:8px;">Campos pendentes: <strong>${missingFields.join(', ')}</strong></p>`
-    : '';
-
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 16px;"><tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-<tr><td style="background:#0F2E1F;padding:28px 32px;text-align:center;">
-  <span style="color:#52B788;font-size:28px;font-weight:700;">Res</span><span style="color:#CBA052;font-size:28px;font-weight:700;">Drop</span>
-</td></tr>
-<tr><td style="padding:32px;">
-  <h2 style="margin:0 0 16px;color:#0F2E1F;font-size:22px;font-weight:700;">Reserva recebida por email</h2>
-  <p style="margin:0 0 14px;color:#333;font-size:15px;line-height:1.6;">
-    Olá ${name || 'Viajante'}, recebemos seu email de confirmação e extraímos os seguintes dados:
-  </p>
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7faf8;border:1px solid #e0ece5;border-radius:8px;margin:16px 0;">
-    ${extractedRows}
-  </table>
-  ${missingList}
-  <p style="margin:0 0 14px;color:#333;font-size:15px;line-height:1.6;">
-    Acesse seu painel para revisar e completar os dados antes de ativarmos o monitoramento.
-  </p>
-  <table cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background:#52B788;border-radius:8px;padding:14px 28px;">
-    <a href="https://resdrop.app/dashboard" style="color:#fff;text-decoration:none;font-weight:600;font-size:15px;">Revisar Reserva</a>
-  </td></tr></table>
-</td></tr>
-<tr><td style="background:#f9f9f9;padding:20px 32px;text-align:center;border-top:1px solid #eee;">
-  <p style="margin:0;font-size:12px;color:#999;">ResDrop — Monitoramento de preços de hotel</p>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
-
-  try {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'ResDrop <notifications@resdrop.app>',
-        to,
-        subject: `📋 Reserva recebida: ${fields.hotelName || 'Revise os dados'}`,
-        html,
-      }),
-    });
-    console.log(`[Inbound] Review email sent to ${to}`);
-  } catch (err) {
-    console.error(`[Inbound] Failed to send review email:`, err.message);
-  }
 }
