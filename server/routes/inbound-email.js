@@ -355,6 +355,187 @@ export function parsePrice(str) {
   return parseFloat(str.replace(/[^\d.]/g, ''));
 }
 
+export async function processInboundEmailPayload({
+  senderEmail,
+  subject,
+  textContent,
+  attachments = [],
+  messageId,
+  contentHash,
+  dbClient = db,
+  baseUrl = process.env.APP_BASE_URL || 'https://resdrop.app',
+}) {
+  // 1. Deterministic text extraction from email subject + body
+  const det = extractBookingFromEmail(textContent, subject);
+  let extractedData = { ...det.fields };
+  let confidenceScores = { ...det.confidence };
+
+  // 2. Extract PDF & Image attachments (Screenshots/Vouchers)
+  if (attachments && attachments.length > 0) {
+    const allowedMIMEs = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const validAttachments = attachments.filter(a => allowedMIMEs.includes(a.contentType));
+
+    for (const attachment of validAttachments) {
+      try {
+        if (isAiParserConfigured()) {
+          const aiResult = await parseBookingDocumentWithAI(attachment.content, attachment.contentType, attachment.filename);
+          if (aiResult && aiResult.fields) {
+            for (const [key, val] of Object.entries(aiResult.fields)) {
+              if (val && (!extractedData[key] || (aiResult.confidence?.[key] || 0) > (confidenceScores[key] || 0))) {
+                extractedData[key] = val;
+                confidenceScores[key] = aiResult.confidence?.[key] || 0.85;
+              }
+            }
+          }
+        }
+      } catch (attErr) {
+        console.warn(`[Inbound Processing] Attachment extraction warning: ${attErr.message}`);
+      }
+    }
+  }
+
+  // 3. Fallback AI parser on raw text if essential fields are still missing
+  const essential = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
+  const missingEssential = essential.filter(f => !extractedData[f]);
+
+  if (missingEssential.length > 0 && isAiParserConfigured()) {
+    try {
+      const textAiResult = await parseBookingDocumentWithAI(Buffer.from(textContent, 'utf8'), 'text/plain');
+      if (textAiResult && textAiResult.fields) {
+        for (const [key, val] of Object.entries(textAiResult.fields)) {
+          if (val && !extractedData[key]) {
+            extractedData[key] = val;
+            confidenceScores[key] = textAiResult.confidence?.[key] || 0.7;
+          }
+        }
+      }
+    } catch (aiErr) {
+      console.warn(`[Inbound Processing] Text AI parser warning: ${aiErr.message}`);
+    }
+  }
+
+  const finalMissing = essential.filter(f => !extractedData[f]);
+  const importStatus = finalMissing.length === 0 ? 'READY_FOR_CONFIRMATION' : 'NEEDS_REVIEW';
+
+  // 4. Create InboundEmail record in DB
+  const inboundRecord = await dbClient.createInboundEmail({
+    messageId,
+    senderEmail,
+    subject,
+    status: 'PROCESSING',
+    contentHash,
+  });
+
+  // 5. Look up user by email
+  const user = await dbClient.getUserByEmail(senderEmail);
+
+  if (user) {
+    // Registered User Flow
+    const bookingImport = await dbClient.createBookingImport({
+      inboundEmailId: inboundRecord.id,
+      userEmail: user.email,
+      source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
+      extractedData,
+      confidenceData: confidenceScores,
+      missingFields: finalMissing,
+      status: importStatus,
+    });
+
+    const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport.id}`;
+    const lang = user.country === 'BR' || user.currency === 'BRL' || senderEmail.endsWith('.br') || extractedData.currency === 'BRL' ? 'pt' : 'en';
+
+    const emailSubject = lang === 'pt'
+      ? `Recebemos sua reserva do ${extractedData.hotelName || 'hotel'} — ResDrop`
+      : `We received your booking for ${extractedData.hotelName || 'hotel'} — ResDrop`;
+
+    const htmlEmail = renderResdropEmailTemplate({
+      headline: lang === 'pt' ? 'Recebemos sua confirmação de reserva!' : 'We received your booking confirmation!',
+      greeting: lang === 'pt' ? `Olá ${user.name || 'Viajante'},` : `Hello ${user.name || 'Traveler'},`,
+      bodyParagraphs: lang === 'pt'
+        ? [
+            'Recebemos sua reserva enviada por e-mail e preparamos os dados para o monitoramento 24/7.',
+            'Por favor, revise os dados abaixo e confirme para iniciar a busca automática de menores preços.',
+          ]
+        : [
+            'We received your forwarded hotel confirmation and prepared your 24/7 price monitoring.',
+            'Please review the details below and confirm to activate automatic price drop monitoring.',
+          ],
+      extractedBooking: extractedData,
+      ctaText: lang === 'pt' ? 'Revisar & Ativar Monitoramento' : 'Review & Enable Monitoring',
+      ctaUrl: reviewUrl,
+      footerNote: lang === 'pt' ? 'O monitoramento começará imediatamente após a sua confirmação.' : 'Monitoring starts immediately after your confirmation.',
+      lang,
+    });
+
+    const textCopy = lang === 'pt'
+      ? `Olá ${user.name || 'Viajante'},\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara revisar e ativar o monitoramento, acesse:\n${reviewUrl}`
+      : `Hello ${user.name || 'Traveler'},\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo review and enable monitoring, visit:\n${reviewUrl}`;
+
+    await sendReplyEmail(user.email, emailSubject, htmlEmail, textCopy);
+    await dbClient.updateInboundEmail(inboundRecord.id, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+    return { status: 'processed', importId: bookingImport.id, userEmail: user.email };
+  } else {
+    // Unregistered User Flow (Welcome Email)
+    const bookingImport = await dbClient.createBookingImport({
+      inboundEmailId: inboundRecord.id,
+      source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
+      extractedData,
+      confidenceData: confidenceScores,
+      missingFields: finalMissing,
+      status: importStatus,
+    });
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHashVal = hashToken(rawToken);
+    const expiryHours = parseInt(process.env.INBOUND_IMPORT_TOKEN_EXPIRY_HOURS || '72', 10);
+    const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
+
+    await dbClient.createPendingImportToken({
+      bookingImportId: bookingImport.id,
+      email: senderEmail,
+      tokenHash: tokenHashVal,
+      expiresAt,
+    });
+
+    const signupUrl = `${baseUrl}/signup?token=${rawToken}`;
+    const isPt = senderEmail.endsWith('.br') || extractedData.currency === 'BRL';
+    const lang = isPt ? 'pt' : 'en';
+
+    const welcomeSubject = lang === 'pt'
+      ? `Bem-vindo ao ResDrop! Crie sua conta para ativar o monitoramento`
+      : `Welcome to ResDrop! Create your account to enable price monitoring`;
+
+    const htmlWelcomeEmail = renderResdropEmailTemplate({
+      headline: lang === 'pt' ? 'Sua reserva de hotel foi recebida!' : 'Your hotel booking was received!',
+      greeting: lang === 'pt' ? 'Olá!' : 'Hello!',
+      bodyParagraphs: lang === 'pt'
+        ? [
+            'Obrigado por utilizar o ResDrop! Recebemos a sua confirmação de hotel encaminhada por e-mail.',
+            'O ResDrop monitora 24 horas por dia os preços das diárias. Quando o valor do seu hotel cair, nós avisamos você imediatamente para você remarcar e economizar.',
+            'Para ativar o monitoramento gratuito da sua primeira reserva, crie sua conta no botão abaixo:',
+          ]
+        : [
+            'Thank you for using ResDrop! We received your forwarded hotel confirmation email.',
+            'ResDrop monitors hotel rates 24/7. When your hotel price drops, we alert you instantly so you can rebook and save.',
+            'To enable free price monitoring for your reservation, create your account using the button below:',
+          ],
+      extractedBooking: extractedData,
+      ctaText: lang === 'pt' ? 'Criar Conta & Ativar Monitoramento' : 'Create Account & Enable Monitoring',
+      ctaUrl: signupUrl,
+      footerNote: lang === 'pt' ? 'Sem cartão de crédito. Cancele a qualquer momento.' : 'No credit card required. Cancel anytime.',
+      lang,
+    });
+
+    const welcomeTextCopy = lang === 'pt'
+      ? `Bem-vindo ao ResDrop!\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara ativar o monitoramento automático de queda de preço, crie sua conta no link:\n${signupUrl}`
+      : `Welcome to ResDrop!\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo enable automatic price drop monitoring, create your account at:\n${signupUrl}`;
+
+    await sendReplyEmail(senderEmail, welcomeSubject, htmlWelcomeEmail, welcomeTextCopy);
+    await dbClient.updateInboundEmail(inboundRecord.id, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+    return { status: 'processed', importId: bookingImport.id, senderEmail };
+  }
+}
+
 /**
  * Poll IMAP inbox and process new booking confirmation emails
  */
@@ -418,191 +599,29 @@ export async function pollInboundEmails() {
 
           if (existingByMsg || existingByHash) {
             console.log(`[Inbound Poller] Duplicate email skipped (${messageId})`);
-            // Mark as seen
             await client.messageFlagsAdd({ uid }, ['\\Seen']);
             continue;
           }
-
-          // Create InboundEmail record in DB
-          const inboundRecord = await db.createInboundEmail({
-            messageId,
-            mailboxUid: uid,
-            senderEmail,
-            subject,
-            status: 'PROCESSING',
-            contentHash,
-          });
 
           // Parse raw email structure
           const parsedMail = await simpleParser(message.source);
           const textContent = parsedMail.text || parsedMail.html || '';
 
-          let extractedData = {};
-          let confidenceScores = {};
-          let deterministicSuccess = false;
+          // Extract PDF / image attachments if available
+          const attachments = (parsedMail.attachments || []).map(a => ({
+            filename: a.filename || 'attachment',
+            contentType: a.contentType || 'application/octet-stream',
+            content: a.content,
+          }));
 
-          // 1. Deterministic text extraction
-          const det = extractBookingFromEmail(textContent, subject);
-          extractedData = det.fields;
-          confidenceScores = det.confidence;
-
-          const essential = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
-          const missingEssential = essential.filter(f => !extractedData[f]);
-          if (missingEssential.length === 0) {
-            deterministicSuccess = true;
-          }
-
-          // 2. Extract PDF / image attachments if available
-          let attachmentBuffer = null;
-          let attachmentMime = null;
-
-          if (parsedMail.attachments && parsedMail.attachments.length > 0) {
-            const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-            const validAttachment = parsedMail.attachments.find(a => allowedTypes.includes(a.contentType));
-            if (validAttachment) {
-              attachmentBuffer = validAttachment.content;
-              attachmentMime = validAttachment.contentType;
-            }
-          }
-
-          // 3. AI fallback if essential missing or attachments exist
-          if (!deterministicSuccess && isAiParserConfigured()) {
-            try {
-              let aiRes = null;
-              if (attachmentBuffer && attachmentMime) {
-                aiRes = await extractBookingFromDocument(attachmentBuffer, attachmentMime, { source: 'inbound_email' });
-              } else if (textContent.length > 30) {
-                aiRes = await extractBookingFromDocument(Buffer.from(textContent), 'text/plain', { source: 'inbound_email' });
-              }
-
-              if (aiRes) {
-                extractedData = { ...extractedData, ...aiRes.fields };
-                confidenceScores = { ...confidenceScores, ...aiRes.confidence };
-              }
-            } catch (err) {
-              console.error('[Inbound Poller] AI extraction error:', err.message);
-            }
-          }
-
-          const missingFields = essential.filter(f => !extractedData[f]);
-          const importStatus = missingFields.length === 0 ? 'READY_FOR_CONFIRMATION' : 'NEEDS_REVIEW';
-
-          // Match sender with registered user
-          const user = await db.getUser(senderEmail);
-          const baseUrl = process.env.APP_BASE_URL || 'https://resdrop.app';
-
-          if (user) {
-            // Registered User Flow
-            const bookingImport = await db.createBookingImport({
-              userEmail: user.email,
-              inboundEmailId: inboundRecord.id,
-              source: 'inbound_email',
-              extractedData,
-              confidenceData: confidenceScores,
-              missingFields,
-              status: importStatus,
-            });
-
-            const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport.id}`;
-
-            const lang = user.country === 'BR' || user.currency === 'BRL' || (senderEmail && senderEmail.endsWith('.br')) || extractedData.currency === 'BRL' ? 'pt' : 'en';
-            const emailSubject = lang === 'pt'
-              ? `Recebemos sua reserva do ${extractedData.hotelName || 'hotel'} — ResDrop`
-              : `We received your booking for ${extractedData.hotelName || 'hotel'} — ResDrop`;
-
-            const htmlEmail = renderResdropEmailTemplate({
-              headline: lang === 'pt' ? 'Recebemos sua confirmação de reserva!' : 'We received your booking confirmation!',
-              greeting: lang === 'pt' ? `Olá ${user.name || 'Viajante'},` : `Hello ${user.name || 'Traveler'},`,
-              bodyParagraphs: lang === 'pt'
-                ? [
-                    'Recebemos sua reserva enviada por e-mail e preparamos os dados para o monitoramento 24/7.',
-                    'Por favor, revise os dados abaixo e confirme para iniciar a busca automática de menores preços.',
-                  ]
-                : [
-                    'We received your forwarded hotel confirmation and prepared your 24/7 price monitoring.',
-                    'Please review the details below and confirm to activate automatic price drop monitoring.',
-                  ],
-              extractedBooking: extractedData,
-              ctaText: lang === 'pt' ? 'Revisar & Ativar Monitoramento' : 'Review & Enable Monitoring',
-              ctaUrl: reviewUrl,
-              footerNote: lang === 'pt' ? 'O monitoramento começará imediatamente após a sua confirmação.' : 'Monitoring starts immediately after your confirmation.',
-              lang,
-            });
-
-            const textCopy = lang === 'pt'
-              ? `Olá ${user.name || 'Viajante'},\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara revisar e ativar o monitoramento, acesse:\n${reviewUrl}`
-              : `Hello ${user.name || 'Traveler'},\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo review and enable monitoring, visit:\n${reviewUrl}`;
-
-            await sendReplyEmail(user.email, emailSubject, htmlEmail, textCopy);
-
-            await db.updateInboundEmail(inboundRecord.id, {
-              status: 'PROCESSED',
-              processedAt: new Date().toISOString(),
-            });
-          } else {
-            // Unregistered User Flow (Welcome Email)
-            const bookingImport = await db.createBookingImport({
-              inboundEmailId: inboundRecord.id,
-              source: 'inbound_email',
-              extractedData,
-              confidenceData: confidenceScores,
-              missingFields,
-              status: importStatus,
-            });
-
-            // Generate single-use expiring token
-            const rawToken = crypto.randomBytes(32).toString('hex');
-            const tokenHashVal = hashToken(rawToken);
-            const expiryHours = parseInt(process.env.INBOUND_IMPORT_TOKEN_EXPIRY_HOURS || '72', 10);
-            const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
-
-            await db.createPendingImportToken({
-              bookingImportId: bookingImport.id,
-              email: senderEmail,
-              tokenHash: tokenHashVal,
-              expiresAt,
-            });
-
-            const signupUrl = `${baseUrl}/signup?token=${rawToken}`;
-            const isPt = senderEmail.endsWith('.br') || extractedData.currency === 'BRL';
-            const lang = isPt ? 'pt' : 'en';
-
-            const welcomeSubject = lang === 'pt'
-              ? `Bem-vindo ao ResDrop! Crie sua conta para ativar o monitoramento`
-              : `Welcome to ResDrop! Create your account to enable price monitoring`;
-
-            const htmlWelcomeEmail = renderResdropEmailTemplate({
-              headline: lang === 'pt' ? 'Sua reserva de hotel foi recebida!' : 'Your hotel booking was received!',
-              greeting: lang === 'pt' ? 'Olá!' : 'Hello!',
-              bodyParagraphs: lang === 'pt'
-                ? [
-                    'Obrigado por utilizar o ResDrop! Recebemos a sua confirmação de hotel encaminhada por e-mail.',
-                    'O ResDrop monitora 24 horas por dia os preços das diárias. Quando o valor do seu hotel cair, nós avisamos você imediatamente para você remarcar e economizar.',
-                    'Para ativar o monitoramento gratuito da sua primeira reserva, crie sua conta no botão abaixo:',
-                  ]
-                : [
-                    'Thank you for using ResDrop! We received your forwarded hotel confirmation email.',
-                    'ResDrop monitors hotel rates 24/7. When your hotel price drops, we alert you instantly so you can rebook and save.',
-                    'To enable free price monitoring for your reservation, create your account using the button below:',
-                  ],
-              extractedBooking: extractedData,
-              ctaText: lang === 'pt' ? 'Criar Conta & Ativar Monitoramento' : 'Create Account & Enable Monitoring',
-              ctaUrl: signupUrl,
-              footerNote: lang === 'pt' ? 'Sem cartão de crédito. Cancele a qualquer momento.' : 'No credit card required. Cancel anytime.',
-              lang,
-            });
-
-            const welcomeTextCopy = lang === 'pt'
-              ? `Bem-vindo ao ResDrop!\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara ativar o monitoramento automático de queda de preço, crie sua conta no link:\n${signupUrl}`
-              : `Welcome to ResDrop!\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo enable automatic price drop monitoring, create your account at:\n${signupUrl}`;
-
-            await sendReplyEmail(senderEmail, welcomeSubject, htmlWelcomeEmail, welcomeTextCopy);
-
-            await db.updateInboundEmail(inboundRecord.id, {
-              status: 'PROCESSED',
-              processedAt: new Date().toISOString(),
-            });
-          }
+          await processInboundEmailPayload({
+            senderEmail,
+            subject,
+            textContent,
+            attachments,
+            messageId,
+            contentHash,
+          });
 
           // Mark message as seen in IMAP
           await client.messageFlagsAdd({ uid }, ['\\Seen']);
@@ -626,6 +645,52 @@ export async function pollInboundEmails() {
 
 export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
   const router = Router();
+
+  /**
+   * POST /api/inbound/webhook
+   * Public webhook endpoint for inbound emails (Cloudflare Email Workers, SendGrid, Postmark, Mailgun, or custom forwarders).
+   */
+  router.post('/inbound/webhook', async (req, res) => {
+    try {
+      const { from, sender, subject, text, html, attachments, messageId, rawEmail } = req.body;
+      const senderEmail = (from || sender || '').toLowerCase().trim();
+
+      if (!senderEmail) {
+        return res.status(400).json({ error: 'Sender email (from) is required' });
+      }
+
+      const msgId = messageId || `webhook-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+      const contentHash = crypto.createHash('sha256').update(rawEmail || `${senderEmail}-${subject}-${text}`).digest('hex');
+
+      // Idempotency check
+      const existingByMsg = await dbClient.getInboundEmailByMessageId(msgId);
+      const existingByHash = await dbClient.getInboundEmailByHash(contentHash);
+      if (existingByMsg || existingByHash) {
+        return res.status(200).json({ status: 'ignored_duplicate', messageId: msgId });
+      }
+
+      const parsedAttachments = Array.isArray(attachments) ? attachments.map(a => ({
+        filename: a.filename || 'attachment',
+        contentType: a.contentType || a.type || 'application/octet-stream',
+        content: Buffer.isBuffer(a.content) ? a.content : Buffer.from(a.content || '', 'base64'),
+      })) : [];
+
+      const result = await processInboundEmailPayload({
+        senderEmail,
+        subject: subject || '',
+        textContent: text || sanitizeHtmlText(html || ''),
+        attachments: parsedAttachments,
+        messageId: msgId,
+        contentHash,
+        dbClient,
+      });
+
+      res.status(200).json(result);
+    } catch (err) {
+      console.error('[Inbound Webhook] Processing error:', err.message);
+      res.status(500).json({ error: 'Failed to process inbound email webhook' });
+    }
+  });
 
   /**
    * GET /api/inbound/pending-import
