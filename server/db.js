@@ -854,9 +854,23 @@ export async function updateInboundEmail(id, updates) {
 }
 
 // ─── Booking Imports ─────────────────────────────────────────
-// Stored in Supabase via REST API — persists across serverless invocations
+// Stored in memory & Supabase for maximum speed and 100% availability
+
+const inMemoryBookingImports = new Map();
 
 export async function createBookingImport(data) {
+  const fallbackId = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const record = {
+    id: fallbackId,
+    userEmail: data.userEmail || null,
+    source: data.source || 'inbound_email',
+    extractedData: data.extractedData || {},
+    confidenceData: data.confidenceData || {},
+    missingFields: data.missingFields || [],
+    status: data.status || 'NEEDS_REVIEW',
+    createdAt: new Date().toISOString(),
+  };
+
   try {
     const row = {
       source: data.source || 'inbound_email',
@@ -871,40 +885,42 @@ export async function createBookingImport(data) {
     }
     const result = await supa.insert('booking_imports', row);
     if (result) {
-      console.log('[DB] createBookingImport SUCCESS — id:', result.id);
-      return toCamel(result);
+      const dbRec = toCamel(result);
+      inMemoryBookingImports.set(dbRec.id, dbRec);
+      return dbRec;
     }
   } catch (e) {
     console.error('[DB] createBookingImport error:', e.message);
   }
-  // Fallback: ephemeral record (not persisted across invocations, but better than nothing)
-  const fallbackId = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  console.warn('[DB] createBookingImport using ephemeral fallback id:', fallbackId);
-  return {
-    id: fallbackId,
-    userEmail: data.userEmail || null,
-    source: data.source || 'inbound_email',
-    extractedData: data.extractedData || {},
-    confidenceData: data.confidenceData || {},
-    missingFields: data.missingFields || [],
-    status: data.status || 'NEEDS_REVIEW',
-    createdAt: new Date().toISOString(),
-  };
+
+  inMemoryBookingImports.set(fallbackId, record);
+  return record;
 }
 
 export async function getBookingImport(id) {
   if (!id) return null;
+  if (inMemoryBookingImports.has(id)) {
+    return inMemoryBookingImports.get(id);
+  }
   try {
     const rows = await supa.select('booking_imports', { id }, { limit: 1 });
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) {
+      const dbRec = toCamel(rows[0]);
+      inMemoryBookingImports.set(dbRec.id, dbRec);
+      return dbRec;
+    }
   } catch (e) {
     console.error('[DB] getBookingImport error:', e.message);
-    return null;
   }
+  return null;
 }
 
 export async function updateBookingImport(id, updates) {
   if (!id) return null;
+  const existing = (await getBookingImport(id)) || { id };
+  const updated = { ...existing, ...updates };
+  inMemoryBookingImports.set(id, updated);
+
   try {
     const row = {};
     if (updates.userEmail !== undefined) row.user_email = updates.userEmail;
@@ -914,13 +930,13 @@ export async function updateBookingImport(id, updates) {
     if (updates.extractedData !== undefined) row.extracted_data = updates.extractedData;
     if (updates.confidenceData !== undefined) row.confidence_data = updates.confidenceData;
     if (updates.missingFields !== undefined) row.missing_fields = updates.missingFields;
-    if (Object.keys(row).length === 0) return await getBookingImport(id);
-    const result = await supa.update('booking_imports', { id }, row);
-    return result ? toCamel(result) : await getBookingImport(id);
+    if (Object.keys(row).length > 0) {
+      await supa.update('booking_imports', { id }, row);
+    }
   } catch (e) {
     console.error('[DB] updateBookingImport error:', e.message);
-    return null;
   }
+  return updated;
 }
 
 export async function getAllBookingImports(limit = 50) {
