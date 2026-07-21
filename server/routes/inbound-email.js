@@ -112,9 +112,9 @@ export function extractBookingFromEmail(text, subject = '') {
   const confidence = {};
 
   const hotelPatterns = [
-    /(?:hotel|resort|inn|lodge|pousada)\s*[:.]?\s*(.+)/i,
-    /(?:property|accommodation|propriedade)\s*[:.]?\s*(.+)/i,
-    /(?:nome do hotel|hotel name)\s*[:.]?\s*(.+)/i,
+    /(?:^|\n)\s*(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
+    /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
+    /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s+(.+)/i,
     /(?:your (?:stay|reservation|booking) at)\s+(.+)/i,
     /(?:sua (?:reserva|estadia) (?:no|na|em))\s+(.+)/i,
   ];
@@ -173,22 +173,27 @@ export function extractBookingFromEmail(text, subject = '') {
     }
   }
 
-  const currMatch = combined.match(/(USD|BRL|EUR|GBP)/i);
-  if (currMatch) {
-    fields.currency = currMatch[1].toUpperCase();
-    confidence.currency = 0.9;
+  const confPatterns = [
+    /\b(?:confirma[çc][ãa]o|confirmation|booking|reservation|reserva|itinerary|itinérario|conf|reference|referência|ref)\b[\s\-#:]*(?:confirma[çc][ãa]o|confirmation|itinerary|itinérario|reservation|reserva|reference|referência|number|code|no\.?|id|#|n[°o]\.?|accor|agoda|hyatt|hilton|marriott|expedia|booking)*[\s\-#:]*([A-Z0-9][\w\-]{3,20})/gi,
+  ];
+  const confFilterWords = ['confirmation', 'confirmed', 'itinerary', 'reservation', 'booking', 'reference', 'code', 'accor', 'hotels', 'for'];
+  for (const p of confPatterns) {
+    p.lastIndex = 0;
+    let m;
+    while ((m = p.exec(combined)) !== null) {
+      if (m[1] && !confFilterWords.includes(m[1].toLowerCase())) {
+        fields.confirmationNumber = m[1];
+        confidence.confirmationNumber = 0.8;
+        break;
+      }
+    }
+    if (fields.confirmationNumber) break;
   }
 
-  const confPatterns = [
-    /\b(?:confirma[çc][ãa]o|confirmation|booking|reservation|reserva|itinerary|itinérario|conf|reference|referência|ref)\b\s*(?:reference|referência|number|code|ref|id|#|n[°o]\.?)?\s*[:.#]?\s*([A-Z0-9][\w\-]{3,20})/i,
-  ];
-  for (const p of confPatterns) {
-    const m = combined.match(p);
-    if (m) {
-      fields.confirmationNumber = m[1].trim();
-      confidence.confirmationNumber = 0.8;
-      break;
-    }
+  const currMatch = combined.match(/(USD|BRL|EUR|GBP|R\$)/i);
+  if (currMatch) {
+    fields.currency = currMatch[1].toUpperCase() === 'R$' ? 'BRL' : currMatch[1].toUpperCase();
+    confidence.currency = 0.9;
   }
 
   return { fields, confidence };
@@ -492,7 +497,7 @@ export async function pollInboundEmails() {
   return { status: 'completed', processedCount };
 }
 
-export default function inboundEmailRoutes(authMiddleware) {
+export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
   const router = Router();
 
   /**
@@ -505,13 +510,13 @@ export default function inboundEmailRoutes(authMiddleware) {
       if (!token) return res.status(400).json({ error: 'Token is required' });
 
       const tHash = hashToken(token);
-      const pendingToken = await db.getPendingImportTokenByHash(tHash);
+      const pendingToken = await dbClient.getPendingImportTokenByHash(tHash);
 
       if (!pendingToken) {
-        return res.status(404).json({ error: 'Invalid or expired registration token' });
+        return res.status(410).json({ error: 'Invalid, expired, or already used registration token' });
       }
 
-      const bookingImport = await db.getBookingImport(pendingToken.bookingImportId);
+      const bookingImport = await dbClient.getBookingImport(pendingToken.bookingImportId);
       res.json({
         email: pendingToken.email,
         importId: bookingImport?.id,
@@ -520,6 +525,165 @@ export default function inboundEmailRoutes(authMiddleware) {
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to validate token' });
+    }
+  });
+
+  /**
+   * GET /api/inbound/imports/:id
+   * Fetch draft booking import details for review by logged-in user.
+   */
+  router.get('/inbound/imports/:id', authMiddleware, async (req, res) => {
+    try {
+      const importRecord = await dbClient.getBookingImport(req.params.id);
+      if (!importRecord) {
+        return res.status(404).json({ error: 'Import record not found' });
+      }
+
+      if (importRecord.userEmail && importRecord.userEmail !== req.userEmail) {
+        return res.status(403).json({ error: 'Access denied: You do not own this import' });
+      }
+
+      res.json(importRecord);
+    } catch (err) {
+      console.error('[Inbound] Fetch import error:', err.message);
+      res.status(500).json({ error: 'Failed to fetch import record' });
+    }
+  });
+
+  /**
+   * POST /api/inbound/imports/:id/confirm
+   * Confirm draft booking import into active monitored booking (Authed & Idempotent).
+   */
+  router.post('/inbound/imports/:id/confirm', authMiddleware, async (req, res) => {
+    try {
+      const importRecord = await dbClient.getBookingImport(req.params.id);
+      if (!importRecord) {
+        return res.status(404).json({ error: 'Import record not found' });
+      }
+
+      if (importRecord.userEmail && importRecord.userEmail !== req.userEmail) {
+        return res.status(403).json({ error: 'Access denied: You do not own this import' });
+      }
+
+      // Idempotency: If already confirmed, return existing booking without duplicate creation
+      if (importRecord.status === 'CONFIRMED') {
+        return res.status(200).json({
+          status: 'already_confirmed',
+          bookingId: importRecord.bookingId,
+          importId: importRecord.id,
+        });
+      }
+
+      const bookingData = req.body;
+
+      // Essential fields validation
+      const essentialFields = ['hotelName', 'checkinDate', 'checkoutDate', 'originalPrice', 'currency'];
+      const missing = essentialFields.filter(f => !bookingData[f]);
+
+      if (missing.length > 0) {
+        return res.status(400).json({
+          error: 'Missing required essential fields',
+          missingFields: missing,
+        });
+      }
+
+      // Duplicate check (hotel + dates)
+      const existingBookings = await dbClient.getBookingsByEmail(req.userEmail);
+      const duplicate = existingBookings.find(b =>
+        b.hotelName?.toLowerCase() === bookingData.hotelName?.toLowerCase() &&
+        b.checkinDate === bookingData.checkinDate &&
+        b.checkoutDate === bookingData.checkoutDate &&
+        !['expired', 'dismissed'].includes(b.status)
+      );
+
+      if (duplicate) {
+        return res.status(409).json({
+          error: 'A similar booking already exists',
+          existingBookingId: duplicate.id,
+          existingHotel: duplicate.hotelName,
+        });
+      }
+
+      // Create active booking in monitoring status
+      const booking = await dbClient.createBooking({
+        email: req.userEmail,
+        hotelName: bookingData.hotelName,
+        destination: bookingData.destination || null,
+        checkinDate: bookingData.checkinDate,
+        checkoutDate: bookingData.checkoutDate,
+        roomType: bookingData.roomType || 'Standard Room',
+        originalPrice: parseFloat(bookingData.originalPrice),
+        currency: (bookingData.currency || 'USD').toUpperCase(),
+        guestName: bookingData.guestName || null,
+        confirmationNumber: bookingData.confirmationNumber || null,
+        status: 'monitoring',
+        alerts: [],
+        priceHistory: [],
+        latestResults: [],
+        parseMethod: importRecord.source || 'inbound_email',
+      });
+
+      // Update import record to CONFIRMED
+      await dbClient.updateBookingImport(importRecord.id, {
+        status: 'CONFIRMED',
+        confirmedAt: new Date().toISOString(),
+        bookingId: booking.id,
+        userEmail: req.userEmail,
+      });
+
+      await dbClient.logActivity({
+        entityType: 'booking',
+        entityId: booking.id,
+        action: 'confirmed_from_import',
+        actorEmail: req.userEmail,
+        details: { importId: importRecord.id, source: importRecord.source },
+      });
+
+      res.status(201).json({ status: 'confirmed', booking, importId: importRecord.id });
+    } catch (err) {
+      console.error('[Inbound] Confirm import error:', err.message);
+      res.status(500).json({ error: 'Failed to confirm booking import' });
+    }
+  });
+
+  /**
+   * POST /api/inbound/pending-import/attach
+   * Attach pending import to newly registered account using single-use token.
+   */
+  router.post('/inbound/pending-import/attach', authMiddleware, async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ error: 'Token is required' });
+
+      const tHash = hashToken(token);
+      const pendingToken = await dbClient.getPendingImportTokenByHash(tHash);
+
+      if (!pendingToken) {
+        return res.status(410).json({ error: 'Invalid, expired, or already used registration token' });
+      }
+
+      const bookingImport = await dbClient.getBookingImport(pendingToken.bookingImportId);
+      if (!bookingImport) {
+        return res.status(404).json({ error: 'Import record not found' });
+      }
+
+      // Link import to logged in user
+      await dbClient.updateBookingImport(bookingImport.id, {
+        userEmail: req.userEmail,
+      });
+
+      // Mark token used
+      await dbClient.markPendingImportTokenUsed(pendingToken.id);
+
+      res.json({
+        status: 'attached',
+        importId: bookingImport.id,
+        userEmail: req.userEmail,
+        bookingImport,
+      });
+    } catch (err) {
+      console.error('[Inbound] Attach pending import error:', err.message);
+      res.status(500).json({ error: 'Failed to attach pending import' });
     }
   });
 

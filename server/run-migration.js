@@ -329,6 +329,7 @@ try {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_imports_user ON booking_imports(user_email)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_booking_imports_status ON booking_imports(status)`;
+  await sql`ALTER TABLE booking_imports ADD COLUMN IF NOT EXISTS booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS pending_import_tokens (

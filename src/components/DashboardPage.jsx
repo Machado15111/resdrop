@@ -1,17 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API } from '../api';
 import Dashboard from './Dashboard';
 import BulkImportModal from './BulkImportModal';
+import ImportReviewModal from './ImportReviewModal';
 
 function DashboardPage() {
-  const { user, authFetch, updateUser } = useAuth();
+  const { user, authFetch } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [bookings, setBookings] = useState([]);
   const [stats, setStats] = useState(null);
   const [bookingStates, setBookingStates] = useState({});
   const [showImport, setShowImport] = useState(false);
+
+  const reviewImportId = searchParams.get('reviewImport');
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -137,6 +141,20 @@ function DashboardPage() {
     }
   };
 
+  const handleCloseReview = () => {
+    searchParams.delete('reviewImport');
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  const handleReviewSuccess = (newBooking) => {
+    fetchBookings();
+    fetchStats();
+    handleCloseReview();
+    if (newBooking) {
+      setBookingState(newBooking.id, 'success', 'Monitoramento ativado!');
+    }
+  };
+
   return (
     <>
       <Dashboard
@@ -156,6 +174,13 @@ function DashboardPage() {
         <BulkImportModal
           onClose={() => setShowImport(false)}
           onImport={handleImport}
+        />
+      )}
+      {reviewImportId && (
+        <ImportReviewModal
+          importId={reviewImportId}
+          onClose={handleCloseReview}
+          onSuccess={handleReviewSuccess}
         />
       )}
     </>

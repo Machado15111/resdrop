@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
+import { API } from '../api';
 import { IconMail, IconLock } from './Icons';
 import './Account.css';
 
@@ -9,14 +10,33 @@ function Signup() {
   const { t, lang } = useI18n();
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rawToken = searchParams.get('token');
+
   const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
+  const [pendingInfo, setPendingInfo] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!rawToken) return;
+    fetch(`${API}/inbound/pending-import?token=${rawToken}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) {
+          setPendingInfo(data);
+          if (data.email) {
+            setForm(prev => ({ ...prev, email: data.email }));
+          }
+        }
+      })
+      .catch(() => {});
+  }, [rawToken]);
 
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -38,11 +58,37 @@ function Signup() {
     setError('');
     setLoading(true);
     try {
-      await signup({
+      const authResult = await signup({
         email: form.email,
         name: form.name,
         password: form.password,
       });
+
+      if (rawToken) {
+        try {
+          const authToken = localStorage.getItem('token') || authResult?.token;
+          const attachRes = await fetch(`${API}/inbound/pending-import/attach`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            },
+            body: JSON.stringify({ token: rawToken }),
+          });
+
+          if (attachRes.ok) {
+            const attachData = await attachRes.json();
+            if (attachData.importId) {
+              navigate(`/dashboard?reviewImport=${attachData.importId}`, { replace: true });
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (attachErr) {
+          console.error('Failed to attach pending import:', attachErr);
+        }
+      }
+
       navigate('/onboarding');
     } catch (err) {
       setError(err.message);
@@ -68,6 +114,14 @@ function Signup() {
               ? 'Monitore sua primeira reserva de hotel gratuitamente. Sem cartao de credito.'
               : 'Monitor your first hotel booking free. No credit card required.'}
           </p>
+
+          {pendingInfo && (
+            <div className="doc-warning-banner" style={{ marginBottom: 20, textAlign: 'left' }}>
+              🎉 {lang === 'pt'
+                ? 'Reserva recebida por email encontrada! Crie sua conta para ativá-la.'
+                : 'Forwarded email booking found! Create your account to enable monitoring.'}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
