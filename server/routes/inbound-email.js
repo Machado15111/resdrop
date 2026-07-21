@@ -85,7 +85,7 @@ async function sendReplyEmail(to, subject, htmlText, textCopy) {
 }
 
 // Deterministic text parser
-function extractBookingFromEmail(text, subject = '') {
+export function extractBookingFromEmail(text, subject = '') {
   const combined = `${subject}\n${text}`;
   const fields = {};
   const confidence = {};
@@ -159,8 +159,7 @@ function extractBookingFromEmail(text, subject = '') {
   }
 
   const confPatterns = [
-    /(?:confirma[çc][ãa]o|confirmation|booking\s*(?:id|number|ref|#))\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
-    /(?:reserva|reservation)\s*(?:#|n[°o]\.?)\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
+    /(?:confirma[çc][ãa]o|confirmation|booking|reserva|reservation)\s*(?:id|number|ref|code|#|n[°o]\.?)?\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
   ];
   for (const p of confPatterns) {
     const m = combined.match(p);
@@ -174,7 +173,7 @@ function extractBookingFromEmail(text, subject = '') {
   return { fields, confidence };
 }
 
-function normalizeDate(dateStr) {
+export function normalizeDate(dateStr) {
   if (!dateStr) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
   const parts = dateStr.split(/[\/\-\.]/);
@@ -184,7 +183,7 @@ function normalizeDate(dateStr) {
   return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
-function parsePrice(str) {
+export function parsePrice(str) {
   if (!str) return 0;
   if (str.includes(',') && str.includes('.')) {
     return parseFloat(str.replace(/\./g, '').replace(',', '.'));
