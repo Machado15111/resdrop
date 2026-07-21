@@ -188,7 +188,7 @@ function generateId() {
 }
 
 // ─── Auth Middleware ─────────────────────────────────────────
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com').toLowerCase();
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com').trim().toLowerCase();
 
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
