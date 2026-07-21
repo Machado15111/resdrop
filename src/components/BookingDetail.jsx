@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { IconArrowLeft, IconHotel, IconRefresh } from './Icons';
 import SavingsConfirmationModal from './SavingsConfirmationModal';
+import PriceTrends from './PriceTrends';
 import './BookingDetail.css';
 
 function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onConfirmSavings, onDismissSavings }) {
@@ -447,6 +448,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             <span>{t('savings.confirmedBadge')} — R${booking.totalSavings?.toFixed(0)}</span>
           </div>
         )}
+
+        {/* Price Trends (paid feature; server enforces entitlement + cost cap) */}
+        <div style={{ marginTop: 20 }}>
+          <PriceTrends
+            hotelIds={booking.nuiteeHotelId ? [booking.nuiteeHotelId] : []}
+            checkin={booking.checkinDate}
+            checkout={booking.checkoutDate}
+            currency={booking.currency || 'USD'}
+          />
+        </div>
       </div>
 
       {showConfirmModal && (

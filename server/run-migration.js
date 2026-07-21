@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import postgres from 'postgres';
@@ -235,6 +236,16 @@ try {
     )
   `;
   console.log('✓ document_uploads table');
+
+  // ─── File-based migrations (idempotent .sql applied on every start) ───
+  for (const f of ['hotels-catalog.sql', 'nuitee.sql']) {
+    try {
+      await sql.unsafe(readFileSync(join(__dirname, 'migrations', f), 'utf8'));
+      console.log(`✓ ${f}`);
+    } catch (e) {
+      console.error(`Migration ${f} error:`, e.message);
+    }
+  }
 
   console.log('\n✓ Migration complete');
 } catch (e) {

@@ -52,6 +52,7 @@ import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
 import inboundEmailRoutes from './routes/inbound-email.js';
+import { registerNuiteeRoutes } from './nuiteeRoutes.js';
 import {
   isEmailConfigured,
   sendWelcomeEmail,
@@ -2465,6 +2466,9 @@ app.use('/api', inboundEmailRoutes(authMiddleware));
 console.log('[Scheduler] Paused — price checks run manually via "Atualizar"');
 
 // ─── Serve frontend build in production ─────────────────────
+// Nuitée / Price Trends routes (registered before the SPA fallback)
+registerNuiteeRoutes(app, { authMiddleware, adminMiddleware });
+
 import { existsSync } from 'fs';
 const distPath = join(__dirname, '..', 'dist');
 if (existsSync(distPath)) {
