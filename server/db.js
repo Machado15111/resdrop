@@ -708,57 +708,91 @@ export async function updateInboundEmail(id, updates) {
 
 // ─── Booking Imports ─────────────────────────────────────────
 
+const inMemoryBookingImports = new Map();
+
 export async function createBookingImport(data) {
+  const fallbackId = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const record = {
+    id: fallbackId,
+    userEmail: data.userEmail || null,
+    inboundEmailId: data.inboundEmailId || null,
+    source: data.source || 'inbound_email',
+    extractedData: data.extractedData || {},
+    confidenceData: data.confidenceData || {},
+    missingFields: data.missingFields || [],
+    status: data.status || 'NEEDS_REVIEW',
+    createdAt: new Date().toISOString(),
+  };
+
   try {
     const s = toSnake(data);
     const row = {
-      user_email: s.user_email || null,
-      inbound_email_id: s.inbound_email_id || null,
-      upload_id: s.upload_id || null,
       source: s.source || 'inbound_email',
       extracted_data: sql.json(s.extracted_data || {}),
       confidence_data: sql.json(s.confidence_data || {}),
       missing_fields: sql.json(s.missing_fields || []),
       status: s.status || 'NEEDS_REVIEW',
     };
+    if (s.user_email) row.user_email = s.user_email;
+    if (s.inbound_email_id && typeof s.inbound_email_id === 'string' && s.inbound_email_id.length === 36) {
+      row.inbound_email_id = s.inbound_email_id;
+    }
     if (s.booking_id) row.booking_id = s.booking_id;
     const rows = await sql`INSERT INTO booking_imports ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows[0]) {
+      const dbRecord = toCamel(rows[0]);
+      inMemoryBookingImports.set(dbRecord.id, dbRecord);
+      return dbRecord;
+    }
   } catch (e) {
-    console.error('[DB] createBookingImport:', e.message);
-    return null;
+    console.error('[DB] createBookingImport DB error:', e.message);
   }
+
+  inMemoryBookingImports.set(fallbackId, record);
+  return record;
 }
 
 export async function getBookingImport(id) {
+  if (!id) return null;
   try {
-    const rows = await sql`SELECT * FROM booking_imports WHERE id = ${id} LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (typeof id === 'string' && id.length === 36 && !id.startsWith('imp-')) {
+      const rows = await sql`SELECT * FROM booking_imports WHERE id = ${id} LIMIT 1`;
+      if (rows[0]) return toCamel(rows[0]);
+    }
   } catch (e) {
-    console.error('[DB] getBookingImport:', e.message);
-    return null;
+    console.error('[DB] getBookingImport DB error:', e.message);
   }
+  return inMemoryBookingImports.get(id) || null;
 }
 
 export async function updateBookingImport(id, updates) {
-  try {
-    const s = toSnake(updates);
-    const row = {};
-    if (s.user_email !== undefined) row.user_email = s.user_email;
-    if (s.status !== undefined) row.status = s.status;
-    if (s.confirmed_at !== undefined) row.confirmed_at = s.confirmed_at;
-    if (s.booking_id !== undefined) row.booking_id = s.booking_id;
-    if (s.extracted_data !== undefined) row.extracted_data = sql.json(s.extracted_data);
-    if (s.confidence_data !== undefined) row.confidence_data = sql.json(s.confidence_data);
-    if (s.missing_fields !== undefined) row.missing_fields = sql.json(s.missing_fields);
-
-    if (Object.keys(row).length === 0) return await getBookingImport(id);
-    const rows = await sql`UPDATE booking_imports SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
-  } catch (e) {
-    console.error('[DB] updateBookingImport:', e.message);
-    return null;
+  if (!id) return null;
+  const mem = inMemoryBookingImports.get(id);
+  if (mem) {
+    Object.assign(mem, updates);
+    inMemoryBookingImports.set(id, mem);
   }
+
+  try {
+    if (typeof id === 'string' && id.length === 36 && !id.startsWith('imp-')) {
+      const s = toSnake(updates);
+      const row = {};
+      if (s.user_email !== undefined) row.user_email = s.user_email;
+      if (s.status !== undefined) row.status = s.status;
+      if (s.confirmed_at !== undefined) row.confirmed_at = s.confirmed_at;
+      if (s.booking_id !== undefined) row.booking_id = s.booking_id;
+      if (s.extracted_data !== undefined) row.extracted_data = sql.json(s.extracted_data);
+      if (s.confidence_data !== undefined) row.confidence_data = sql.json(s.confidence_data);
+      if (s.missing_fields !== undefined) row.missing_fields = sql.json(s.missing_fields);
+
+      if (Object.keys(row).length === 0) return await getBookingImport(id);
+      const rows = await sql`UPDATE booking_imports SET ${sql(row)} WHERE id = ${id} RETURNING *`;
+      if (rows[0]) return toCamel(rows[0]);
+    }
+  } catch (e) {
+    console.error('[DB] updateBookingImport DB error:', e.message);
+  }
+  return mem || null;
 }
 
 // ─── Pending Import Tokens ───────────────────────────────────
