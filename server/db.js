@@ -264,10 +264,24 @@ export async function getAllBookings() {
 export async function createBooking(booking) {
   try {
     const raw = toSnake(booking);
-    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
-    if (row.price_history !== undefined) row.price_history = sql.json(row.price_history);
-    if (row.change_history !== undefined) row.change_history = sql.json(row.change_history);
-    if (row.latest_results !== undefined) row.latest_results = sql.json(row.latest_results);
+    const allowedColumns = [
+      'id', 'email', 'hotel_name', 'destination', 'checkin_date', 'checkout_date',
+      'room_type', 'original_price', 'currency', 'guest_name', 'confirmation_number',
+      'total_savings', 'potential_savings', 'best_price', 'best_source', 'last_checked',
+      'rate_type', 'check_count', 'api_mode', 'status', 'price_history', 'change_history',
+      'latest_results', 'cancellation_policy', 'board_basis', 'parse_method',
+      'created_at', 'updated_at'
+    ];
+    const row = {};
+    for (const k of allowedColumns) {
+      if (raw[k] !== undefined) {
+        if (['price_history', 'change_history', 'latest_results'].includes(k)) {
+          row[k] = sql.json(raw[k]);
+        } else {
+          row[k] = raw[k];
+        }
+      }
+    }
 
     const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
     if (rows[0]) {
@@ -276,7 +290,7 @@ export async function createBooking(booking) {
     }
     return null;
   } catch (e) {
-    console.error('[DB] createBooking:', e.message);
+    console.error('[DB] createBooking DB error:', e.message);
     return null;
   }
 }

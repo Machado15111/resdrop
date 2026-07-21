@@ -94,6 +94,8 @@ try {
     )
   `;
   console.log('✓ bookings table');
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'BRL'`;
+  await sql`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS parse_method TEXT`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(email)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)`;
 
