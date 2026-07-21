@@ -187,11 +187,12 @@ export default function documentRoutes(authMiddleware) {
       }
 
       const { originalname, mimetype, size, buffer } = req.file;
+      const safeFilename = (originalname || 'upload').replace(/\.\./g, '_').replace(/[^a-zA-Z0-9_.-]/g, '_').substring(0, 100);
 
       // Create upload record
       const docRecord = await db.createDocumentUpload({
         userEmail: req.userEmail,
-        filename: originalname,
+        filename: safeFilename,
         fileType: mimetype,
         fileSize: size,
         status: 'processing',
