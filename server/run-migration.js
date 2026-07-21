@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import postgres from 'postgres';
@@ -237,17 +236,61 @@ try {
   `;
   console.log('✓ document_uploads table');
 
-  // ─── File-based migrations (idempotent .sql applied on every start) ───
-  for (const f of ['hotels-catalog.sql', 'nuitee.sql']) {
-    try {
-      // .simple() = simple query protocol, required for multi-statement DDL
-      // and dollar-quoted function bodies.
-      await sql.unsafe(readFileSync(join(__dirname, 'migrations', f), 'utf8')).simple();
-      console.log(`✓ ${f}`);
-    } catch (e) {
-      console.error(`Migration ${f} error:`, e.message);
-    }
-  }
+  // ─── Nuitée / LiteAPI integration (inline = proven tagged-template pattern) ───
+  await sql`CREATE TABLE IF NOT EXISTS hotels_catalog (
+    liteapi_id TEXT PRIMARY KEY, name TEXT NOT NULL, country_code TEXT, city TEXT,
+    stars NUMERIC, lat DOUBLE PRECISION, lng DOUBLE PRECISION,
+    source TEXT NOT NULL DEFAULT 'liteapi', updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_hotels_catalog_country ON hotels_catalog (country_code)`;
+
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_price_index_usage (
+    calendar_month TEXT PRIMARY KEY, external_calls INTEGER NOT NULL DEFAULT 0,
+    estimated_cost_usd NUMERIC NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_price_index_user_usage (
+    calendar_month TEXT NOT NULL, user_email TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (calendar_month, user_email))`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_price_index_cache (
+    cache_key TEXT PRIMARY KEY, hotel_ids TEXT[], response JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), expires_at TIMESTAMPTZ NOT NULL)`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_rate_cache (
+    search_hash TEXT PRIMARY KEY, response JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(), expires_at TIMESTAMPTZ NOT NULL)`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_hotel_mapping (
+    reservation_id TEXT PRIMARY KEY, nuitee_hotel_id TEXT, confidence NUMERIC,
+    mapping_status TEXT NOT NULL DEFAULT 'pending', mapping_method TEXT,
+    reviewed BOOLEAN NOT NULL DEFAULT false, mapped_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_rate_search_usage (
+    calendar_month TEXT PRIMARY KEY, rate_searches INTEGER NOT NULL DEFAULT 0,
+    cache_hits INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+  await sql`CREATE TABLE IF NOT EXISTS nuitee_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1, monitoring_enabled BOOLEAN NOT NULL DEFAULT true,
+    price_index_enabled BOOLEAN NOT NULL DEFAULT true, price_index_cap INTEGER,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+  await sql`INSERT INTO nuitee_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`;
+
+  await sql.unsafe(`CREATE OR REPLACE FUNCTION nuitee_pi_try_consume(p_month TEXT, p_cap INTEGER, p_cost NUMERIC)
+    RETURNS INTEGER LANGUAGE plpgsql AS $fn$
+    DECLARE v_count INTEGER;
+    BEGIN
+      INSERT INTO nuitee_price_index_usage AS u (calendar_month, external_calls, estimated_cost_usd, updated_at)
+      VALUES (p_month, 1, p_cost, now())
+      ON CONFLICT (calendar_month) DO UPDATE
+        SET external_calls = u.external_calls + 1, estimated_cost_usd = u.estimated_cost_usd + p_cost, updated_at = now()
+        WHERE u.external_calls < p_cap
+      RETURNING external_calls INTO v_count;
+      RETURN v_count;
+    END; $fn$`);
+  await sql.unsafe(`CREATE OR REPLACE FUNCTION nuitee_pi_user_bump(p_month TEXT, p_email TEXT)
+    RETURNS INTEGER LANGUAGE plpgsql AS $fn$
+    DECLARE v_views INTEGER;
+    BEGIN
+      INSERT INTO nuitee_price_index_user_usage AS u (calendar_month, user_email, views, updated_at)
+      VALUES (p_month, p_email, 1, now())
+      ON CONFLICT (calendar_month, user_email) DO UPDATE SET views = u.views + 1, updated_at = now()
+      RETURNING views INTO v_views;
+      RETURN v_views;
+    END; $fn$`);
+  console.log('✓ Nuitée tables + functions');
 
   console.log('\n✓ Migration complete');
 } catch (e) {
