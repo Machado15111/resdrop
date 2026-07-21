@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
-import { IconMenu, IconX, IconPlus, IconLock, IconGlobe, IconUser } from './Icons';
+import { IconMenu, IconX, IconPlus, IconLock, IconUser } from './Icons';
 import './Header.css';
 
 function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { t, lang, toggleLang } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -61,10 +61,18 @@ function Header() {
         </nav>
 
         <div className="header-right">
-          <button className="lang-toggle" onClick={toggleLang} title={lang === 'pt' ? 'English' : 'Portugues'}>
-            <IconGlobe size={15} />
-            <span>{lang === 'pt' ? 'EN' : 'PT'}</span>
-          </button>
+          <div className="lang-switch" role="group" aria-label={lang === 'pt' ? 'Idioma' : 'Language'}>
+            <button
+              className={`lang-switch__opt${lang === 'en' ? ' lang-switch__opt--active' : ''}`}
+              onClick={() => setLang('en')}
+              aria-pressed={lang === 'en'}
+            >EN</button>
+            <button
+              className={`lang-switch__opt${lang === 'pt' ? ' lang-switch__opt--active' : ''}`}
+              onClick={() => setLang('pt')}
+              aria-pressed={lang === 'pt'}
+            >PT</button>
+          </div>
           {user?.isAdmin && (
             <button className="admin-btn" onClick={() => navigate('/admin')} title="Admin">
               <IconLock size={16} />

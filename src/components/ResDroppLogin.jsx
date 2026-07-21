@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n';
 import { API } from '../api';
 import './ResDroppLogin.css';
 
@@ -28,6 +29,8 @@ function IcEye({ visible }) {
 export default function ResDroppLogin() {
   const { login } = useAuth();
   const navigate   = useNavigate();
+  const { lang, setLang } = useI18n();
+  const pt = lang === 'pt';
 
   const [email,      setEmail]      = useState('');
   const [password,   setPassword]   = useState('');
@@ -45,14 +48,14 @@ export default function ResDroppLogin() {
       const user = await login(email, password);
       navigate(user.onboardingCompleted ? '/dashboard' : '/onboarding');
     } catch (err) {
-      setError(err.message || 'Incorrect email or password.');
+      setError(err.message || (pt ? 'E-mail ou senha incorretos.' : 'Incorrect email or password.'));
     }
     setLoading(false);
   };
 
   const handleForgot = async e => {
     e.preventDefault();
-    if (!email) { setError('Please enter your email address first.'); return; }
+    if (!email) { setError(pt ? 'Digite seu e-mail primeiro.' : 'Please enter your email address first.'); return; }
     setError('');
     setLoading(true);
     try {
@@ -63,7 +66,7 @@ export default function ResDroppLogin() {
       });
       setForgotSent(true);
     } catch {
-      setError('Connection error. Please try again.');
+      setError(pt ? 'Erro de conexão. Tente novamente.' : 'Connection error. Please try again.');
     }
     setLoading(false);
   };
@@ -78,8 +81,20 @@ export default function ResDroppLogin() {
             <span>ResDrop</span>
           </Link>
           <div className="rdpl-nav__right">
-            <span className="rdpl-nav__hint">New to ResDrop?</span>
-            <Link to="/signup" className="rdpl-nav__signup">Create account</Link>
+            <div className="rdpl-lang" role="group" aria-label={pt ? 'Idioma' : 'Language'}>
+              <button
+                className={`rdpl-lang__opt${!pt ? ' rdpl-lang__opt--active' : ''}`}
+                onClick={() => setLang('en')}
+                aria-pressed={!pt}
+              >EN</button>
+              <button
+                className={`rdpl-lang__opt${pt ? ' rdpl-lang__opt--active' : ''}`}
+                onClick={() => setLang('pt')}
+                aria-pressed={pt}
+              >PT</button>
+            </div>
+            <span className="rdpl-nav__hint">{pt ? 'Novo no ResDrop?' : 'New to ResDrop?'}</span>
+            <Link to="/signup" className="rdpl-nav__signup">{pt ? 'Criar conta' : 'Create account'}</Link>
           </div>
         </div>
       </nav>
@@ -91,9 +106,9 @@ export default function ResDroppLogin() {
           {forgotMode ? (
             <>
               <div className="rdpl-card__hd">
-                <h1 className="rdpl-card__title">Reset your password</h1>
+                <h1 className="rdpl-card__title">{pt ? 'Redefinir sua senha' : 'Reset your password'}</h1>
                 <p className="rdpl-card__sub">
-                  Enter your email and we will send you a reset link.
+                  {pt ? 'Digite seu e-mail e enviaremos um link de redefinição.' : 'Enter your email and we will send you a reset link.'}
                 </p>
               </div>
 
@@ -105,36 +120,36 @@ export default function ResDroppLogin() {
                     </svg>
                   </div>
                   <p className="rdpl-success__msg">
-                    If that address is in our system, you will receive an email shortly.
+                    {pt ? 'Se esse endereço estiver no nosso sistema, você receberá um e-mail em breve.' : 'If that address is in our system, you will receive an email shortly.'}
                   </p>
                   <button
                     className="rdpl-link rdpl-link--block"
                     onClick={() => { setForgotMode(false); setForgotSent(false); }}
                   >
-                    ← Back to sign in
+                    {pt ? '← Voltar ao login' : '← Back to sign in'}
                   </button>
                 </div>
               ) : (
                 <form onSubmit={handleForgot} noValidate>
                   <div className="rdpl-field">
-                    <label className="rdpl-label">Email</label>
+                    <label className="rdpl-label">{pt ? 'E-mail' : 'Email'}</label>
                     <input
                       className="rdpl-input"
                       type="email"
                       value={email}
                       onChange={e => setEmail(e.target.value)}
-                      placeholder="you@example.com"
+                      placeholder={pt ? 'voce@exemplo.com' : 'you@example.com'}
                       autoComplete="email"
                       required
                     />
                   </div>
                   {error && <p className="rdpl-error">{error}</p>}
                   <button className="rdpl-submit" type="submit" disabled={loading}>
-                    {loading ? 'Sending…' : 'Send reset link'}
+                    {loading ? (pt ? 'Enviando…' : 'Sending…') : (pt ? 'Enviar link de redefinição' : 'Send reset link')}
                   </button>
                   <p className="rdpl-toggle">
                     <button className="rdpl-link" type="button" onClick={() => setForgotMode(false)}>
-                      ← Back to sign in
+                      {pt ? '← Voltar ao login' : '← Back to sign in'}
                     </button>
                   </p>
                 </form>
@@ -143,21 +158,21 @@ export default function ResDroppLogin() {
           ) : (
             <>
               <div className="rdpl-card__hd">
-                <h1 className="rdpl-card__title">Welcome back.</h1>
+                <h1 className="rdpl-card__title">{pt ? 'Bem-vindo de volta.' : 'Welcome back.'}</h1>
                 <p className="rdpl-card__sub">
-                  Sign in to see your tracked bookings and alerts.
+                  {pt ? 'Entre para ver suas reservas monitoradas e alertas.' : 'Sign in to see your tracked bookings and alerts.'}
                 </p>
               </div>
 
               <form onSubmit={handleLogin} noValidate>
                 <div className="rdpl-field">
-                  <label className="rdpl-label">Email</label>
+                  <label className="rdpl-label">{pt ? 'E-mail' : 'Email'}</label>
                   <input
                     className="rdpl-input"
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={pt ? 'voce@exemplo.com' : 'you@example.com'}
                     autoComplete="email"
                     required
                   />
@@ -165,13 +180,13 @@ export default function ResDroppLogin() {
 
                 <div className="rdpl-field">
                   <div className="rdpl-label-row">
-                    <label className="rdpl-label">Password</label>
+                    <label className="rdpl-label">{pt ? 'Senha' : 'Password'}</label>
                     <button
                       type="button"
                       className="rdpl-link rdpl-link--sm"
                       onClick={() => setForgotMode(true)}
                     >
-                      Forgot password?
+                      {pt ? 'Esqueceu a senha?' : 'Forgot password?'}
                     </button>
                   </div>
                   <div className="rdpl-pass-wrap">
@@ -180,7 +195,7 @@ export default function ResDroppLogin() {
                       type={showPass ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
-                      placeholder="Your password"
+                      placeholder={pt ? 'Sua senha' : 'Your password'}
                       autoComplete="current-password"
                       required
                       minLength={6}
@@ -189,7 +204,7 @@ export default function ResDroppLogin() {
                       type="button"
                       className="rdpl-eye"
                       onClick={() => setShowPass(v => !v)}
-                      aria-label={showPass ? 'Hide password' : 'Show password'}
+                      aria-label={showPass ? (pt ? 'Ocultar senha' : 'Hide password') : (pt ? 'Mostrar senha' : 'Show password')}
                     >
                       <IcEye visible={showPass} />
                     </button>
@@ -199,20 +214,20 @@ export default function ResDroppLogin() {
                 {error && <p className="rdpl-error">{error}</p>}
 
                 <button className="rdpl-submit" type="submit" disabled={loading}>
-                  {loading ? 'Signing in…' : 'Sign in'}
+                  {loading ? (pt ? 'Entrando…' : 'Signing in…') : (pt ? 'Entrar' : 'Sign in')}
                 </button>
               </form>
 
               <p className="rdpl-toggle">
-                Don't have an account?{' '}
-                <Link to="/signup" className="rdpl-link">Create one free</Link>
+                {pt ? 'Não tem uma conta?' : "Don't have an account?"}{' '}
+                <Link to="/signup" className="rdpl-link">{pt ? 'Crie uma grátis' : 'Create one free'}</Link>
               </p>
             </>
           )}
         </div>
 
         <p className="rdpl-trust">
-          We never rebook without your approval.
+          {pt ? 'Nunca remarcamos sem a sua aprovação.' : 'We never rebook without your approval.'}
         </p>
       </main>
     </div>

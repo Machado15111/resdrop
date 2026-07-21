@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../i18n';
 import { API } from '../api';
 import './AnalyticsDashboard.css';
 
 function AnalyticsDashboard() {
   const { authFetch } = useAuth();
+  const { lang } = useI18n();
+  const pt = lang === 'pt';
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -87,54 +90,54 @@ function AnalyticsDashboard() {
   };
 
   if (loading) {
-    return <div className="analytics-loading">Loading analytics...</div>;
+    return <div className="analytics-loading">{pt ? 'Carregando análises...' : 'Loading analytics...'}</div>;
   }
 
   return (
     <div className="analytics-dashboard">
       <div className="analytics-container">
-        <h1 className="analytics-title">Your Savings Analytics</h1>
+        <h1 className="analytics-title">{pt ? 'Análise das Suas Economias' : 'Your Savings Analytics'}</h1>
 
         {/* Key Metrics */}
         <div className="analytics-grid">
           <div className="analytics-card metric-card">
-            <div className="metric-label">Total Saved</div>
+            <div className="metric-label">{pt ? 'Total Economizado' : 'Total Saved'}</div>
             <div className="metric-value">${stats.totalSaved.toFixed(2)}</div>
-            <div className="metric-subtext">{stats.savingsFound} bookings with savings</div>
+            <div className="metric-subtext">{stats.savingsFound} {pt ? 'reservas com economia' : 'bookings with savings'}</div>
           </div>
 
           <div className="analytics-card metric-card">
-            <div className="metric-label">Average per Booking</div>
+            <div className="metric-label">{pt ? 'Média por Reserva' : 'Average per Booking'}</div>
             <div className="metric-value">${stats.avgSavings.toFixed(2)}</div>
-            <div className="metric-subtext">When savings found</div>
+            <div className="metric-subtext">{pt ? 'Quando há economia' : 'When savings found'}</div>
           </div>
 
           <div className="analytics-card metric-card">
-            <div className="metric-label">Total Bookings</div>
+            <div className="metric-label">{pt ? 'Total de Reservas' : 'Total Bookings'}</div>
             <div className="metric-value">{stats.totalBookings}</div>
-            <div className="metric-subtext">{stats.monitoringCount} actively monitoring</div>
+            <div className="metric-subtext">{stats.monitoringCount} {pt ? 'em monitoramento ativo' : 'actively monitoring'}</div>
           </div>
 
           <div className="analytics-card metric-card">
-            <div className="metric-label">Success Rate</div>
+            <div className="metric-label">{pt ? 'Taxa de Sucesso' : 'Success Rate'}</div>
             <div className="metric-value">
               {stats.totalBookings > 0
                 ? Math.round((stats.savingsFound / stats.totalBookings) * 100)
                 : 0}%
             </div>
-            <div className="metric-subtext">Found better deal</div>
+            <div className="metric-subtext">{pt ? 'Oferta melhor encontrada' : 'Found better deal'}</div>
           </div>
         </div>
 
         {/* Best Deal Highlight */}
         {stats.bestDeal && (
           <div className="analytics-card best-deal-card">
-            <div className="best-deal-header">🏆 Best Deal Found</div>
+            <div className="best-deal-header">🏆 {pt ? 'Melhor Oferta Encontrada' : 'Best Deal Found'}</div>
             <div className="best-deal-content">
               <div className="best-deal-hotel">{stats.bestDeal.hotelName}</div>
               <div className="best-deal-location">{stats.bestDeal.destination}</div>
               <div className="best-deal-savings">
-                Saved <span className="savings-amount">${stats.bestDeal.totalSavings.toFixed(2)}</span>
+                {pt ? 'Economizou' : 'Saved'} <span className="savings-amount">${stats.bestDeal.totalSavings.toFixed(2)}</span>
               </div>
               <div className="best-deal-meta">
                 {stats.bestDeal.checkinDate} → {stats.bestDeal.checkoutDate}
@@ -147,7 +150,7 @@ function AnalyticsDashboard() {
         <div className="analytics-chart-grid">
           {/* Savings Over Time */}
           <div className="analytics-card chart-card">
-            <h3 className="chart-title">Savings Over Time</h3>
+            <h3 className="chart-title">{pt ? 'Economia ao Longo do Tempo' : 'Savings Over Time'}</h3>
             {monthlyData.length > 0 ? (
               <div className="chart-container">
                 <div className="chart-bars">
@@ -168,13 +171,13 @@ function AnalyticsDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="chart-empty">No savings data yet</div>
+              <div className="chart-empty">{pt ? 'Ainda sem dados de economia' : 'No savings data yet'}</div>
             )}
           </div>
 
           {/* Bookings by Status */}
           <div className="analytics-card chart-card">
-            <h3 className="chart-title">Bookings by Status</h3>
+            <h3 className="chart-title">{pt ? 'Reservas por Status' : 'Bookings by Status'}</h3>
             {Object.keys(byStatus).length > 0 ? (
               <div className="status-breakdown">
                 {Object.entries(byStatus).map(([status, count]) => (
@@ -193,7 +196,7 @@ function AnalyticsDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="chart-empty">No bookings yet</div>
+              <div className="chart-empty">{pt ? 'Ainda sem reservas' : 'No bookings yet'}</div>
             )}
           </div>
         </div>
@@ -201,21 +204,21 @@ function AnalyticsDashboard() {
         {/* ROI Summary */}
         {stats.totalBookings > 0 && (
           <div className="analytics-card roi-card">
-            <h3 className="roi-title">ROI Summary</h3>
+            <h3 className="roi-title">{pt ? 'Resumo de Retorno' : 'ROI Summary'}</h3>
             <div className="roi-content">
               <div className="roi-stat">
-                <div className="roi-label">Monitoring Active</div>
-                <div className="roi-value">{stats.monitoringCount} bookings</div>
+                <div className="roi-label">{pt ? 'Monitoramento Ativo' : 'Monitoring Active'}</div>
+                <div className="roi-value">{stats.monitoringCount} {pt ? 'reservas' : 'bookings'}</div>
               </div>
               <div className="roi-stat">
-                <div className="roi-label">Ready to Rebook</div>
+                <div className="roi-label">{pt ? 'Prontas para Remarcar' : 'Ready to Rebook'}</div>
                 <div className="roi-value">
                   {Object.entries(byStatus).find(([k]) => k === 'lower_fare_found')?.[1] || 0}
-                  {' '}bookings
+                  {' '}{pt ? 'reservas' : 'bookings'}
                 </div>
               </div>
               <div className="roi-stat">
-                <div className="roi-label">Avg Savings per Rebook</div>
+                <div className="roi-label">{pt ? 'Economia Média por Remarcação' : 'Avg Savings per Rebook'}</div>
                 <div className="roi-value">
                   ${stats.savingsFound > 0 ? (stats.totalSaved / stats.savingsFound).toFixed(2) : 0}
                 </div>
@@ -228,8 +231,8 @@ function AnalyticsDashboard() {
         {stats.totalBookings === 0 && (
           <div className="analytics-empty">
             <div className="empty-icon">📊</div>
-            <h3>No Analytics Yet</h3>
-            <p>Add your first booking to see savings analytics</p>
+            <h3>{pt ? 'Ainda Sem Análises' : 'No Analytics Yet'}</h3>
+            <p>{pt ? 'Adicione sua primeira reserva para ver a análise de economia' : 'Add your first booking to see savings analytics'}</p>
           </div>
         )}
       </div>

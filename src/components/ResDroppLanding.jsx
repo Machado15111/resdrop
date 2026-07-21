@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { animate, stagger } from 'animejs';
 import { useI18n } from '../i18n';
 import './ResDroppLanding.css';
 
@@ -179,35 +180,118 @@ const FAQS = [
   },
 ];
 
+function LangSwitch({ pt, setLang, block }) {
+  return (
+    <div className={`rdp-lang${block ? ' rdp-lang--block' : ''}`} role="group" aria-label={pt ? 'Idioma' : 'Language'}>
+      <button
+        className={`rdp-lang__opt${!pt ? ' rdp-lang__opt--active' : ''}`}
+        onClick={() => setLang('en')}
+        aria-pressed={!pt}
+      >EN</button>
+      <button
+        className={`rdp-lang__opt${pt ? ' rdp-lang__opt--active' : ''}`}
+        onClick={() => setLang('pt')}
+        aria-pressed={pt}
+      >PT</button>
+    </div>
+  );
+}
+
 /* ── Component ───────────────────────────────────────────── */
 export default function ResDroppLanding() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [faqOpen,  setFaqOpen]  = useState(null);
   const [scrolled, setScrolled] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-  const { lang, toggleLang } = useI18n();
+  const hwRef = useRef(null);
+  const { lang, setLang } = useI18n();
   const pt = lang === 'pt';
 
+  /* 3D tilt on the hero window, driven by rAF writing straight to the DOM —
+     no React state, no re-render per frame. */
   useEffect(() => {
-    const h = () => {
-      setScrolled(window.scrollY > 12);
-      setScrollY(window.scrollY);
-    };
-    window.addEventListener('scroll', h, { passive: true });
+    const el = hwRef.current;
+    if (!el) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.matchMedia('(max-width: 900px)').matches) return;
 
-    const observer = new IntersectionObserver((entries) => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const y = window.scrollY;
+      const rx = Math.max(0, 34 - y * 0.075);
+      const sc = Math.min(1, 0.9 + y * 0.00025);
+      const ty = Math.max(-24, 100 - y * 0.28);
+      el.style.transform = `perspective(1400px) rotateX(${rx}deg) scale(${sc}) translateY(${ty}px)`;
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  useEffect(() => {
+    const h = () => setScrolled(window.scrollY > 12);
+    window.addEventListener('scroll', h, { passive: true });
+    return () => window.removeEventListener('scroll', h);
+  }, []);
+
+  /* anime.js: rolling counters + staggered item reveals on scroll entry */
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.querySelectorAll('.anim-item').forEach(el => { el.style.opacity = 1; });
+      return;
+    }
+
+    const runCount = (el) => {
+      const target = parseFloat(el.dataset.count);
+      const prefix = el.dataset.prefix || '';
+      const suffix = el.dataset.suffix || '';
+      const state = { v: 0 };
+      animate(state, {
+        v: target,
+        duration: 1200,
+        ease: 'outExpo',
+        onUpdate: () => {
+          el.textContent = prefix + Math.round(state.v).toLocaleString('en-US') + suffix;
+        },
+      });
+    };
+
+    // Hero window counters roll as soon as the window has faded in
+    const heroTimer = setTimeout(() => {
+      document.querySelectorAll('.rdp-hw [data-count]').forEach(runCount);
+    }, 950);
+
+    const io = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-revealed');
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        io.unobserve(el);
+        if (el.dataset.count !== undefined) {
+          runCount(el);
+        } else {
+          animate(el.querySelectorAll('.anim-item'), {
+            opacity: [0, 1],
+            y: [22, 0],
+            delay: stagger(90),
+            duration: 650,
+            ease: 'outCubic',
+          });
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+    }, { threshold: 0.2, rootMargin: '0px 0px -40px 0px' });
 
-    document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
+    Array.from(document.querySelectorAll('[data-count]'))
+      .filter(el => !el.closest('.rdp-hw'))
+      .forEach(el => io.observe(el));
+    document.querySelectorAll('[data-stagger]').forEach(el => io.observe(el));
 
     return () => {
-      window.removeEventListener('scroll', h);
-      observer.disconnect();
+      clearTimeout(heroTimer);
+      io.disconnect();
     };
   }, []);
 
@@ -245,9 +329,7 @@ export default function ResDroppLanding() {
             <a href="#faq">FAQ</a>
           </div>
           <div className="rdp-nav__actions">
-            <button className="rdp-nav__login" onClick={toggleLang} style={{marginRight: '16px'}}>
-              {pt ? 'EN' : 'PT'}
-            </button>
+            <LangSwitch pt={pt} setLang={setLang} />
             <Link to="/login" className="rdp-nav__login">{pt ? 'Entrar' : 'Log in'}</Link>
             <Link to="/signup" className="rdp-btn rdp-btn--sm rdp-btn--green">{pt ? 'Começar grátis' : 'Start free'}</Link>
           </div>
@@ -255,6 +337,7 @@ export default function ResDroppLanding() {
             className={`rdp-nav__burger${menuOpen ? ' rdp-nav__burger--open' : ''}`}
             onClick={() => setMenuOpen(v => !v)}
             aria-label="Toggle menu"
+            aria-expanded={menuOpen}
           >
             <span /><span /><span />
           </button>
@@ -269,6 +352,7 @@ export default function ResDroppLanding() {
             <Link to="/signup"  className="rdp-btn rdp-btn--green rdp-btn--block" onClick={() => setMenuOpen(false)}>
               {pt ? 'Começar grátis' : 'Start tracking free'}
             </Link>
+            <LangSwitch pt={pt} setLang={setLang} block />
           </div>
         )}
       </nav>
@@ -278,15 +362,15 @@ export default function ResDroppLanding() {
         {/* HERO */}
         <section className="rdp-hero">
           <div className="rdp-hero__content">
-            <div className="rdp-kicker">{pt ? 'Monitoramento pós-reserva' : 'Post-booking monitoring'}</div>
-            <h1 className="rdp-hero__h1">
+            <div className="rdp-kicker rdp-seq rdp-seq--1">{pt ? 'Monitoramento pós-reserva' : 'Post-booking monitoring'}</div>
+            <h1 className="rdp-hero__h1 rdp-seq rdp-seq--2">
               {pt ? 'Os preços mudam depois que você reserva.' : 'Hotel prices change after you book.'}<br />
               <span className="rdp-hero__h1--accent">{pt ? 'O ResDrop encontra a melhor opção.' : 'ResDrop catches the better deal.'}</span>
             </h1>
-            <p className="rdp-hero__sub">
+            <p className="rdp-hero__sub rdp-seq rdp-seq--3">
               {pt ? 'Adicione sua reserva uma vez. O ResDrop monitora tarifas, tipos de quarto e disponibilidade. Quando aparecer uma opção genuinamente melhor para o mesmo hotel, você é o primeiro a saber.' : 'Add your booking once. ResDrop monitors rates, room types, and availability. When a genuinely better option appears for the same hotel, you will know right away.'}
             </p>
-            <div className="rdp-hero__ctas">
+            <div className="rdp-hero__ctas rdp-seq rdp-seq--4">
               <Link to="/signup" className="rdp-btn rdp-btn--green rdp-btn--lg">
                 {pt ? 'Começar a monitorar grátis' : 'Start tracking free'} <IcArrow />
               </Link>
@@ -294,7 +378,7 @@ export default function ResDroppLanding() {
                 {pt ? 'Veja como funciona' : 'See how it works'}
               </a>
             </div>
-            <ul className="rdp-hero__trust">
+            <ul className="rdp-hero__trust rdp-seq rdp-seq--5">
               <li><IcCheck /> {pt ? 'Sem cartão de crédito' : 'No credit card required'}</li>
               <li className="rdp-hero__trust-sep" aria-hidden="true" />
               <li><IcCheck /> {pt ? 'Nunca alteramos sua reserva sem aprovação' : 'We never touch your booking without approval'}</li>
@@ -304,10 +388,7 @@ export default function ResDroppLanding() {
           </div>
 
           <div className="rdp-hero__visual">
-            <div className="rdp-hw" style={{
-              transform: `perspective(1400px) rotateX(${Math.max(0, 40 - scrollY * 0.08)}deg) scale(${Math.min(1.05, 0.85 + scrollY * 0.0004)}) translateY(${Math.max(-40, 120 - scrollY * 0.35)}px)`,
-              boxShadow: `0 ${30 + scrollY * 0.2}px ${60 + scrollY * 0.3}px -20px rgba(26,92,55,${Math.min(0.4, 0.15 + scrollY * 0.0005)}), 0 0 0 1px rgba(0,0,0,0.06)`
-            }}>
+            <div className="rdp-hw" ref={hwRef}>
               {/* Browser Chrome */}
               <div className="rdp-hw__chrome">
                 <div className="rdp-hw__dots">
@@ -349,21 +430,21 @@ export default function ResDroppLanding() {
               {/* Main panel */}
               <div className="rdp-hw__main">
                 <div className="rdp-hw__main-hd">
-                  <h3 className="rdp-hw__main-title">Tracked Bookings</h3>
+                  <div className="rdp-hw__main-title">Tracked Bookings</div>
                 </div>
 
                 <div className="rdp-hw__stats">
                   <div className="rdp-hw__stat">
                     <div className="rdp-hw__stat-label">MONITORING</div>
-                    <div className="rdp-hw__stat-val">3</div>
+                    <div className="rdp-hw__stat-val" data-count="3">3</div>
                   </div>
                   <div className="rdp-hw__stat">
                     <div className="rdp-hw__stat-label">TOTAL SAVED</div>
-                    <div className="rdp-hw__stat-val rdp-hw__stat-val--green">$412</div>
+                    <div className="rdp-hw__stat-val rdp-hw__stat-val--green" data-count="412" data-prefix="$">$412</div>
                   </div>
                   <div className="rdp-hw__stat">
                     <div className="rdp-hw__stat-label">ALERTS</div>
-                    <div className="rdp-hw__stat-val">7</div>
+                    <div className="rdp-hw__stat-val" data-count="7">7</div>
                   </div>
                 </div>
 
@@ -416,7 +497,7 @@ export default function ResDroppLanding() {
             </div>
             <div className="rdp-problem__stats">
               <div className="rdp-problem__stat">
-                <div className="rdp-problem__stat-num">72%</div>
+                <div className="rdp-problem__stat-num" data-count="72" data-suffix="%">72%</div>
                 <div className="rdp-problem__stat-label">{pt ? 'das reservas de hotel têm uma tarifa mais baixa disponível antes do check-in' : 'of hotel bookings have a lower rate available before check-in'}</div>
               </div>
               <div className="rdp-problem__stat">
@@ -424,7 +505,7 @@ export default function ResDroppLanding() {
                 <div className="rdp-problem__stat-label">{pt ? 'é quantas vezes o viajante médio verifica o preço manualmente após reservar' : 'is how many times the average traveler manually checks the price after booking'}</div>
               </div>
               <div className="rdp-problem__stat">
-                <div className="rdp-problem__stat-num">$180</div>
+                <div className="rdp-problem__stat-num" data-count="180" data-prefix="$">$180</div>
                 <div className="rdp-problem__stat-label">{pt ? 'é a economia média por reserva quando uma melhoria é encontrada e aproveitada' : 'is the average saving per booking when an improvement is found and acted on'}</div>
               </div>
             </div>
@@ -438,9 +519,9 @@ export default function ResDroppLanding() {
               <div className="rdp-kicker">{pt ? 'Como funciona' : 'How it works'}</div>
               <h2 className="rdp-h2">{pt ? 'Quatro passos.' : 'Four steps.'}<br />{pt ? 'Zero esforço depois.' : 'Zero effort after setup.'}</h2>
             </div>
-            <ol className="rdp-hiw__list">
+            <ol className="rdp-hiw__list" data-stagger>
               {STEPS.map((s, i) => (
-                <li key={i} className={`rdp-hiw__step reveal-on-scroll`} style={{ transitionDelay: `${i * 0.15}s` }}>
+                <li key={i} className="rdp-hiw__step anim-item">
                   <div className="rdp-hiw__num">{s.n}</div>
                   <div className="rdp-hiw__body">
                     <h3 className="rdp-hiw__title">
@@ -466,9 +547,9 @@ export default function ResDroppLanding() {
               </p>
             </div>
             <div className="rdp-trust__right">
-              <ul className="rdp-trust__list">
+              <ul className="rdp-trust__list" data-stagger>
                 {TRUST_ITEMS.map((item, i) => (
-                  <li key={i} className="rdp-trust__item">
+                  <li key={i} className="rdp-trust__item anim-item">
                     <span className="rdp-trust__check"><IcCheck /></span>
                     <span>{pt ? item.pt : item.en}</span>
                   </li>
@@ -536,22 +617,22 @@ export default function ResDroppLanding() {
                   <div className="rdp-dash-stats">
                     <div className="rdp-dash-stat">
                       <div className="rdp-dash-stat__label">{pt ? 'RASTREADAS' : 'TRACKED'}</div>
-                      <div className="rdp-dash-stat__value">4</div>
+                      <div className="rdp-dash-stat__value" data-count="4">4</div>
                       <div className="rdp-dash-stat__sub">{pt ? 'Reservas ativas' : 'Active reservations'}</div>
                     </div>
                     <div className="rdp-dash-stat">
                       <div className="rdp-dash-stat__label">{pt ? 'MONITORANDO' : 'MONITORING'}</div>
-                      <div className="rdp-dash-stat__value">3</div>
+                      <div className="rdp-dash-stat__value" data-count="3">3</div>
                       <div className="rdp-dash-stat__sub">{pt ? 'Verificando agora' : 'Checking now'}</div>
                     </div>
                     <div className="rdp-dash-stat">
                       <div className="rdp-dash-stat__label">{pt ? 'TOTAL ECON.' : 'TOTAL SAVED'}</div>
-                      <div className="rdp-dash-stat__value rdp-dash-stat__value--green">$412</div>
+                      <div className="rdp-dash-stat__value rdp-dash-stat__value--green" data-count="412" data-prefix="$">$412</div>
                       <div className="rdp-dash-stat__sub">{pt ? 'Desde o início' : 'All time'}</div>
                     </div>
                     <div className="rdp-dash-stat">
                       <div className="rdp-dash-stat__label">{pt ? 'ALERTAS ENV.' : 'ALERTS SENT'}</div>
-                      <div className="rdp-dash-stat__value">9</div>
+                      <div className="rdp-dash-stat__value" data-count="9">9</div>
                       <div className="rdp-dash-stat__sub">{pt ? 'Últimos 90 dias' : 'Past 90 days'}</div>
                     </div>
                   </div>
@@ -618,9 +699,9 @@ export default function ResDroppLanding() {
                 {pt ? 'Estes são os tipos de melhorias que nossos usuários encontram e aproveitam toda semana.' : 'These are the types of improvements our users catch and act on every week.'}
               </p>
             </div>
-            <div className="rdp-savings__grid">
+            <div className="rdp-savings__grid" data-stagger>
               {HOTEL_EXAMPLES.map((h, i) => (
-                <div key={i} className="rdp-savings__card">
+                <div key={i} className="rdp-savings__card anim-item">
                   <div className="rdp-savings__img-wrap">
                     <img src={h.img} alt={h.name} className="rdp-savings__img" loading="lazy" />
                     <div className="rdp-savings__found-badge">
@@ -665,9 +746,9 @@ export default function ResDroppLanding() {
               <div className="rdp-kicker">{pt ? 'Para quem é' : 'Who it is for'}</div>
               <h2 className="rdp-h2">{pt ? 'Feito para viajantes' : 'Made for travelers'}<br />{pt ? 'que reservam com antecedência.' : 'who book ahead.'}</h2>
             </div>
-            <div className="rdp-forwho__grid">
+            <div className="rdp-forwho__grid" data-stagger>
               {FOR_WHO.map((w, i) => (
-                <div key={i} className="rdp-forwho__card">
+                <div key={i} className="rdp-forwho__card anim-item">
                   <div className="rdp-forwho__num">{w.n}</div>
                   <h3 className="rdp-forwho__title">{pt ? w.title.pt : w.title.en}</h3>
                   <p className="rdp-forwho__desc">{pt ? w.desc.pt : w.desc.en}</p>
@@ -734,7 +815,7 @@ export default function ResDroppLanding() {
             <div className="rdp-faq__list">
               {FAQS.map((f, i) => (
                 <div key={i} className={`rdp-faq__item${faqOpen === i ? ' is-open' : ''}`}>
-                  <button className="rdp-faq__q" onClick={() => setFaqOpen(p => p === i ? null : i)}>
+                  <button className="rdp-faq__q" onClick={() => setFaqOpen(p => p === i ? null : i)} aria-expanded={faqOpen === i}>
                     <span>{pt ? f.q.pt : f.q.en}</span>
                     <IcChevron open={faqOpen === i} />
                   </button>

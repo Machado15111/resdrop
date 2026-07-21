@@ -698,18 +698,19 @@ const translations = {
 const I18nContext = createContext();
 
 export function I18nProvider({ children }) {
-  const [lang, setLang] = useState(() => localStorage.getItem('resdrop-lang') || 'pt');
+  const [lang, setLangState] = useState(() => localStorage.getItem('resdrop-lang') || 'pt');
 
   const t = (key) => translations[lang]?.[key] || translations['en']?.[key] || key;
 
-  const toggleLang = () => {
-    const next = lang === 'pt' ? 'en' : 'pt';
-    setLang(next);
+  const setLang = (next) => {
+    setLangState(next);
     localStorage.setItem('resdrop-lang', next);
   };
 
+  const toggleLang = () => setLang(lang === 'pt' ? 'en' : 'pt');
+
   return (
-    <I18nContext.Provider value={{ t, lang, toggleLang }}>
+    <I18nContext.Provider value={{ t, lang, setLang, toggleLang }}>
       {children}
     </I18nContext.Provider>
   );

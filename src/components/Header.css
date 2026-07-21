@@ -70,25 +70,37 @@
   gap: 16px;
 }
 
-/* Options */
-.lang-toggle {
-  display: flex;
+/* Language selector */
+.lang-switch {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 2px;
+  padding: 3px;
+  background: transparent;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+}
+
+.lang-switch__opt {
   background: transparent;
   color: var(--tl-text-muted);
-  border: 1px solid var(--tl-border);
+  border: none;
   border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.lang-toggle:hover {
+.lang-switch__opt:hover {
   color: var(--tl-bg-dark);
-  border-color: var(--tl-bg-dark);
+}
+
+.lang-switch__opt--active {
+  color: var(--tl-bg-dark);
+  background: var(--tl-border);
 }
 
 .admin-btn {
