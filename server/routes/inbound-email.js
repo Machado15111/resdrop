@@ -427,7 +427,8 @@ export async function processInboundEmailPayload({
   });
 
   // 5. Look up user by email
-  const user = await dbClient.getUserByEmail(senderEmail);
+  const getUserFn = dbClient.getUserByEmail || dbClient.getUser;
+  const user = getUserFn ? await getUserFn.call(dbClient, senderEmail) : null;
 
   if (user) {
     // Registered User Flow
