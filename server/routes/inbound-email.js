@@ -159,7 +159,7 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const confPatterns = [
-    /(?:confirma[çc][ãa]o|confirmation|booking|reserva|reservation)\s*(?:id|number|ref|code|#|n[°o]\.?)?\s*[:.]?\s*([A-Z0-9][\w\-]{3,20})/i,
+    /\b(?:confirma[çc][ãa]o|confirmation|booking|reservation|reserva|itinerary|itinérario|conf|reference|referência|ref)\b\s*(?:reference|referência|number|code|ref|id|#|n[°o]\.?)?\s*[:.#]?\s*([A-Z0-9][\w\-]{3,20})/i,
   ];
   for (const p of confPatterns) {
     const m = combined.match(p);
@@ -176,11 +176,27 @@ export function extractBookingFromEmail(text, subject = '') {
 export function normalizeDate(dateStr) {
   if (!dateStr) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  
   const parts = dateStr.split(/[\/\-\.]/);
-  if (parts.length !== 3) return dateStr;
-  let [d, m, y] = parts;
-  if (y.length === 2) y = '20' + y;
-  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  if (parts.length === 3) {
+    let [d, m, y] = parts;
+    if (y.length === 2) y = '20' + y;
+    if (!isNaN(parseInt(d)) && !isNaN(parseInt(m)) && !isNaN(parseInt(y)) && y.length === 4) {
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+  }
+
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch {}
+
+  return dateStr;
 }
 
 export function parsePrice(str) {
