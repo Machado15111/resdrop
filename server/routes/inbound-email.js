@@ -64,6 +64,124 @@ function getSmtpTransporter() {
   });
 }
 
+export function renderResdropEmailTemplate({
+  headline,
+  greeting,
+  bodyParagraphs = [],
+  extractedBooking,
+  ctaText,
+  ctaUrl,
+  footerNote = '',
+  lang = 'pt',
+}) {
+  const isPt = lang === 'pt';
+  const brandColor = '#52B788';
+  const headerBg = '#0A1628';
+
+  const bookingCardHtml = extractedBooking ? `
+    <div style="margin:24px 0;padding:16px 20px;background-color:#F8FAF9;border:1px solid #E2E8F0;border-left:4px solid ${brandColor};border-radius:8px;">
+      <p style="margin:0 0 10px 0;font-size:12px;font-weight:700;letter-spacing:1px;color:#64748B;text-transform:uppercase;">
+        ${isPt ? 'Resumo da Reserva Encontrada' : 'Extracted Booking Summary'}
+      </p>
+      ${extractedBooking.hotelName ? `
+        <div style="margin-bottom:8px;font-size:15px;color:#0F172A;">
+          <strong>${isPt ? 'Hotel' : 'Hotel'}:</strong> ${extractedBooking.hotelName}
+        </div>` : ''}
+      ${(extractedBooking.checkinDate || extractedBooking.checkoutDate) ? `
+        <div style="margin-bottom:8px;font-size:14px;color:#334155;">
+          <strong>${isPt ? 'Período' : 'Dates'}:</strong> ${extractedBooking.checkinDate || '?'} ${isPt ? 'até' : 'to'} ${extractedBooking.checkoutDate || '?'}
+        </div>` : ''}
+      ${extractedBooking.originalPrice ? `
+        <div style="font-size:14px;color:#334155;">
+          <strong>${isPt ? 'Valor Registrado' : 'Total Price'}:</strong> ${extractedBooking.currency || 'USD'} ${extractedBooking.originalPrice}
+        </div>` : ''}
+    </div>
+  ` : '';
+
+  const paragraphsHtml = bodyParagraphs
+    .map(p => `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">${p}</p>`)
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F1F5F9;font-family:Arial, Helvetica, sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F1F5F9;padding:20px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:580px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);border:1px solid #E2E8F0;">
+          
+          <!-- BRAND HEADER WITH GOLD BADGE & LOGO -->
+          <tr>
+            <td style="background-color:${headerBg};padding:24px;text-align:center;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:10px;">
+                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F5D680,#C9A84C,#A67C2E);display:inline-block;text-align:center;line-height:32px;color:#0A1628;font-weight:900;font-size:18px;">✓</div>
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-size:24px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;">Res<span style="color:${brandColor};">Drop</span></span>
+                  </td>
+                </tr>
+              </table>
+              <div style="color:#94A3B8;font-size:11px;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">MONITORAMENTO INTELIGENTE DE HOTÉIS</div>
+            </td>
+          </tr>
+
+          <!-- MAIN CONTENT BODY -->
+          <tr>
+            <td style="padding:32px 28px;">
+              <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#0F172A;line-height:1.3;">${headline}</h1>
+              ${greeting ? `<p style="margin:0 0 16px 0;font-size:15px;font-weight:600;color:#0F172A;">${greeting}</p>` : ''}
+              
+              ${paragraphsHtml}
+
+              ${bookingCardHtml}
+
+              <!-- CALL TO ACTION BUTTON -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 16px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${ctaUrl}" target="_blank" style="background-color:${brandColor};color:#FFFFFF;display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;box-shadow:0 4px 6px -1px rgba(82, 183, 136, 0.25);">
+                      ${ctaText}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- PLAIN TEXT LINK FALLBACK -->
+              <p style="margin:16px 0 0 0;font-size:12px;color:#94A3B8;text-align:center;line-height:1.4;">
+                ${isPt ? 'Se o botão acima não funcionar, copie e cole o link no seu navegador:' : 'If the button above does not work, copy and paste this link into your browser:'}<br>
+                <a href="${ctaUrl}" style="color:${brandColor};word-break:break-all;">${ctaUrl}</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- FOOTER -->
+          <tr>
+            <td style="background-color:#F8FAFC;padding:20px 28px;border-top:1px solid #E2E8F0;text-align:center;">
+              <p style="margin:0 0 6px 0;font-size:12px;color:#64748B;font-weight:600;">
+                ResDrop &copy; ${new Date().getFullYear()} — ResDrop Inc.
+              </p>
+              <p style="margin:0;font-size:11px;color:#94A3B8;line-height:1.4;">
+                ${isPt ? 'Você recebeu este e-mail porque uma reserva de hotel foi encaminhada para monitoramento.' : 'You received this email because a hotel reservation was submitted for price monitoring.'}<br>
+                ${footerNote || ''}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function sendReplyEmail(to, subject, htmlText, textCopy) {
   const from = process.env.INBOUND_EMAIL_ADDRESS || 'reservas@resdrop.app';
   const transporter = getSmtpTransporter();
@@ -84,7 +202,7 @@ async function sendReplyEmail(to, subject, htmlText, textCopy) {
     }
   }
 
-  // Fallback to Resend API
+  // Fallback to Resend API with plain text copy for anti-spam deliverability
   const resendKey = process.env.RESEND_API_KEY;
   if (resendKey) {
     try {
@@ -92,10 +210,11 @@ async function sendReplyEmail(to, subject, htmlText, textCopy) {
         method: 'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: `ResDrop <${process.env.RESEND_FROM || 'notifications@resdrop.app'}>`,
+          from: `ResDrop <${process.env.RESEND_FROM || 'reservas@resdrop.app'}>`,
           to,
           subject,
           html: htmlText,
+          text: textCopy,
         }),
       });
       console.log(`[Inbound Poller] Reply sent via Resend to ${to}`);
@@ -386,42 +505,42 @@ export async function pollInboundEmails() {
 
             const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport.id}`;
 
-            const lang = user.country === 'BR' || user.currency === 'BRL' ? 'pt' : 'en';
-            const emailSubject = lang === 'pt' ? 'Recebemos sua reserva' : 'We received your booking';
+            const lang = user.country === 'BR' || user.currency === 'BRL' || (senderEmail && senderEmail.endsWith('.br')) || extractedData.currency === 'BRL' ? 'pt' : 'en';
+            const emailSubject = lang === 'pt'
+              ? `Recebemos sua reserva do ${extractedData.hotelName || 'hotel'} — ResDrop`
+              : `We received your booking for ${extractedData.hotelName || 'hotel'} — ResDrop`;
 
-            const ptHtml = `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
-                <h2>Olá ${user.name || 'Viajante'},</h2>
-                <p>Recebemos sua confirmação de hotel e começamos a preparar o monitoramento.</p>
-                <p>Revise os dados extraídos e complete qualquer informação necessária pelo link abaixo:</p>
-                <p><a href="${reviewUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Revisar Reserva</a></p>
-                <p><em>O monitoramento será iniciado após a sua confirmação.</em></p>
-                <p>Atenciosamente,<br>Equipe ResDrop</p>
-              </div>`;
+            const htmlEmail = renderResdropEmailTemplate({
+              headline: lang === 'pt' ? 'Recebemos sua confirmação de reserva!' : 'We received your booking confirmation!',
+              greeting: lang === 'pt' ? `Olá ${user.name || 'Viajante'},` : `Hello ${user.name || 'Traveler'},`,
+              bodyParagraphs: lang === 'pt'
+                ? [
+                    'Recebemos sua reserva enviada por e-mail e preparamos os dados para o monitoramento 24/7.',
+                    'Por favor, revise os dados abaixo e confirme para iniciar a busca automática de menores preços.',
+                  ]
+                : [
+                    'We received your forwarded hotel confirmation and prepared your 24/7 price monitoring.',
+                    'Please review the details below and confirm to activate automatic price drop monitoring.',
+                  ],
+              extractedBooking: extractedData,
+              ctaText: lang === 'pt' ? 'Revisar & Ativar Monitoramento' : 'Review & Enable Monitoring',
+              ctaUrl: reviewUrl,
+              footerNote: lang === 'pt' ? 'O monitoramento começará imediatamente após a sua confirmação.' : 'Monitoring starts immediately after your confirmation.',
+              lang,
+            });
 
-            const enHtml = `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
-                <h2>Hello ${user.name || 'Traveler'},</h2>
-                <p>We received your hotel confirmation and started preparing price monitoring.</p>
-                <p>Please review the extracted details and complete any missing fields using the link below:</p>
-                <p><a href="${reviewUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Review Booking Details</a></p>
-                <p><em>Monitoring will start after your confirmation.</em></p>
-                <p>Best regards,<br>ResDrop Team</p>
-              </div>`;
+            const textCopy = lang === 'pt'
+              ? `Olá ${user.name || 'Viajante'},\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara revisar e ativar o monitoramento, acesse:\n${reviewUrl}`
+              : `Hello ${user.name || 'Traveler'},\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo review and enable monitoring, visit:\n${reviewUrl}`;
 
-            await sendReplyEmail(
-              user.email,
-              emailSubject,
-              lang === 'pt' ? ptHtml : enHtml,
-              `Revisar reserva: ${reviewUrl}`
-            );
+            await sendReplyEmail(user.email, emailSubject, htmlEmail, textCopy);
 
             await db.updateInboundEmail(inboundRecord.id, {
               status: 'PROCESSED',
               processedAt: new Date().toISOString(),
             });
           } else {
-            // Unregistered User Flow
+            // Unregistered User Flow (Welcome Email)
             const bookingImport = await db.createBookingImport({
               inboundEmailId: inboundRecord.id,
               source: 'inbound_email',
@@ -445,31 +564,39 @@ export async function pollInboundEmails() {
             });
 
             const signupUrl = `${baseUrl}/signup?token=${rawToken}`;
+            const isPt = senderEmail.endsWith('.br') || extractedData.currency === 'BRL';
+            const lang = isPt ? 'pt' : 'en';
 
-            const ptHtml = `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
-                <h2>Crie sua conta para acompanhar sua reserva</h2>
-                <p>Recebemos sua confirmação de hotel enviado por email.</p>
-                <p>Para ativar o monitoramento automático de menor preço, crie sua conta no ResDrop:</p>
-                <p><a href="${signupUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Criar Minha Conta</a></p>
-                <p>Atenciosamente,<br>Equipe ResDrop</p>
-              </div>`;
+            const welcomeSubject = lang === 'pt'
+              ? `Bem-vindo ao ResDrop! Crie sua conta para ativar o monitoramento`
+              : `Welcome to ResDrop! Create your account to enable price monitoring`;
 
-            const enHtml = `
-              <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#0F2E1F;">
-                <h2>Create your account to monitor your booking</h2>
-                <p>We received your hotel confirmation forwarded via email.</p>
-                <p>To enable automatic price drop monitoring, create your ResDrop account below:</p>
-                <p><a href="${signupUrl}" style="display:inline-block;padding:12px 24px;background:#52B788;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Create Account</a></p>
-                <p>Best regards,<br>ResDrop Team</p>
-              </div>`;
+            const htmlWelcomeEmail = renderResdropEmailTemplate({
+              headline: lang === 'pt' ? 'Sua reserva de hotel foi recebida!' : 'Your hotel booking was received!',
+              greeting: lang === 'pt' ? 'Olá!' : 'Hello!',
+              bodyParagraphs: lang === 'pt'
+                ? [
+                    'Obrigado por utilizar o ResDrop! Recebemos a sua confirmação de hotel encaminhada por e-mail.',
+                    'O ResDrop monitora 24 horas por dia os preços das diárias. Quando o valor do seu hotel cair, nós avisamos você imediatamente para você remarcar e economizar.',
+                    'Para ativar o monitoramento gratuito da sua primeira reserva, crie sua conta no botão abaixo:',
+                  ]
+                : [
+                    'Thank you for using ResDrop! We received your forwarded hotel confirmation email.',
+                    'ResDrop monitors hotel rates 24/7. When your hotel price drops, we alert you instantly so you can rebook and save.',
+                    'To enable free price monitoring for your reservation, create your account using the button below:',
+                  ],
+              extractedBooking: extractedData,
+              ctaText: lang === 'pt' ? 'Criar Conta & Ativar Monitoramento' : 'Create Account & Enable Monitoring',
+              ctaUrl: signupUrl,
+              footerNote: lang === 'pt' ? 'Sem cartão de crédito. Cancele a qualquer momento.' : 'No credit card required. Cancel anytime.',
+              lang,
+            });
 
-            await sendReplyEmail(
-              senderEmail,
-              'Crie sua conta para acompanhar sua reserva / Create your account to monitor your booking',
-              ptHtml,
-              `Criar conta: ${signupUrl}`
-            );
+            const welcomeTextCopy = lang === 'pt'
+              ? `Bem-vindo ao ResDrop!\n\nRecebemos sua reserva do ${extractedData.hotelName || 'hotel'}.\nPara ativar o monitoramento automático de queda de preço, crie sua conta no link:\n${signupUrl}`
+              : `Welcome to ResDrop!\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo enable automatic price drop monitoring, create your account at:\n${signupUrl}`;
+
+            await sendReplyEmail(senderEmail, welcomeSubject, htmlWelcomeEmail, welcomeTextCopy);
 
             await db.updateInboundEmail(inboundRecord.id, {
               status: 'PROCESSED',
