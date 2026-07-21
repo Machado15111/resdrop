@@ -2,6 +2,7 @@ import postgres from 'postgres';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import * as supa from './supabase-rest.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -727,12 +728,18 @@ export async function markPasswordResetUsed(token) {
 }
 
 // ─── Inbound Emails ──────────────────────────────────────────
+// Uses Supabase REST API for serverless compatibility (tables may not exist in postgres direct connection)
 
 export async function createInboundEmail(data) {
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
-    const rows = await sql`INSERT INTO inbound_emails ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const row = {};
+    if (data.messageId !== undefined) row.message_id = data.messageId;
+    if (data.senderEmail !== undefined) row.sender_email = data.senderEmail;
+    if (data.subject !== undefined) row.subject = data.subject;
+    if (data.status !== undefined) row.status = data.status;
+    if (data.contentHash !== undefined) row.content_hash = data.contentHash;
+    const result = await supa.insert('inbound_emails', row);
+    return result ? toCamel(result) : null;
   } catch (e) {
     console.error('[DB] createInboundEmail:', e.message);
     return null;
@@ -741,7 +748,7 @@ export async function createInboundEmail(data) {
 
 export async function getInboundEmailByMessageId(messageId) {
   try {
-    const rows = await sql`SELECT * FROM inbound_emails WHERE message_id = ${messageId} LIMIT 1`;
+    const rows = await supa.select('inbound_emails', { message_id: messageId }, { limit: 1 });
     return rows[0] ? toCamel(rows[0]) : null;
   } catch (e) {
     console.error('[DB] getInboundEmailByMessageId:', e.message);
@@ -751,7 +758,7 @@ export async function getInboundEmailByMessageId(messageId) {
 
 export async function getInboundEmailByHash(hash) {
   try {
-    const rows = await sql`SELECT * FROM inbound_emails WHERE content_hash = ${hash} LIMIT 1`;
+    const rows = await supa.select('inbound_emails', { content_hash: hash }, { limit: 1 });
     return rows[0] ? toCamel(rows[0]) : null;
   } catch (e) {
     console.error('[DB] getInboundEmailByHash:', e.message);
@@ -761,10 +768,13 @@ export async function getInboundEmailByHash(hash) {
 
 export async function updateInboundEmail(id, updates) {
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(updates)).filter(([, v]) => v !== undefined));
+    const row = {};
+    if (updates.status !== undefined) row.status = updates.status;
+    if (updates.processedAt !== undefined) row.processed_at = updates.processedAt;
+    if (updates.failureReason !== undefined) row.failure_reason = updates.failureReason;
     if (Object.keys(row).length === 0) return null;
-    const rows = await sql`UPDATE inbound_emails SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const result = await supa.update('inbound_emails', { id }, row);
+    return result ? toCamel(result) : null;
   } catch (e) {
     console.error('[DB] updateInboundEmail:', e.message);
     return null;
@@ -772,15 +782,35 @@ export async function updateInboundEmail(id, updates) {
 }
 
 // ─── Booking Imports ─────────────────────────────────────────
-
-const inMemoryBookingImports = new Map();
+// Stored in Supabase via REST API — persists across serverless invocations
 
 export async function createBookingImport(data) {
+  try {
+    const row = {
+      source: data.source || 'inbound_email',
+      extracted_data: data.extractedData || {},
+      confidence_data: data.confidenceData || {},
+      missing_fields: Array.isArray(data.missingFields) ? data.missingFields : [],
+      status: data.status || 'NEEDS_REVIEW',
+    };
+    if (data.userEmail) row.user_email = data.userEmail;
+    if (data.inboundEmailId && typeof data.inboundEmailId === 'string' && /^[0-9a-f-]{36}$/i.test(data.inboundEmailId)) {
+      row.inbound_email_id = data.inboundEmailId;
+    }
+    const result = await supa.insert('booking_imports', row);
+    if (result) {
+      console.log('[DB] createBookingImport SUCCESS — id:', result.id);
+      return toCamel(result);
+    }
+  } catch (e) {
+    console.error('[DB] createBookingImport error:', e.message);
+  }
+  // Fallback: ephemeral record (not persisted across invocations, but better than nothing)
   const fallbackId = `imp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  const record = {
+  console.warn('[DB] createBookingImport using ephemeral fallback id:', fallbackId);
+  return {
     id: fallbackId,
     userEmail: data.userEmail || null,
-    inboundEmailId: data.inboundEmailId || null,
     source: data.source || 'inbound_email',
     extractedData: data.extractedData || {},
     confidenceData: data.confidenceData || {},
@@ -788,89 +818,61 @@ export async function createBookingImport(data) {
     status: data.status || 'NEEDS_REVIEW',
     createdAt: new Date().toISOString(),
   };
-
-  try {
-    const s = toSnake(data);
-    const row = {
-      source: s.source || 'inbound_email',
-      extracted_data: sql.json(s.extracted_data || {}),
-      confidence_data: sql.json(s.confidence_data || {}),
-      missing_fields: sql.json(s.missing_fields || []),
-      status: s.status || 'NEEDS_REVIEW',
-    };
-    if (s.user_email) row.user_email = s.user_email;
-    if (s.inbound_email_id && typeof s.inbound_email_id === 'string' && s.inbound_email_id.length === 36) {
-      row.inbound_email_id = s.inbound_email_id;
-    }
-    if (s.booking_id) row.booking_id = s.booking_id;
-    const rows = await sql`INSERT INTO booking_imports ${sql(row)} RETURNING *`;
-    if (rows[0]) {
-      const dbRecord = toCamel(rows[0]);
-      inMemoryBookingImports.set(dbRecord.id, dbRecord);
-      return dbRecord;
-    }
-  } catch (e) {
-    console.error('[DB] createBookingImport DB error:', e.message);
-  }
-
-  inMemoryBookingImports.set(fallbackId, record);
-  return record;
 }
 
 export async function getBookingImport(id) {
   if (!id) return null;
   try {
-    if (typeof id === 'string' && id.length === 36 && !id.startsWith('imp-')) {
-      const rows = await sql`SELECT * FROM booking_imports WHERE id = ${id} LIMIT 1`;
-      if (rows[0]) return toCamel(rows[0]);
-    }
+    const rows = await supa.select('booking_imports', { id }, { limit: 1 });
+    return rows[0] ? toCamel(rows[0]) : null;
   } catch (e) {
-    console.error('[DB] getBookingImport DB error:', e.message);
+    console.error('[DB] getBookingImport error:', e.message);
+    return null;
   }
-  return inMemoryBookingImports.get(id) || null;
 }
 
 export async function updateBookingImport(id, updates) {
   if (!id) return null;
-  const mem = inMemoryBookingImports.get(id) || { id, ...updates };
-  Object.assign(mem, updates);
-  inMemoryBookingImports.set(id, mem);
-
   try {
-    if (typeof id === 'string' && id.length === 36 && !id.startsWith('imp-')) {
-      const s = toSnake(updates);
-      const row = {};
-      if (s.user_email !== undefined) row.user_email = s.user_email;
-      if (s.status !== undefined) row.status = s.status;
-      if (s.confirmed_at !== undefined) row.confirmed_at = s.confirmed_at;
-      if (s.booking_id !== undefined) row.booking_id = s.booking_id;
-      if (s.extracted_data !== undefined) row.extracted_data = sql.json(s.extracted_data);
-      if (s.confidence_data !== undefined) row.confidence_data = sql.json(s.confidence_data);
-      if (s.missing_fields !== undefined) row.missing_fields = sql.json(s.missing_fields);
-
-      if (Object.keys(row).length === 0) return await getBookingImport(id);
-      const rows = await sql`UPDATE booking_imports SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-      if (rows[0]) return toCamel(rows[0]);
-    }
+    const row = {};
+    if (updates.userEmail !== undefined) row.user_email = updates.userEmail;
+    if (updates.status !== undefined) row.status = updates.status;
+    if (updates.confirmedAt !== undefined) row.confirmed_at = updates.confirmedAt;
+    if (updates.bookingId !== undefined) row.booking_id = updates.bookingId;
+    if (updates.extractedData !== undefined) row.extracted_data = updates.extractedData;
+    if (updates.confidenceData !== undefined) row.confidence_data = updates.confidenceData;
+    if (updates.missingFields !== undefined) row.missing_fields = updates.missingFields;
+    if (Object.keys(row).length === 0) return await getBookingImport(id);
+    const result = await supa.update('booking_imports', { id }, row);
+    return result ? toCamel(result) : await getBookingImport(id);
   } catch (e) {
-    console.error('[DB] updateBookingImport DB error:', e.message);
+    console.error('[DB] updateBookingImport error:', e.message);
+    return null;
   }
-  return mem;
+}
+
+export async function getAllBookingImports(limit = 50) {
+  try {
+    const rows = await supa.select('booking_imports', {}, { order: 'created_at.desc', limit });
+    return rows.map(r => toCamel(r));
+  } catch (e) {
+    console.error('[DB] getAllBookingImports error:', e.message);
+    return [];
+  }
 }
 
 // ─── Pending Import Tokens ───────────────────────────────────
 
 export async function createPendingImportToken(data) {
   try {
-    const s = toSnake(data);
     const row = {
-      booking_import_id: s.booking_import_id,
-      email: s.email,
-      token_hash: s.token_hash,
-      expires_at: s.expires_at,
+      booking_import_id: data.bookingImportId,
+      email: data.email,
+      token_hash: data.tokenHash,
+      expires_at: data.expiresAt,
     };
-    const rows = await sql`INSERT INTO pending_import_tokens ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const result = await supa.insert('pending_import_tokens', row);
+    return result ? toCamel(result) : null;
   } catch (e) {
     console.error('[DB] createPendingImportToken:', e.message);
     return null;
@@ -879,12 +881,12 @@ export async function createPendingImportToken(data) {
 
 export async function getPendingImportTokenByHash(tokenHash) {
   try {
-    const rows = await sql`
-      SELECT * FROM pending_import_tokens
-      WHERE token_hash = ${tokenHash} AND used_at IS NULL AND expires_at > NOW()
-      LIMIT 1
-    `;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const rows = await supa.select('pending_import_tokens', { token_hash: tokenHash, used_at: null }, { limit: 1 });
+    if (!rows[0]) return null;
+    const record = toCamel(rows[0]);
+    // Check expiry
+    if (record.expiresAt && new Date(record.expiresAt) < new Date()) return null;
+    return record;
   } catch (e) {
     console.error('[DB] getPendingImportTokenByHash:', e.message);
     return null;
@@ -893,7 +895,7 @@ export async function getPendingImportTokenByHash(tokenHash) {
 
 export async function markPendingImportTokenUsed(id) {
   try {
-    await sql`UPDATE pending_import_tokens SET used_at = NOW() WHERE id = ${id}`;
+    await supa.update('pending_import_tokens', { id }, { used_at: new Date().toISOString() });
   } catch (e) {
     console.error('[DB] markPendingImportTokenUsed:', e.message);
   }

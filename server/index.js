@@ -188,7 +188,7 @@ function generateId() {
 }
 
 // ─── Auth Middleware ─────────────────────────────────────────
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'junior13machadojr@gmail.com').toLowerCase();
 
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -210,7 +210,7 @@ async function authMiddleware(req, res, next) {
 }
 
 function adminMiddleware(req, res, next) {
-  if (req.userEmail !== ADMIN_EMAIL) {
+  if (!req.userEmail || req.userEmail.toLowerCase() !== ADMIN_EMAIL) {
     return res.status(403).json({ error: 'Admin access denied' });
   }
   next();
@@ -1120,7 +1120,7 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
-  res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
+  res.json({ user: { ...user, isAdmin: user?.email?.toLowerCase() === ADMIN_EMAIL }, token });
 });
 
 app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
@@ -1169,7 +1169,7 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
   sendWelcomeEmail(email, name || 'Guest', user || {}).catch(() => {});
   sendAdminNotification('New User Signup', `<p><strong>${name || 'Guest'}</strong> (${email}) just signed up.</p>`).catch(() => {});
 
-  res.json({ user: { ...user, isAdmin: user.email === ADMIN_EMAIL }, token });
+  res.json({ user: { ...user, isAdmin: user?.email?.toLowerCase() === ADMIN_EMAIL }, token });
 });
 
 app.post('/api/auth/logout', authMiddleware, async (req, res) => {
@@ -1179,7 +1179,7 @@ app.post('/api/auth/logout', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
-  res.json({ ...req.user, isAdmin: req.userEmail === ADMIN_EMAIL });
+  res.json({ ...req.user, isAdmin: req.userEmail?.toLowerCase() === ADMIN_EMAIL });
 });
 
 app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {

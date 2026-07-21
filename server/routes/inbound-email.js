@@ -230,14 +230,16 @@ export function extractBookingFromEmail(text, subject = '') {
   const hotelPatterns = [
     /(?:^|\n)\s*(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
     /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
-    /(?:your (?:stay|reservation|booking) at|sua (?:reserva|estadia) (?:no|na|em)|confirmation for (?:hotel)?|confirma[çc][ãa]o para (?:hotel)?|confirma[çc][ãa]o de reserva (?:no|na|em)|reserva (?:no|na|em))\s+([A-Z0-9\s&'.-]{3,80})/i,
+    /(?:your (?:stay|reservation|booking) at|sua (?:reserva|estadia) (?:no|na|em)|confirmation for (?:hotel)?|confirma[çc][ãa]o para (?:hotel)?|confirma[çc][ãa]o de reserva (?:no|na|em|do|da)?|reserva (?:no|na|em|do|da)?)\s+([A-Z0-9\s&'.-]{3,80})/i,
     /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s+([A-Z0-9\s&'.-]{3,80})/i,
+    /([A-Z0-9\s&'.-]{3,60})\s*[-–|]\s*(?:confirma[çc][ãa]o|confirmation|reserva|booking)/i,
   ];
   for (const p of hotelPatterns) {
     const m = combined.match(p);
     if (m) {
       let name = m[1].trim().split(/[,\n\r|]/)[0].trim();
-      if (name.length > 3 && name.length < 100) {
+      // Exclude common header words
+      if (name.length > 3 && name.length < 100 && !/^(confirmation|confirmação|reserva|booking|detalhes|sua estadia)$/i.test(name)) {
         fields.hotelName = name;
         confidence.hotelName = 0.7;
         break;
@@ -246,8 +248,8 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const checkinPatterns = [
-    /(?:check[\s-]*in|entrada|chegada)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /(?:check[\s-]*in|entrada|chegada)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*in|entrada|chegada|in)\s*[:.]?\s*(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+    /(?:check[\s-]*in|entrada|chegada|in)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
   ];
   for (const p of checkinPatterns) {
     const m = combined.match(p);
@@ -259,8 +261,8 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const checkoutPatterns = [
-    /(?:check[\s-]*out|sa[íi]da|partida)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /(?:check[\s-]*out|sa[íi]da|partida)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|out)\s*[:.]?\s*(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|out)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
   ];
   for (const p of checkoutPatterns) {
     const m = combined.match(p);
@@ -316,15 +318,21 @@ export function extractBookingFromEmail(text, subject = '') {
 
 export function normalizeDate(dateStr) {
   if (!dateStr) return null;
+  dateStr = dateStr.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
   
-  const parts = dateStr.split(/[\/\-\.]/);
-  if (parts.length === 3) {
-    let [d, m, y] = parts;
+  // Year first: YYYY/MM/DD or YYYY-MM-DD
+  const yfirst = dateStr.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (yfirst) {
+    return `${yfirst[1]}-${yfirst[2].padStart(2, '0')}-${yfirst[3].padStart(2, '0')}`;
+  }
+
+  // Day first: DD/MM/YYYY or DD-MM-YYYY
+  const dfirst = dateStr.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (dfirst) {
+    let [_, d, m, y] = dfirst;
     if (y.length === 2) y = '20' + y;
-    if (!isNaN(parseInt(d)) && !isNaN(parseInt(m)) && !isNaN(parseInt(y)) && y.length === 4) {
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
   try {
