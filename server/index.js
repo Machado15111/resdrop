@@ -1426,135 +1426,146 @@ app.post('/api/expedia/commission', (req, res) => {
 
 // Full admin dashboard data
 app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res) => {
-  const allBookings = await db.getAllBookings();
-  const allUsers = await db.getAllUsers(200);
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const allBookings = (await db.getAllBookings()) || [];
+    const allUsers = (await db.getAllUsers(200)) || [];
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Stats
-  const totalSavings = allBookings.reduce((sum, b) => sum + (parseFloat(b.totalSavings) || 0), 0);
-  const savingsFound = allBookings.filter(b => b.status === 'savings_found').length;
-  const totalBookingValue = allBookings.reduce((sum, b) => sum + (parseFloat(b.originalPrice) || 0), 0);
+    // Stats
+    const totalSavings = allBookings.reduce((sum, b) => sum + (parseFloat(b.totalSavings) || 0), 0);
+    const savingsFound = allBookings.filter(b => b.status === 'savings_found').length;
+    const totalBookingValue = allBookings.reduce((sum, b) => sum + (parseFloat(b.originalPrice) || 0), 0);
 
-  // Revenue estimates
-  const avgCommissionRate = 0.04;
-  const estimatedCommissions = Math.round(totalSavings * avgCommissionRate * 100) / 100;
-  const rebookingsThisMonth = savingsFound;
+    // Revenue estimates
+    const avgCommissionRate = 0.04;
+    const estimatedCommissions = Math.round(totalSavings * avgCommissionRate * 100) / 100;
+    const rebookingsThisMonth = savingsFound;
 
-  // User stats
-  const activeToday = allUsers.filter(u => u.lastActive?.startsWith(today)).length;
-  const newThisWeek = allUsers.filter(u => u.joinedAt >= weekAgo).length;
-  const freeUsers = allUsers.filter(u => u.plan === 'free').length;
-  const viajanteUsers = allUsers.filter(u => u.plan === 'viajante').length;
-  const premiumUsers = allUsers.filter(u => u.plan === 'premium').length;
-  const membershipRevenue = viajanteUsers * 25 + premiumUsers * 100;
-  const usersWithSavings = allUsers.filter(u => (parseFloat(u.totalSavings) || 0) > 0).length;
+    // User stats
+    const activeToday = allUsers.filter(u => u.lastActive?.startsWith(today)).length;
+    const newThisWeek = allUsers.filter(u => u.joinedAt >= weekAgo).length;
+    const freeUsers = allUsers.filter(u => u.plan === 'free').length;
+    const viajanteUsers = allUsers.filter(u => u.plan === 'viajante').length;
+    const premiumUsers = allUsers.filter(u => u.plan === 'premium').length;
+    const membershipRevenue = viajanteUsers * 25 + premiumUsers * 100;
+    const usersWithSavings = allUsers.filter(u => (parseFloat(u.totalSavings) || 0) > 0).length;
 
-  // User growth data (last 7 days)
-  const growthData = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now - i * 24 * 60 * 60 * 1000);
-    const dayStr = d.toISOString().split('T')[0];
-    const count = allUsers.filter(u => u.joinedAt?.startsWith(dayStr)).length;
-    growthData.push({
-      label: d.toLocaleDateString('en', { weekday: 'short' }),
-      count: count || Math.floor(Math.random() * 3),
+    // User growth data (last 7 days)
+    const growthData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now - i * 24 * 60 * 60 * 1000);
+      const dayStr = d.toISOString().split('T')[0];
+      const count = allUsers.filter(u => u.joinedAt?.startsWith(dayStr)).length;
+      growthData.push({
+        label: d.toLocaleDateString('en', { weekday: 'short' }),
+        count: count || 0,
+      });
+    }
+
+    // System info
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const mins = Math.floor((uptime % 3600) / 60);
+    const mem = process.memoryUsage();
+
+    let schedulerStatus = {};
+    try { schedulerStatus = getSchedulerStatus(); } catch {}
+
+    let expediaInfo = {};
+    try { expediaInfo = getExpediaProgrammeInfo(); } catch {}
+
+    res.json({
+      stats: {
+        totalBookings: allBookings.length,
+        savingsFound,
+        totalSavings: Math.round(totalSavings * 100) / 100,
+        avgSavings: savingsFound > 0 ? Math.round((totalSavings / savingsFound) * 100) / 100 : 0,
+        successRate: allBookings.length > 0 ? Math.round((savingsFound / allBookings.length) * 100) : 0,
+        apiMode: typeof API_MODE !== 'undefined' ? API_MODE : 'PRODUCTION',
+      },
+      scheduler: schedulerStatus,
+      users: {
+        total: allUsers.length,
+        activeToday,
+        newToday: allUsers.filter(u => u.joinedAt?.startsWith(today)).length,
+        newThisWeek,
+        free: freeUsers,
+        viajante: viajanteUsers,
+        premium: premiumUsers,
+        withSavings: usersWithSavings,
+        savingsPercent: allUsers.length > 0 ? Math.round((usersWithSavings / allUsers.length) * 100) : 0,
+        avgBookingsPerUser: allUsers.length > 0 ? Math.round((allBookings.length / allUsers.length) * 10) / 10 : 0,
+        growthData,
+        list: allUsers.slice(0, 50).map(u => ({
+          name: u.name,
+          email: u.email,
+          bookings: u.bookingsCount || 0,
+          totalSavings: u.totalSavings || 0,
+          plan: u.plan || 'free',
+          joinedAt: u.joinedAt,
+          active: u.active !== false,
+        })),
+      },
+      bookings: {
+        total: allBookings.length,
+        monitoring: allBookings.filter(b => b.status === 'monitoring').length,
+        savingsFound,
+        recentBookings: allBookings.slice(0, 10).map(b => ({
+          id: b.id,
+          hotelName: b.hotelName,
+          destination: b.destination,
+          originalPrice: b.originalPrice,
+          bestPrice: b.bestPrice,
+          totalSavings: b.totalSavings,
+          status: b.status,
+          createdAt: b.createdAt,
+        })),
+      },
+      revenue: {
+        estimatedMonthly: Math.round(estimatedCommissions + membershipRevenue),
+        affiliateCommissions: estimatedCommissions,
+        membershipRevenue,
+        bookingCommissions: Math.round(estimatedCommissions * 0.6 * 100) / 100,
+        expediaCommissions: Math.round(estimatedCommissions * 0.3 * 100) / 100,
+        otherCommissions: Math.round(estimatedCommissions * 0.1 * 100) / 100,
+        totalBookingValue: Math.round(totalBookingValue * 100) / 100,
+        avgCommissionRate: Math.round(avgCommissionRate * 100),
+        rebookingsThisMonth,
+        currentMRR: Math.round((estimatedCommissions + membershipRevenue) * 100) / 100,
+        projectedARR: Math.round((estimatedCommissions + membershipRevenue) * 12 * 100) / 100,
+        ltvPerUser: allUsers.length > 0 ? Math.round(((estimatedCommissions + membershipRevenue) * 12 / allUsers.length) * 100) / 100 : 0,
+        cacTarget: 15,
+        breakEvenUsers: Math.ceil(150 / (9.90 * 0.1 + avgCommissionRate * 200)),
+      },
+      affiliates: {
+        booking: {
+          configured: typeof isAwinConfigured === 'function' ? isAwinConfigured() : false,
+          advertiserIdBrazil: process.env.BOOKING_AWIN_ADVERTISER_ID_BRAZIL || 'N/A',
+          programmeStatus: typeof isAwinConfigured === 'function' && isAwinConfigured() ? 'Active' : 'Pending',
+        },
+        expedia: {
+          ...expediaInfo,
+          commissions: undefined,
+        },
+        expediaCommissions: typeof getExpediaCommissionRates === 'function' ? getExpediaCommissionRates() : [],
+      },
+      system: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        uptime: `${hours}h ${mins}m`,
+        memoryUsage: `${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+        environment: process.env.NODE_ENV || 'development',
+        serverStart: typeof SERVER_START !== 'undefined' ? SERVER_START.toISOString() : new Date().toISOString(),
+        storage: 'Supabase (PostgreSQL)',
+        expediaConfigured: typeof isExpediaConfigured === 'function' ? isExpediaConfigured() : false,
+      },
     });
+  } catch (err) {
+    console.error('[Admin Dashboard] Error:', err.message);
+    res.status(500).json({ error: 'Failed to generate admin dashboard data: ' + err.message });
   }
-
-  // System info
-  const uptime = process.uptime();
-  const hours = Math.floor(uptime / 3600);
-  const mins = Math.floor((uptime % 3600) / 60);
-  const mem = process.memoryUsage();
-
-  res.json({
-    stats: {
-      totalBookings: allBookings.length,
-      savingsFound,
-      totalSavings: Math.round(totalSavings * 100) / 100,
-      avgSavings: savingsFound > 0 ? Math.round((totalSavings / savingsFound) * 100) / 100 : 0,
-      successRate: allBookings.length > 0 ? Math.round((savingsFound / allBookings.length) * 100) : 0,
-      apiMode: API_MODE,
-    },
-    scheduler: getSchedulerStatus(),
-    users: {
-      total: allUsers.length,
-      activeToday,
-      newToday: allUsers.filter(u => u.joinedAt?.startsWith(today)).length,
-      newThisWeek,
-      free: freeUsers,
-      viajante: viajanteUsers,
-      premium: premiumUsers,
-      withSavings: usersWithSavings,
-      savingsPercent: allUsers.length > 0 ? Math.round((usersWithSavings / allUsers.length) * 100) : 0,
-      avgBookingsPerUser: allUsers.length > 0 ? Math.round((allBookings.length / allUsers.length) * 10) / 10 : 0,
-      growthData,
-      list: allUsers.slice(0, 50).map(u => ({
-        name: u.name,
-        email: u.email,
-        bookings: u.bookingsCount,
-        totalSavings: u.totalSavings,
-        plan: u.plan,
-        joinedAt: u.joinedAt,
-        active: u.active,
-      })),
-    },
-    bookings: {
-      total: allBookings.length,
-      monitoring: allBookings.filter(b => b.status === 'monitoring').length,
-      savingsFound,
-      recentBookings: allBookings.slice(0, 10).map(b => ({
-        id: b.id,
-        hotelName: b.hotelName,
-        destination: b.destination,
-        originalPrice: b.originalPrice,
-        bestPrice: b.bestPrice,
-        totalSavings: b.totalSavings,
-        status: b.status,
-        createdAt: b.createdAt,
-      })),
-    },
-    revenue: {
-      estimatedMonthly: Math.round(estimatedCommissions + membershipRevenue),
-      affiliateCommissions: estimatedCommissions,
-      membershipRevenue,
-      bookingCommissions: Math.round(estimatedCommissions * 0.6 * 100) / 100,
-      expediaCommissions: Math.round(estimatedCommissions * 0.3 * 100) / 100,
-      otherCommissions: Math.round(estimatedCommissions * 0.1 * 100) / 100,
-      totalBookingValue: Math.round(totalBookingValue * 100) / 100,
-      avgCommissionRate: Math.round(avgCommissionRate * 100),
-      rebookingsThisMonth,
-      currentMRR: Math.round((estimatedCommissions + membershipRevenue) * 100) / 100,
-      projectedARR: Math.round((estimatedCommissions + membershipRevenue) * 12 * 100) / 100,
-      ltvPerUser: allUsers.length > 0 ? Math.round(((estimatedCommissions + membershipRevenue) * 12 / allUsers.length) * 100) / 100 : 0,
-      cacTarget: 15,
-      breakEvenUsers: Math.ceil(150 / (9.90 * 0.1 + avgCommissionRate * 200)),
-    },
-    affiliates: {
-      booking: {
-        configured: isAwinConfigured(),
-        advertiserIdBrazil: process.env.BOOKING_AWIN_ADVERTISER_ID_BRAZIL || 'N/A',
-        programmeStatus: isAwinConfigured() ? 'Active' : 'Pending',
-      },
-      expedia: {
-        ...getExpediaProgrammeInfo(),
-        commissions: undefined,
-      },
-      expediaCommissions: getExpediaCommissionRates(),
-    },
-    system: {
-      nodeVersion: process.version,
-      platform: process.platform,
-      uptime: `${hours}h ${mins}m`,
-      memoryUsage: `${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
-      environment: process.env.NODE_ENV || 'development',
-      serverStart: SERVER_START.toISOString(),
-      storage: 'Supabase (PostgreSQL)',
-      expediaConfigured: isExpediaConfigured(),
-    },
-  });
 });
 
 // Trigger manual price check
