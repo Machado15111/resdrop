@@ -426,6 +426,8 @@ export async function processInboundEmailPayload({
     contentHash,
   });
 
+  const inboundEmailId = inboundRecord ? inboundRecord.id : null;
+
   // 5. Look up user by email
   const getUserFn = dbClient.getUserByEmail || dbClient.getUser;
   const user = getUserFn ? await getUserFn.call(dbClient, senderEmail) : null;
@@ -433,7 +435,7 @@ export async function processInboundEmailPayload({
   if (user) {
     // Registered User Flow
     const bookingImport = await dbClient.createBookingImport({
-      inboundEmailId: inboundRecord.id,
+      inboundEmailId,
       userEmail: user.email,
       source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
       extractedData,
@@ -442,7 +444,7 @@ export async function processInboundEmailPayload({
       status: importStatus,
     });
 
-    const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport.id}`;
+    const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport ? bookingImport.id : ''}`;
     const lang = user.country === 'BR' || user.currency === 'BRL' || senderEmail.endsWith('.br') || extractedData.currency === 'BRL' ? 'pt' : 'en';
 
     const emailSubject = lang === 'pt'
@@ -473,12 +475,14 @@ export async function processInboundEmailPayload({
       : `Hello ${user.name || 'Traveler'},\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo review and enable monitoring, visit:\n${reviewUrl}`;
 
     await sendReplyEmail(user.email, emailSubject, htmlEmail, textCopy);
-    await dbClient.updateInboundEmail(inboundRecord.id, { status: 'PROCESSED', processedAt: new Date().toISOString() });
-    return { status: 'processed', importId: bookingImport.id, userEmail: user.email };
+    if (inboundEmailId) {
+      await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+    }
+    return { status: 'processed', importId: bookingImport?.id, userEmail: user.email };
   } else {
     // Unregistered User Flow (Welcome Email)
     const bookingImport = await dbClient.createBookingImport({
-      inboundEmailId: inboundRecord.id,
+      inboundEmailId,
       source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
       extractedData,
       confidenceData: confidenceScores,
@@ -492,7 +496,7 @@ export async function processInboundEmailPayload({
     const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
 
     await dbClient.createPendingImportToken({
-      bookingImportId: bookingImport.id,
+      bookingImportId: bookingImport ? bookingImport.id : null,
       email: senderEmail,
       tokenHash: tokenHashVal,
       expiresAt,
@@ -532,8 +536,10 @@ export async function processInboundEmailPayload({
       : `Welcome to ResDrop!\n\nWe received your booking for ${extractedData.hotelName || 'hotel'}.\nTo enable automatic price drop monitoring, create your account at:\n${signupUrl}`;
 
     await sendReplyEmail(senderEmail, welcomeSubject, htmlWelcomeEmail, welcomeTextCopy);
-    await dbClient.updateInboundEmail(inboundRecord.id, { status: 'PROCESSED', processedAt: new Date().toISOString() });
-    return { status: 'processed', importId: bookingImport.id, senderEmail };
+    if (inboundEmailId) {
+      await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+    }
+    return { status: 'processed', importId: bookingImport?.id, senderEmail };
   }
 }
 
