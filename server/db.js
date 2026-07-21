@@ -137,13 +137,21 @@ function buildSet(obj) {
 // ─── Users ──────────────────────────────────────────────────
 
 export async function getUserWithPassword(email) {
+  if (!email) return null;
+  const key = email.toLowerCase();
   try {
-    const rows = await sql`SELECT * FROM users WHERE email = ${email.toLowerCase()} LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const rows = await sql`SELECT * FROM users WHERE email = ${key} LIMIT 1`;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
-    console.error('[DB] getUserWithPassword:', e.message);
-    return null;
+    console.error('[DB] getUserWithPassword sql:', e.message);
   }
+  try {
+    const rows = await supa.select('users', { email: key }, { limit: 1 });
+    if (rows && rows[0]) return toCamel(rows[0]);
+  } catch (e) {
+    console.error('[DB] getUserWithPassword supa:', e.message);
+  }
+  return null;
 }
 
 export async function getUser(email) {
@@ -153,24 +161,33 @@ export async function getUser(email) {
 }
 
 export async function createUser(email, name) {
+  const key = (email || '').toLowerCase();
   try {
     const rows = await sql`
       INSERT INTO users (email, name)
-      VALUES (${email.toLowerCase()}, ${name || 'Guest'})
+      VALUES (${key}, ${name || 'Guest'})
       RETURNING *
     `;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
-    console.error('[DB] createUser:', e.message);
-    return null;
+    console.error('[DB] createUser sql:', e.message);
   }
+  try {
+    const row = await supa.insert('users', { email: key, name: name || 'Guest' });
+    if (row) return toCamel(row);
+  } catch (e) {
+    console.error('[DB] createUser supa:', e.message);
+  }
+  return null;
 }
 
 export async function getOrCreateUser(email, name) {
   if (!email) return null;
   let user = await getUser(email);
   if (user) {
-    await sql`UPDATE users SET last_active = NOW() WHERE email = ${email.toLowerCase()}`;
+    try {
+      await sql`UPDATE users SET last_active = NOW() WHERE email = ${email.toLowerCase()}`;
+    } catch {}
     user.lastActive = new Date().toISOString();
     return user;
   }
@@ -187,24 +204,40 @@ export async function updateUser(email, updates) {
       WHERE email = ${email.toLowerCase()}
       RETURNING *
     `;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
-    console.error('[DB] updateUser:', e.message);
-    return null;
+    console.error('[DB] updateUser sql:', e.message);
   }
+  try {
+    const snake = toSnake(updates);
+    const row = await supa.update('users', { email: email.toLowerCase() }, snake);
+    if (row) return toCamel(row);
+  } catch (e) {
+    console.error('[DB] updateUser supa:', e.message);
+  }
+  return await getUser(email);
 }
 
 export async function updateUserStats(email) {
   if (!email) return;
   try {
     const key = email.toLowerCase();
-    const rows = await sql`SELECT total_savings FROM bookings WHERE email = ${key}`;
-    const count = rows.length;
-    const savings = rows.reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
-    await sql`
-      UPDATE users SET bookings_count = ${count}, total_savings = ${Math.round(savings * 100) / 100}
-      WHERE email = ${key}
-    `;
+    let rows = [];
+    try {
+      rows = await sql`SELECT total_savings FROM bookings WHERE email = ${key}`;
+    } catch {
+      rows = await supa.select('bookings', { email: key }, { select: 'total_savings' });
+    }
+    const count = rows ? rows.length : 0;
+    const savings = (rows || []).reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+    try {
+      await sql`
+        UPDATE users SET bookings_count = ${count}, total_savings = ${Math.round(savings * 100) / 100}
+        WHERE email = ${key}
+      `;
+    } catch {
+      await supa.update('users', { email: key }, { bookings_count: count, total_savings: Math.round(savings * 100) / 100 });
+    }
   } catch (e) {
     console.error('[DB] updateUserStats:', e.message);
   }
@@ -213,9 +246,15 @@ export async function updateUserStats(email) {
 export async function getAllUsers(limit = 50) {
   try {
     const rows = await sql`SELECT * FROM users ORDER BY joined_at DESC LIMIT ${limit}`;
+    if (rows && rows.length > 0) return rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+  } catch (e) {
+    console.error('[DB] getAllUsers sql:', e.message);
+  }
+  try {
+    const rows = await supa.select('users', {}, { order: 'joined_at.desc', limit });
     return rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
   } catch (e) {
-    console.error('[DB] getAllUsers:', e.message);
+    console.error('[DB] getAllUsers supa:', e.message);
     return [];
   }
 }
@@ -239,7 +278,9 @@ export async function getBooking(id) {
   try {
     if (typeof id === 'string' && id.length === 36 && !id.startsWith('bkg-')) {
       const rows = await sql`SELECT * FROM bookings WHERE id = ${id} LIMIT 1`;
-      if (rows[0]) return toCamel(rows[0]);
+      if (rows && rows[0]) return toCamel(rows[0]);
+      const sRows = await supa.select('bookings', { id }, { limit: 1 });
+      if (sRows && sRows[0]) return toCamel(sRows[0]);
     }
   } catch (e) {
     console.error('[DB] getBooking:', e.message);
@@ -252,9 +293,15 @@ export async function getBookingsByEmail(email) {
   let list = [];
   try {
     const rows = await sql`SELECT * FROM bookings WHERE email = ${normalizedEmail} ORDER BY created_at DESC`;
-    list = rows.map(toCamel);
+    if (rows && rows.length > 0) list = rows.map(toCamel);
   } catch (e) {
-    console.error('[DB] getBookingsByEmail:', e.message);
+    console.error('[DB] getBookingsByEmail sql:', e.message);
+  }
+  if (list.length === 0) {
+    try {
+      const rows = await supa.select('bookings', { email: normalizedEmail }, { order: 'created_at.desc' });
+      if (rows && rows.length > 0) list = rows.map(toCamel);
+    } catch (e) {}
   }
   for (const b of inMemoryBookings.values()) {
     if (b.email === normalizedEmail && !list.some(x => x.id === b.id)) {
@@ -268,9 +315,15 @@ export async function getAllBookings() {
   let list = [];
   try {
     const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
-    list = rows.map(toCamel);
+    if (rows && rows.length > 0) list = rows.map(toCamel);
   } catch (e) {
-    console.error('[DB] getAllBookings:', e.message);
+    console.error('[DB] getAllBookings sql:', e.message);
+  }
+  if (list.length === 0) {
+    try {
+      const rows = await supa.select('bookings', {}, { order: 'created_at.desc', limit: 200 });
+      if (rows && rows.length > 0) list = rows.map(toCamel);
+    } catch (e) {}
   }
   for (const b of inMemoryBookings.values()) {
     if (!list.some(x => x.id === b.id)) {
@@ -326,11 +379,9 @@ export async function createBooking(booking) {
     if (row.email) row.email = row.email.toLowerCase();
 
     const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
-    if (rows[0]) {
+    if (rows && rows[0]) {
       const dbRecord = toCamel(rows[0]);
       inMemoryBookings.set(dbRecord.id, dbRecord);
-      await updateUserStats(booking.email);
-      return dbRecord;
     }
   } catch (e) {
     console.error('[DB] createBooking DB error:', e.message);
@@ -650,25 +701,43 @@ export async function createSession(email, token) {
       VALUES (${email.toLowerCase()}, ${token})
       RETURNING *
     `;
-    return rows[0];
+    if (rows && rows[0]) return rows[0];
   } catch (e) {
-    console.error('[DB] createSession:', e.message);
-    return null;
+    console.error('[DB] createSession sql:', e.message);
   }
+  try {
+    const res = await supa.insert('sessions', { user_email: email.toLowerCase(), token });
+    if (res) return res;
+  } catch (e) {
+    console.error('[DB] createSession supa:', e.message);
+  }
+  return null;
 }
 
 export async function getSessionByToken(token) {
+  if (!token) return null;
   try {
     const rows = await sql`
       SELECT * FROM sessions
       WHERE token = ${token} AND expires_at > NOW()
       LIMIT 1
     `;
-    return rows[0] || null;
+    if (rows && rows[0]) return rows[0];
   } catch (e) {
-    console.error('[DB] getSession:', e.message);
-    return null;
+    console.error('[DB] getSession sql:', e.message);
   }
+  try {
+    const rows = await supa.select('sessions', { token }, { limit: 1 });
+    if (rows && rows[0]) {
+      const sess = rows[0];
+      if (!sess.expires_at || new Date(sess.expires_at) > new Date()) {
+        return sess;
+      }
+    }
+  } catch (e) {
+    console.error('[DB] getSession supa:', e.message);
+  }
+  return null;
 }
 
 export async function deleteSession(token) {
@@ -677,6 +746,9 @@ export async function deleteSession(token) {
   } catch (e) {
     console.error('[DB] deleteSession:', e.message);
   }
+  try {
+    await supa.remove('sessions', { token });
+  } catch {}
 }
 
 export async function deleteUserSessions(email) {
