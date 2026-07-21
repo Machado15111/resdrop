@@ -231,37 +231,77 @@ export async function getUserCount() {
 
 // ─── Bookings ───────────────────────────────────────────────
 
+const inMemoryBookings = new Map();
+
 export async function getBooking(id) {
+  if (!id) return null;
   try {
-    const rows = await sql`SELECT * FROM bookings WHERE id = ${id} LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (typeof id === 'string' && id.length === 36 && !id.startsWith('bkg-')) {
+      const rows = await sql`SELECT * FROM bookings WHERE id = ${id} LIMIT 1`;
+      if (rows[0]) return toCamel(rows[0]);
+    }
   } catch (e) {
     console.error('[DB] getBooking:', e.message);
-    return null;
   }
+  return inMemoryBookings.get(id) || null;
 }
 
 export async function getBookingsByEmail(email) {
+  const normalizedEmail = (email || '').toLowerCase();
+  let list = [];
   try {
-    const rows = await sql`SELECT * FROM bookings WHERE email = ${email.toLowerCase()} ORDER BY created_at DESC`;
-    return rows.map(toCamel);
+    const rows = await sql`SELECT * FROM bookings WHERE email = ${normalizedEmail} ORDER BY created_at DESC`;
+    list = rows.map(toCamel);
   } catch (e) {
     console.error('[DB] getBookingsByEmail:', e.message);
-    return [];
   }
+  for (const b of inMemoryBookings.values()) {
+    if (b.email === normalizedEmail && !list.some(x => x.id === b.id)) {
+      list.unshift(b);
+    }
+  }
+  return list;
 }
 
 export async function getAllBookings() {
+  let list = [];
   try {
     const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
-    return rows.map(toCamel);
+    list = rows.map(toCamel);
   } catch (e) {
     console.error('[DB] getAllBookings:', e.message);
-    return [];
   }
+  for (const b of inMemoryBookings.values()) {
+    if (!list.some(x => x.id === b.id)) {
+      list.unshift(b);
+    }
+  }
+  return list;
 }
 
 export async function createBooking(booking) {
+  const fallbackId = `bkg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const record = {
+    id: fallbackId,
+    email: booking.email ? booking.email.toLowerCase() : '',
+    hotelName: booking.hotelName || '',
+    destination: booking.destination || null,
+    checkinDate: booking.checkinDate || '',
+    checkoutDate: booking.checkoutDate || '',
+    roomType: booking.roomType || 'Standard Room',
+    originalPrice: parseFloat(booking.originalPrice) || 0,
+    currency: (booking.currency || 'USD').toUpperCase(),
+    guestName: booking.guestName || null,
+    confirmationNumber: booking.confirmationNumber || null,
+    status: booking.status || 'monitoring',
+    totalSavings: 0,
+    potentialSavings: 0,
+    priceHistory: booking.priceHistory || [],
+    latestResults: booking.latestResults || [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
   try {
     const raw = toSnake(booking);
     const allowedColumns = [
@@ -282,17 +322,21 @@ export async function createBooking(booking) {
         }
       }
     }
+    if (row.email) row.email = row.email.toLowerCase();
 
     const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
     if (rows[0]) {
+      const dbRecord = toCamel(rows[0]);
+      inMemoryBookings.set(dbRecord.id, dbRecord);
       await updateUserStats(booking.email);
-      return toCamel(rows[0]);
+      return dbRecord;
     }
-    return null;
   } catch (e) {
     console.error('[DB] createBooking DB error:', e.message);
-    return null;
   }
+
+  inMemoryBookings.set(fallbackId, record);
+  return record;
 }
 
 export async function updateBooking(id, updates) {
