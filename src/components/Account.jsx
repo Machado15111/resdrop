@@ -7,9 +7,9 @@ import { IconUser, IconArrowLeft, IconCheck, IconCrown, IconStar, IconZap, IconP
 import './Account.css';
 
 const PLANS = [
-  { id: 'free', icon: IconZap, bookings: 1, price: 0 },
-  { id: 'viajante', icon: IconStar, bookings: 10, price: 25 },
-  { id: 'premium', icon: IconCrown, bookings: 50, price: 100 },
+  { id: 'free', icon: IconZap, bookings: 1, price: { brl: 0, usd: 0 } },
+  { id: 'viajante', icon: IconStar, bookings: 10, price: { brl: 25, usd: 25 } },
+  { id: 'premium', icon: IconCrown, bookings: 50, price: { brl: 100, usd: 100 } },
 ];
 
 const PLAN_NAMES = { free: 'Free', viajante: 'Viajante', premium: 'Premium' };
@@ -60,7 +60,7 @@ function Account() {
     try {
       const res = await authFetch(`${API}/users/${user.email}/plan`, {
         method: 'PUT',
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({ plan: planId, lang, currency: lang === 'pt' ? 'BRL' : 'USD' }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -316,12 +316,12 @@ function Account() {
                   <span className="apc-name">{PLAN_NAMES[plan.id]}</span>
                 </div>
                 <div className="apc-price">
-                  {plan.price === 0 ? (
+                  {plan.price.usd === 0 ? (
                     <span className="apc-amount">{t('pricing.free')}</span>
                   ) : (
                     <>
-                      <span className="apc-currency">R$</span>
-                      <span className="apc-amount">{plan.price}</span>
+                      <span className="apc-currency">{lang === 'pt' ? 'R$' : '$'}</span>
+                      <span className="apc-amount">{lang === 'pt' ? plan.price.brl : plan.price.usd}</span>
                       <span className="apc-period">{t('pricing.month')}</span>
                     </>
                   )}

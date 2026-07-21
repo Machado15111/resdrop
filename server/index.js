@@ -1298,11 +1298,16 @@ app.put('/api/users/:email/plan', authMiddleware, async (req, res) => {
   if (req.params.email.toLowerCase() !== req.userEmail) {
     return res.status(403).json({ error: 'Access denied' });
   }
-  const { plan } = req.body;
+  const { plan, lang, currency } = req.body;
   if (!PLANS[plan]) return res.status(400).json({ error: 'Plano invalido' });
-  const updated = await db.updateUser(req.userEmail, { plan });
+  // Currency is resolved server-side from the account language; never trust an amount.
+  const billingCurrency = lang === 'pt' ? 'BRL' : 'USD';
+  if (currency && currency !== billingCurrency) {
+    return res.status(400).json({ error: 'Currency mismatch', expected: billingCurrency });
+  }
   const planInfo = PLANS[plan];
-  res.json({ ...updated, planLimit: planInfo.bookingsPerMonth, planPrice: planInfo.price });
+  const updated = await db.updateUser(req.userEmail, { plan, billingCurrency });
+  res.json({ ...updated, planLimit: planInfo.bookingsPerMonth, currency: billingCurrency, amount: planInfo.price });
 });
 
 // ─── AWIN ROUTES ─────────────────────────────────────────────

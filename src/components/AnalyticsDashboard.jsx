@@ -132,7 +132,7 @@ function AnalyticsDashboard() {
         {/* Best Deal Highlight */}
         {stats.bestDeal && (
           <div className="analytics-card best-deal-card">
-            <div className="best-deal-header">🏆 {pt ? 'Melhor Oferta Encontrada' : 'Best Deal Found'}</div>
+            <div className="best-deal-header">{pt ? 'Melhor Oferta Encontrada' : 'Best Deal Found'}</div>
             <div className="best-deal-content">
               <div className="best-deal-hotel">{stats.bestDeal.hotelName}</div>
               <div className="best-deal-location">{stats.bestDeal.destination}</div>
@@ -230,7 +230,11 @@ function AnalyticsDashboard() {
         {/* Empty State */}
         {stats.totalBookings === 0 && (
           <div className="analytics-empty">
-            <div className="empty-icon">📊</div>
+            <div className="empty-icon" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/>
+              </svg>
+            </div>
             <h3>{pt ? 'Ainda Sem Análises' : 'No Analytics Yet'}</h3>
             <p>{pt ? 'Adicione sua primeira reserva para ver a análise de economia' : 'Add your first booking to see savings analytics'}</p>
           </div>

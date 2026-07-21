@@ -57,6 +57,7 @@ try {
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS date_of_birth TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_room_type TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS loyalty_programs TEXT`;
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS billing_currency TEXT`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS joined_at TIMESTAMPTZ DEFAULT now()`;
   await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active TIMESTAMPTZ DEFAULT now()`;
   console.log('✓ users columns');
