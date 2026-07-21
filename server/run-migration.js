@@ -240,7 +240,9 @@ try {
   // ─── File-based migrations (idempotent .sql applied on every start) ───
   for (const f of ['hotels-catalog.sql', 'nuitee.sql']) {
     try {
-      await sql.unsafe(readFileSync(join(__dirname, 'migrations', f), 'utf8'));
+      // .simple() = simple query protocol, required for multi-statement DDL
+      // and dollar-quoted function bodies.
+      await sql.unsafe(readFileSync(join(__dirname, 'migrations', f), 'utf8')).simple();
       console.log(`✓ ${f}`);
     } catch (e) {
       console.error(`Migration ${f} error:`, e.message);
