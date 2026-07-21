@@ -767,11 +767,9 @@ export async function getBookingImport(id) {
 
 export async function updateBookingImport(id, updates) {
   if (!id) return null;
-  const mem = inMemoryBookingImports.get(id);
-  if (mem) {
-    Object.assign(mem, updates);
-    inMemoryBookingImports.set(id, mem);
-  }
+  const mem = inMemoryBookingImports.get(id) || { id, ...updates };
+  Object.assign(mem, updates);
+  inMemoryBookingImports.set(id, mem);
 
   try {
     if (typeof id === 'string' && id.length === 36 && !id.startsWith('imp-')) {
@@ -792,7 +790,7 @@ export async function updateBookingImport(id, updates) {
   } catch (e) {
     console.error('[DB] updateBookingImport DB error:', e.message);
   }
-  return mem || null;
+  return mem;
 }
 
 // ─── Pending Import Tokens ───────────────────────────────────
