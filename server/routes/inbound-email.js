@@ -78,25 +78,29 @@ export function renderResdropEmailTemplate({
   const brandColor = '#52B788';
   const headerBg = '#0A1628';
 
-  const bookingCardHtml = extractedBooking ? `
-    <div style="margin:24px 0;padding:16px 20px;background-color:#F8FAF9;border:1px solid #E2E8F0;border-left:4px solid ${brandColor};border-radius:8px;">
-      <p style="margin:0 0 10px 0;font-size:12px;font-weight:700;letter-spacing:1px;color:#64748B;text-transform:uppercase;">
+  const hotelNameText = extractedBooking?.hotelName || (isPt ? 'Reserva de Hotel' : 'Hotel Booking');
+  const checkinText = extractedBooking?.checkinDate || (isPt ? 'Check-in a confirmar' : 'Check-in pending');
+  const checkoutText = extractedBooking?.checkoutDate || (isPt ? 'Check-out a confirmar' : 'Check-out pending');
+  const priceText = extractedBooking?.originalPrice
+    ? `${extractedBooking.currency || 'USD'} ${extractedBooking.originalPrice}`
+    : (isPt ? 'Valor a confirmar no link' : 'Price to confirm in link');
+
+  const bookingCardHtml = `
+    <div style="margin:24px 0;padding:20px;background-color:#F8FAF9;border:1px solid #E2E8F0;border-left:4px solid ${brandColor};border-radius:8px;">
+      <p style="margin:0 0 12px 0;font-size:12px;font-weight:700;letter-spacing:1px;color:#0F2E1F;text-transform:uppercase;">
         ${isPt ? 'Resumo da Reserva Encontrada' : 'Extracted Booking Summary'}
       </p>
-      ${extractedBooking.hotelName ? `
-        <div style="margin-bottom:8px;font-size:15px;color:#0F172A;">
-          <strong>${isPt ? 'Hotel' : 'Hotel'}:</strong> ${extractedBooking.hotelName}
-        </div>` : ''}
-      ${(extractedBooking.checkinDate || extractedBooking.checkoutDate) ? `
-        <div style="margin-bottom:8px;font-size:14px;color:#334155;">
-          <strong>${isPt ? 'Período' : 'Dates'}:</strong> ${extractedBooking.checkinDate || '?'} ${isPt ? 'até' : 'to'} ${extractedBooking.checkoutDate || '?'}
-        </div>` : ''}
-      ${extractedBooking.originalPrice ? `
-        <div style="font-size:14px;color:#334155;">
-          <strong>${isPt ? 'Valor Registrado' : 'Total Price'}:</strong> ${extractedBooking.currency || 'USD'} ${extractedBooking.originalPrice}
-        </div>` : ''}
+      <div style="margin-bottom:8px;font-size:15px;color:#0F172A;">
+        <strong>${isPt ? 'Hotel' : 'Hotel'}:</strong> ${hotelNameText}
+      </div>
+      <div style="margin-bottom:8px;font-size:14px;color:#334155;">
+        <strong>${isPt ? 'Período' : 'Dates'}:</strong> ${checkinText} ${isPt ? 'até' : 'to'} ${checkoutText}
+      </div>
+      <div style="font-size:14px;color:#334155;">
+        <strong>${isPt ? 'Valor Registrado' : 'Total Price'}:</strong> ${priceText}
+      </div>
     </div>
-  ` : '';
+  `;
 
   const paragraphsHtml = bodyParagraphs
     .map(p => `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">${p}</p>`)
@@ -115,20 +119,13 @@ export function renderResdropEmailTemplate({
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:580px;background-color:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);border:1px solid #E2E8F0;">
           
-          <!-- BRAND HEADER WITH GOLD BADGE & LOGO -->
+          <!-- BRAND HEADER WITH OFFICIAL RESDROP LOGO -->
           <tr>
-            <td style="background-color:${headerBg};padding:24px;text-align:center;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
-                <tr>
-                  <td style="vertical-align:middle;padding-right:10px;">
-                    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#F5D680,#C9A84C,#A67C2E);display:inline-block;text-align:center;line-height:32px;color:#0A1628;font-weight:900;font-size:18px;">✓</div>
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <span style="font-size:24px;font-weight:800;color:#FFFFFF;letter-spacing:-0.5px;">Res<span style="color:${brandColor};">Drop</span></span>
-                  </td>
-                </tr>
-              </table>
-              <div style="color:#94A3B8;font-size:11px;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">MONITORAMENTO INTELIGENTE DE HOTÉIS</div>
+            <td style="background-color:${headerBg};padding:28px 24px;text-align:center;" align="center">
+              <a href="https://resdrop.app" target="_blank" style="text-decoration:none;display:inline-block;">
+                <img src="https://resdrop.app/resdrop-logo-email.png" alt="ResDrop Logo" width="180" height="auto" style="display:block;margin:0 auto;max-width:180px;height:auto;border:0;outline:none;" />
+              </a>
+              <div style="color:#94A3B8;font-size:11px;margin-top:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;">MONITORAMENTO INTELIGENTE DE HOTÉIS</div>
             </td>
           </tr>
 
@@ -233,9 +230,8 @@ export function extractBookingFromEmail(text, subject = '') {
   const hotelPatterns = [
     /(?:^|\n)\s*(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
     /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s*(?:name|nome)?\s*:\s*(.+)/i,
-    /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s+(.+)/i,
-    /(?:your (?:stay|reservation|booking) at)\s+(.+)/i,
-    /(?:sua (?:reserva|estadia) (?:no|na|em))\s+(.+)/i,
+    /(?:your (?:stay|reservation|booking) at|sua (?:reserva|estadia) (?:no|na|em)|confirmation for (?:hotel)?|confirma[çc][ãa]o para (?:hotel)?|confirma[çc][ãa]o de reserva (?:no|na|em)|reserva (?:no|na|em))\s+([A-Z0-9\s&'.-]{3,80})/i,
+    /(?:hotel|pousada|resort|hostel|property|accommodation|propriedade)\s+([A-Z0-9\s&'.-]{3,80})/i,
   ];
   for (const p of hotelPatterns) {
     const m = combined.match(p);
@@ -250,8 +246,8 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const checkinPatterns = [
-    /check[\s-]*in\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /check[\s-]*in\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*in|entrada|chegada)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
+    /(?:check[\s-]*in|entrada|chegada)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
   ];
   for (const p of checkinPatterns) {
     const m = combined.match(p);
@@ -263,8 +259,8 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const checkoutPatterns = [
-    /check[\s-]*out\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
-    /check[\s-]*out\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida)\s*[:.]?\s*(\d{4}-\d{2}-\d{2})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
   ];
   for (const p of checkoutPatterns) {
     const m = combined.match(p);
@@ -276,9 +272,9 @@ export function extractBookingFromEmail(text, subject = '') {
   }
 
   const pricePatterns = [
-    /(?:total|valor|amount|price|pre[çc]o)\s*[:.]?\s*R?\$\s*([\d.,]+)/i,
-    /(?:USD|BRL|EUR)\s*([\d.,]+)/i,
-    /\$\s*([\d.,]+)/,
+    /(?:total|valor|amount|price|pre[çc]o|di[áa]ria)[^0-9\n]*?([0-9][0-9.,]*)/i,
+    /(?:R\$|USD|BRL|EUR)\s*([0-9][0-9.,]*)/i,
+    /([0-9][0-9.,]*)\s*(?:BRL|USD|EUR)/i,
   ];
   for (const p of pricePatterns) {
     const m = combined.match(p);
