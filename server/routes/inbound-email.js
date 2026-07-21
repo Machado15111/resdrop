@@ -877,6 +877,10 @@ export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
         parseMethod: importRecord.source || 'inbound_email',
       });
 
+      if (!booking) {
+        return res.status(500).json({ error: 'Failed to create active booking in database' });
+      }
+
       // Update import record to CONFIRMED
       await dbClient.updateBookingImport(importRecord.id, {
         status: 'CONFIRMED',

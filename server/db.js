@@ -264,10 +264,17 @@ export async function getAllBookings() {
 export async function createBooking(booking) {
   try {
     const raw = toSnake(booking);
-    // Filter to only defined values
     const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+    if (row.price_history !== undefined) row.price_history = sql.json(row.price_history);
+    if (row.change_history !== undefined) row.change_history = sql.json(row.change_history);
+    if (row.latest_results !== undefined) row.latest_results = sql.json(row.latest_results);
+
     const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows[0]) {
+      await updateUserStats(booking.email);
+      return toCamel(rows[0]);
+    }
+    return null;
   } catch (e) {
     console.error('[DB] createBooking:', e.message);
     return null;
