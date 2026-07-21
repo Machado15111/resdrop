@@ -710,7 +710,18 @@ export async function updateInboundEmail(id, updates) {
 
 export async function createBookingImport(data) {
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const s = toSnake(data);
+    const row = {
+      user_email: s.user_email || null,
+      inbound_email_id: s.inbound_email_id || null,
+      upload_id: s.upload_id || null,
+      source: s.source || 'inbound_email',
+      extracted_data: sql.json(s.extracted_data || {}),
+      confidence_data: sql.json(s.confidence_data || {}),
+      missing_fields: sql.json(s.missing_fields || []),
+      status: s.status || 'NEEDS_REVIEW',
+    };
+    if (s.booking_id) row.booking_id = s.booking_id;
     const rows = await sql`INSERT INTO booking_imports ${sql(row)} RETURNING *`;
     return rows[0] ? toCamel(rows[0]) : null;
   } catch (e) {
@@ -731,7 +742,16 @@ export async function getBookingImport(id) {
 
 export async function updateBookingImport(id, updates) {
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(updates)).filter(([, v]) => v !== undefined));
+    const s = toSnake(updates);
+    const row = {};
+    if (s.user_email !== undefined) row.user_email = s.user_email;
+    if (s.status !== undefined) row.status = s.status;
+    if (s.confirmed_at !== undefined) row.confirmed_at = s.confirmed_at;
+    if (s.booking_id !== undefined) row.booking_id = s.booking_id;
+    if (s.extracted_data !== undefined) row.extracted_data = sql.json(s.extracted_data);
+    if (s.confidence_data !== undefined) row.confidence_data = sql.json(s.confidence_data);
+    if (s.missing_fields !== undefined) row.missing_fields = sql.json(s.missing_fields);
+
     if (Object.keys(row).length === 0) return await getBookingImport(id);
     const rows = await sql`UPDATE booking_imports SET ${sql(row)} WHERE id = ${id} RETURNING *`;
     return rows[0] ? toCamel(rows[0]) : null;
@@ -745,7 +765,13 @@ export async function updateBookingImport(id, updates) {
 
 export async function createPendingImportToken(data) {
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+    const s = toSnake(data);
+    const row = {
+      booking_import_id: s.booking_import_id,
+      email: s.email,
+      token_hash: s.token_hash,
+      expires_at: s.expires_at,
+    };
     const rows = await sql`INSERT INTO pending_import_tokens ${sql(row)} RETURNING *`;
     return rows[0] ? toCamel(rows[0]) : null;
   } catch (e) {
