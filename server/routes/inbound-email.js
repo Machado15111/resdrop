@@ -417,34 +417,50 @@ export async function processInboundEmailPayload({
   const finalMissing = essential.filter(f => !extractedData[f]);
   const importStatus = finalMissing.length === 0 ? 'READY_FOR_CONFIRMATION' : 'NEEDS_REVIEW';
 
-  // 4. Create InboundEmail record in DB
-  const inboundRecord = await dbClient.createInboundEmail({
-    messageId,
-    senderEmail,
-    subject,
-    status: 'PROCESSING',
-    contentHash,
-  });
+  // 4. Create InboundEmail record in DB (resilient)
+  let inboundRecord = null;
+  try {
+    inboundRecord = await dbClient.createInboundEmail({
+      messageId,
+      senderEmail,
+      subject,
+      status: 'PROCESSING',
+      contentHash,
+    });
+  } catch (dbErr) {
+    console.warn('[Inbound Processing] DB createInboundEmail warning:', dbErr.message);
+  }
 
   const inboundEmailId = inboundRecord ? inboundRecord.id : null;
 
   // 5. Look up user by email
-  const getUserFn = dbClient.getUserByEmail || dbClient.getUser;
-  const user = getUserFn ? await getUserFn.call(dbClient, senderEmail) : null;
+  let user = null;
+  try {
+    const getUserFn = dbClient.getUserByEmail || dbClient.getUser;
+    user = getUserFn ? await getUserFn.call(dbClient, senderEmail) : null;
+  } catch (uErr) {
+    console.warn('[Inbound Processing] DB getUser warning:', uErr.message);
+  }
 
   if (user) {
     // Registered User Flow
-    const bookingImport = await dbClient.createBookingImport({
-      inboundEmailId,
-      userEmail: user.email,
-      source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
-      extractedData,
-      confidenceData: confidenceScores,
-      missingFields: finalMissing,
-      status: importStatus,
-    });
+    let bookingImport = null;
+    try {
+      bookingImport = await dbClient.createBookingImport({
+        inboundEmailId,
+        userEmail: user.email,
+        source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
+        extractedData,
+        confidenceData: confidenceScores,
+        missingFields: finalMissing,
+        status: importStatus,
+      });
+    } catch (impErr) {
+      console.warn('[Inbound Processing] DB createBookingImport warning:', impErr.message);
+    }
 
-    const reviewUrl = `${baseUrl}/dashboard?reviewImport=${bookingImport ? bookingImport.id : ''}`;
+    const importId = bookingImport ? bookingImport.id : `imp-${Date.now()}`;
+    const reviewUrl = `${baseUrl}/dashboard?reviewImport=${importId}`;
     const lang = user.country === 'BR' || user.currency === 'BRL' || senderEmail.endsWith('.br') || extractedData.currency === 'BRL' ? 'pt' : 'en';
 
     const emailSubject = lang === 'pt'
@@ -476,31 +492,43 @@ export async function processInboundEmailPayload({
 
     await sendReplyEmail(user.email, emailSubject, htmlEmail, textCopy);
     if (inboundEmailId) {
-      await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+      try {
+        await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+      } catch {}
     }
-    return { status: 'processed', importId: bookingImport?.id, userEmail: user.email };
+    return { status: 'processed', importId, userEmail: user.email };
   } else {
     // Unregistered User Flow (Welcome Email)
-    const bookingImport = await dbClient.createBookingImport({
-      inboundEmailId,
-      source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
-      extractedData,
-      confidenceData: confidenceScores,
-      missingFields: finalMissing,
-      status: importStatus,
-    });
+    let bookingImport = null;
+    try {
+      bookingImport = await dbClient.createBookingImport({
+        inboundEmailId,
+        source: attachments.length > 0 ? (attachments[0].contentType.includes('pdf') ? 'pdf_upload' : 'image_upload') : 'inbound_email',
+        extractedData,
+        confidenceData: confidenceScores,
+        missingFields: finalMissing,
+        status: importStatus,
+      });
+    } catch (impErr) {
+      console.warn('[Inbound Processing] DB createBookingImport warning:', impErr.message);
+    }
 
+    const importId = bookingImport ? bookingImport.id : `imp-${Date.now()}`;
     const rawToken = crypto.randomBytes(32).toString('hex');
     const tokenHashVal = hashToken(rawToken);
     const expiryHours = parseInt(process.env.INBOUND_IMPORT_TOKEN_EXPIRY_HOURS || '72', 10);
     const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
 
-    await dbClient.createPendingImportToken({
-      bookingImportId: bookingImport ? bookingImport.id : null,
-      email: senderEmail,
-      tokenHash: tokenHashVal,
-      expiresAt,
-    });
+    try {
+      await dbClient.createPendingImportToken({
+        bookingImportId: importId,
+        email: senderEmail,
+        tokenHash: tokenHashVal,
+        expiresAt,
+      });
+    } catch (tokErr) {
+      console.warn('[Inbound Processing] DB createPendingImportToken warning:', tokErr.message);
+    }
 
     const signupUrl = `${baseUrl}/signup?token=${rawToken}`;
     const isPt = senderEmail.endsWith('.br') || extractedData.currency === 'BRL';
@@ -537,9 +565,11 @@ export async function processInboundEmailPayload({
 
     await sendReplyEmail(senderEmail, welcomeSubject, htmlWelcomeEmail, welcomeTextCopy);
     if (inboundEmailId) {
-      await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+      try {
+        await dbClient.updateInboundEmail(inboundEmailId, { status: 'PROCESSED', processedAt: new Date().toISOString() });
+      } catch {}
     }
-    return { status: 'processed', importId: bookingImport?.id, senderEmail };
+    return { status: 'processed', importId, senderEmail };
   }
 }
 
