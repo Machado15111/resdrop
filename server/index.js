@@ -1444,8 +1444,8 @@ app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res
     const rebookingsThisMonth = savingsFound;
 
     // User stats
-    const activeToday = allUsers.filter(u => u.lastActive?.startsWith(today)).length;
-    const newThisWeek = allUsers.filter(u => u.joinedAt >= weekAgo).length;
+    const activeToday = allUsers.filter(u => String(u.lastActive || '').startsWith(today)).length;
+    const newThisWeek = allUsers.filter(u => String(u.joinedAt || '') >= weekAgo).length;
     const freeUsers = allUsers.filter(u => u.plan === 'free').length;
     const viajanteUsers = allUsers.filter(u => u.plan === 'viajante').length;
     const premiumUsers = allUsers.filter(u => u.plan === 'premium').length;
@@ -1457,7 +1457,7 @@ app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now - i * 24 * 60 * 60 * 1000);
       const dayStr = d.toISOString().split('T')[0];
-      const count = allUsers.filter(u => u.joinedAt?.startsWith(dayStr)).length;
+      const count = allUsers.filter(u => String(u.joinedAt || '').startsWith(dayStr)).length;
       growthData.push({
         label: d.toLocaleDateString('en', { weekday: 'short' }),
         count: count || 0,
@@ -1489,7 +1489,7 @@ app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res
       users: {
         total: allUsers.length,
         activeToday,
-        newToday: allUsers.filter(u => u.joinedAt?.startsWith(today)).length,
+        newToday: allUsers.filter(u => String(u.joinedAt || '').startsWith(today)).length,
         newThisWeek,
         free: freeUsers,
         viajante: viajanteUsers,
