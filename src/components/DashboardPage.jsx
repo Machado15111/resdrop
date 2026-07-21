@@ -41,6 +41,23 @@ function DashboardPage() {
     }
   }, [authFetch]);
 
+  const rawToken = searchParams.get('token');
+
+  useEffect(() => {
+    if (!rawToken) return;
+    authFetch(`${API}/inbound/pending-import/attach`, {
+      method: 'POST',
+      body: JSON.stringify({ token: rawToken }),
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.importId) {
+          setSearchParams({ reviewImport: data.importId }, { replace: true });
+        }
+      })
+      .catch(err => console.error('Failed attaching token in DashboardPage:', err));
+  }, [rawToken, authFetch, setSearchParams]);
+
   useEffect(() => {
     fetchBookings();
     fetchStats();

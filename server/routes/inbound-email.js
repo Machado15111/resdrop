@@ -351,6 +351,23 @@ export function parsePrice(str) {
   return parseFloat(str.replace(/[^\d.]/g, ''));
 }
 
+export async function extractTextFromPdf(buffer) {
+  if (!buffer || !Buffer.isBuffer(buffer)) return '';
+  try {
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const result = await parser.getText();
+      return result.text || '';
+    } finally {
+      await parser.destroy().catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[Inbound PDF Extract] Failed to parse PDF text:', err.message);
+    return '';
+  }
+}
+
 export async function processInboundEmailPayload({
   senderEmail,
   subject,
@@ -373,6 +390,18 @@ export async function processInboundEmailPayload({
 
     for (const attachment of validAttachments) {
       try {
+        if (attachment.contentType === 'application/pdf' && attachment.content) {
+          const pdfText = await extractTextFromPdf(attachment.content);
+          if (pdfText) {
+            const pdfDet = extractBookingFromEmail(pdfText, subject);
+            for (const [key, val] of Object.entries(pdfDet.fields)) {
+              if (val && (!extractedData[key] || (pdfDet.confidence[key] || 0) > (confidenceScores[key] || 0))) {
+                extractedData[key] = val;
+                confidenceScores[key] = pdfDet.confidence[key] || 0.75;
+              }
+            }
+          }
+        }
         if (isAiParserConfigured()) {
           const aiResult = await parseBookingDocumentWithAI(attachment.content, attachment.contentType, attachment.filename);
           if (aiResult && aiResult.fields) {

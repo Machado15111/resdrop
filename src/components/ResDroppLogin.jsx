@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
@@ -29,6 +29,7 @@ function IcEye({ visible }) {
 export default function ResDroppLogin() {
   const { login } = useAuth();
   const navigate   = useNavigate();
+  const [searchParams] = useSearchParams();
   const { lang, setLang } = useI18n();
   const pt = lang === 'pt';
 
@@ -40,12 +41,46 @@ export default function ResDroppLogin() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
+  const reviewImportParam = searchParams.get('reviewImport');
+  const tokenParam = searchParams.get('token');
+
   const handleLogin = async e => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       const user = await login(email, password);
+
+      if (tokenParam) {
+        try {
+          const authToken = localStorage.getItem('token');
+          const attachRes = await fetch(`${API}/inbound/pending-import/attach`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+            },
+            body: JSON.stringify({ token: tokenParam }),
+          });
+          if (attachRes.ok) {
+            const attachData = await attachRes.json();
+            if (attachData.importId) {
+              navigate(`/dashboard?reviewImport=${attachData.importId}`, { replace: true });
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (attachErr) {
+          console.error('Failed attaching token on login:', attachErr);
+        }
+      }
+
+      if (reviewImportParam) {
+        navigate(`/dashboard?reviewImport=${reviewImportParam}`, { replace: true });
+        setLoading(false);
+        return;
+      }
+
       navigate(user.onboardingCompleted ? '/dashboard' : '/onboarding');
     } catch (err) {
       setError(err.message || (pt ? 'E-mail ou senha incorretos.' : 'Incorrect email or password.'));
