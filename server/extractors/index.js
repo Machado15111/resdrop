@@ -251,16 +251,22 @@ export function extractGenericFields(text) {
   const hotelPatterns = [
     // "IBIS SOFIA AIRPORT - 1 nights" / "Hotel X - 3 noites" (high precision)
     /(?:^|\n)\s*([A-Z0-9][A-Za-zÀ-ÿ0-9&'.\- ]{2,60}?)\s*[-–—]\s*\d+\s*(?:nights?|noites?)\b/i,
-    /(?:^|\n)\s*(?:hotel|pousada|resort|hostel|accommodation|propriedade)\s*(?:name|nome)?\s*[:.]?\s*(.+)/i,
-    /(?:nome do hotel|hotel name|hospedagem|estadia em|stay at|reservation at|reserva no|reserva na|reserva em)\s*[:.]?\s*([A-Z0-9\s&'.-]{3,80})/i,
+    // Title-case property name ENDING in a hotel-type word ("Rosslyn Central Park
+    // Hotel"). Every word must be capitalized, so filler like "your reservation at
+    // Hotel" can't match.
+    /(?:^|\n)[ \t]*((?:[A-ZÀ-Ý][A-Za-zÀ-ÿ0-9&'.\-]+[ ]){1,5}(?:Hotel|Resort|Inn|Suites?|Palace|Lodge|Pousada|Hostel|Plaza|Towers?|Residence))\b/,
+    /(?:nome do hotel|hotel name|hospedagem|estadia em|stay at|reservation at|reserva no|reserva na|reserva em)\s*[:.]?\s*([A-Z0-9][A-Za-z0-9\s&'.-]{2,80})/i,
+    // Labeled at line start ("Hotel: X"), skipping label-like words after it.
+    /(?:^|\n)\s*(?:hotel|pousada|resort|hostel|accommodation|propriedade)\s*(?:name|nome)?\s*[:.]?\s*(?!program\b|details\b|detalhes\b|commission\b|available\b|only\s|rate\b|room\sonly)([A-Z0-9][A-Za-zÀ-ÿ0-9&'.\- ]{2,60})/i,
     /(?:reserva\s*(?:no|na|em|do|da)|booking\s*at|reservation\s*at)\s+([A-Z0-9\s&'.-]{3,80})/i,
     /([A-Z0-9\s&'.-]{3,60})\s*[-–|]\s*(?:confirma[çc][ãa]o|confirmation|reserva|booking)/i,
   ];
+  const HOTEL_NAME_BLOCK = /^(confirmation|confirma[çc][ãa]o|reserva|booking|detalhes|details|sua estadia|program|commission|hotel program|room only rate|best available|available room|only rate|guaranteed rate|pricing breakdown|room description|hotel details|sales info)$/i;
   for (const p of hotelPatterns) {
     const m = clean.match(p);
     if (m) {
       const name = m[1].trim().split(/[,\n\r|]/)[0].trim();
-      if (name.length > 3 && name.length < 100 && !/^(confirmation|confirmação|reserva|booking|detalhes|sua estadia)$/i.test(name)) {
+      if (name.length > 3 && name.length < 100 && !HOTEL_NAME_BLOCK.test(name) && !/\b(commission|only rate)\b/i.test(name)) {
         fields.hotelName = name;
         confidence.hotelName = 0.85;
         break;
@@ -287,12 +293,10 @@ export function extractGenericFields(text) {
 
   // 2. Check-in Date
   const checkinPatterns = [
-    /(?:check[\s-]*in|entrada|chegada|arrival)\s*[:.]?\s*(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
-    /(?:check[\s-]*in|entrada|chegada|arrival)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    // Month-name: "Check in: Jul 22, 2026"
-    /(?:check[\s-]*in|entrada|chegada|arrival)\s*[:.]?\s*([A-Za-zçÇ]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})/i,
-    // Day-first month-name: "Check in: 22 de julho de 2026"
-    /(?:check[\s-]*in|entrada|chegada|arrival)\s*[:.]?\s*(\d{1,2}\s+(?:de\s+)?[A-Za-zçÇ]{3,9}\.?\s+(?:de\s+)?\d{4})/i,
+    /(?:check[\s-]*in|entrada|chegada|arrival)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+    /(?:check[\s-]*in|entrada|chegada|arrival)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*in|entrada|chegada|arrival)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?([A-Za-zçÇ]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})/i,
+    /(?:check[\s-]*in|entrada|chegada|arrival)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{1,2}\s+(?:de\s+)?[A-Za-zçÇ]{3,9}\.?\s+(?:de\s+)?\d{4})/i,
   ];
   for (const p of checkinPatterns) {
     const m = clean.match(p);
@@ -310,10 +314,10 @@ export function extractGenericFields(text) {
 
   // 3. Check-out Date
   const checkoutPatterns = [
-    /(?:check[\s-]*out|sa[íi]da|partida|departure)\s*[:.]?\s*(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
-    /(?:check[\s-]*out|sa[íi]da|partida|departure)\s*[:.]?\s*(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
-    /(?:check[\s-]*out|sa[íi]da|partida|departure)\s*[:.]?\s*([A-Za-zçÇ]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})/i,
-    /(?:check[\s-]*out|sa[íi]da|partida|departure)\s*[:.]?\s*(\d{1,2}\s+(?:de\s+)?[A-Za-zçÇ]{3,9}\.?\s+(?:de\s+)?\d{4})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|departure)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|departure)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|departure)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?([A-Za-zçÇ]{3,9}\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4})/i,
+    /(?:check[\s-]*out|sa[íi]da|partida|departure)[^\r\n:]*?[:.]?[ \t]*(?:[A-Za-zçÇ]{3,9}\.?,?[ \t]+)?(\d{1,2}\s+(?:de\s+)?[A-Za-zçÇ]{3,9}\.?\s+(?:de\s+)?\d{4})/i,
   ];
   for (const p of checkoutPatterns) {
     const m = clean.match(p);
@@ -331,7 +335,7 @@ export function extractGenericFields(text) {
 
   // 4. Total Price & Currency
   const pricePatterns = [
-    /(?:total|valor|amount|price|pre[çc]o|di[áa]ria)\s*[:.]?\s*(?:R\$|USD|BRL|EUR|GBP|\$|€|£)?\s*([\d.,]+)/i,
+    /(?:total|valor|amount|price|pre[çc]o|di[áa]ria)\s*[:.]?\s*[\r\n]*\s*(?:R\$|USD|BRL|EUR|GBP|\$|€|£)?\s*([\d.,]+)/i,
     /(?:R\$|USD|BRL|EUR|GBP)\s*([\d.,]+)/i,
     /([\d.,]+)\s*(?:BRL|USD|EUR|GBP)/i,
   ];
@@ -357,8 +361,8 @@ export function extractGenericFields(text) {
 
   // 5. Booking Reference / Confirmation Number
   const confPatterns = [
-    /(?:\b(?:confirmation|confirma[çc][ãa]o|booking|reserva|itinerary|itinérario)\b[^\n:]*[:#.]?\s*)([A-Z0-9\-]{4,25})/i,
-    /code\s*[:.]?\s*([A-Z0-9\-]{5,20})/i,
+    /(?:n[úo]mero\s*d[ao]\s*confirma[çc][ãa]o|n[°o]\s*d[ao]\s*confirma[çc][ãa]o|c[óo]digo\s*d[ao]\s*reserva|n[°o]\s*d[ao]\s*reserva|confirmation\s*number|confirmation\s*code|booking\s*number|booking\s*id|confirma[çc][ãa]o|confirmation)[^\r\n:]*[:#.]?[ \t]*([A-Z0-9\-]{4,25})/i,
+    /code[^\r\n:]*[:.]?[ \t]*([A-Z0-9\-]{5,20})/i,
   ];
   for (const p of confPatterns) {
     const m = clean.match(p);
@@ -401,9 +405,13 @@ export function extractGenericFields(text) {
     }
   }
 
-  // 7. Room Type & Meal Plan
-  const roomMatch = clean.match(/(?:room\s*type|tipo\s*(?:de\s*)?quarto|quarto|room)\s*[:.]?\s*([^\n\r,]{3,50})/i);
-  if (roomMatch) {
+  // 7. Room Type & Meal Plan — prefer explicit "Room description", and never
+  // capture rate-plan phrasing like "ROOM ONLY RATE" as a room type.
+  const roomMatch =
+    clean.match(/room\s*description\s*[:.]?\s*([^\n\r]{3,60})/i) ||
+    clean.match(/(?:room\s*type|tipo\s*(?:de\s*)?quarto)\s*[:.]?\s*([^\n\r,]{3,50})/i) ||
+    clean.match(/\b(?:quarto|room)\s*[:.]?\s*((?!only\s*rate|available|best\s)[^\n\r,]{3,50})/i);
+  if (roomMatch && !/^(only rate|available|rate|best available)/i.test(roomMatch[1].trim())) {
     fields.roomType = roomMatch[1].trim();
     confidence.roomType = 0.65;
   }
