@@ -854,11 +854,34 @@ export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
           };
         });
 
+      // If a raw forwarder (e.g. the Cloudflare Email Worker) sent the full MIME
+      // in `rawEmail` but no pre-parsed text/attachments, parse it here so the
+      // email body AND attachments (PDFs, etc.) actually reach the extractor.
+      let finalText = text || sanitizeHtmlText(html || '');
+      let finalAttachments = parsedAttachments;
+      let finalSubject = subject || '';
+      if (typeof rawEmail === 'string' && rawEmail.length > 0 && (!finalText || finalAttachments.length === 0)) {
+        try {
+          const parsed = await simpleParser(Buffer.from(rawEmail, 'utf-8'));
+          if (!finalText) finalText = parsed.text || sanitizeHtmlText(parsed.html || '');
+          if (finalAttachments.length === 0) {
+            finalAttachments = (parsed.attachments || []).map(a => ({
+              filename: a.filename || 'attachment',
+              contentType: a.contentType || 'application/octet-stream',
+              content: a.content,
+            }));
+          }
+          if (!finalSubject) finalSubject = parsed.subject || '';
+        } catch (e) {
+          console.warn('[Inbound Webhook] rawEmail parse warning:', e.message);
+        }
+      }
+
       const result = await processInboundEmailPayload({
         senderEmail,
-        subject: subject || '',
-        textContent: text || sanitizeHtmlText(html || ''),
-        attachments: parsedAttachments,
+        subject: finalSubject,
+        textContent: finalText,
+        attachments: finalAttachments,
         messageId: msgId,
         contentHash,
         dbClient,
