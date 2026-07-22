@@ -573,7 +573,7 @@ export default function TravelerLanding() {
               <div className="tl-pricing-badge">{pt ? 'Mais escolhido' : 'Most popular'}</div>
               <h3>{pt ? 'Viajante' : 'Traveler'}</h3>
               <p>{pt ? 'Ideal para viagens pessoais e frequentes com alto potencial de retorno.' : 'Ideal for frequent personal trips with high return potential.'}</p>
-              <div className="tl-pricing-price" style={{ color: '#FFFFFF' }}>R$ 25 <span style={{ color: 'rgba(255,255,255,0.7)' }}>{pt ? '/mês' : '/mo'}</span></div>
+              <div className="tl-pricing-price" style={{ color: '#FFFFFF' }}>{pt ? 'R$ 37' : '$9'} <span style={{ color: 'rgba(255,255,255,0.7)' }}>{pt ? '/mês' : '/mo'}</span></div>
               <ul className="tl-pricing-features">
                 <li><Icons.Check /> {pt ? 'Monitore até 10 reservas por mês' : 'Monitor up to 10 bookings/month'}</li>
                 <li><Icons.Check /> {pt ? '+20 plataformas verificadas' : '20+ verified platforms'}</li>
@@ -586,7 +586,7 @@ export default function TravelerLanding() {
             <div className="tl-pricing-card">
               <h3>Premium</h3>
               <p>{pt ? 'Para profissionais e quem quer prioridade máxima no ecossistema.' : 'For professionals who want maximum priority in the ecosystem.'}</p>
-              <div className="tl-pricing-price">R$ 99 <span>{pt ? '/mês' : '/mo'}</span></div>
+              <div className="tl-pricing-price">{pt ? 'R$ 125' : '$36'} <span>{pt ? '/mês' : '/mo'}</span></div>
               <ul className="tl-pricing-features">
                 <li><Icons.Check /> {pt ? 'Monitore até 50 reservas por mês' : 'Monitor up to 50 bookings/month'}</li>
                 <li><Icons.Check /> {pt ? 'Alertas prioritários (Push + E-mail)' : 'Priority alerts (Push + Email)'}</li>

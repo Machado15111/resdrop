@@ -28,7 +28,7 @@ const plans = [
     id: 'traveler',
     name: 'Traveler',
     namePt: 'Viajante',
-    price: { usd: 9, brl: 25 },
+    price: { usd: 9, brl: 37 },
     icon: IconStar,
     desc: {
       en: 'For travelers with multiple upcoming stays. Monitor all your bookings at once.',
@@ -49,7 +49,7 @@ const plans = [
     id: 'premium',
     name: 'Premium',
     namePt: 'Premium',
-    price: { usd: 29, brl: 100 },
+    price: { usd: 36, brl: 125 },
     icon: IconCrown,
     desc: {
       en: 'For frequent travelers who want full coverage, including special fares from partner sources.',

@@ -178,9 +178,9 @@ if (isEmailConfigured()) {
 
 // ─── Plan definitions ────────────────────────────────────────
 const PLANS = {
-  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   price: 0   },
-  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  price: 25  },
-  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, price: 100 },
+  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   price: 0,  priceBrl: 0 },
+  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  price: 9,  priceBrl: 37 },
+  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, price: 36, priceBrl: 125 },
 };
 
 function generateId() {

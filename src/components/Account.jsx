@@ -8,8 +8,8 @@ import './Account.css';
 
 const PLANS = [
   { id: 'free', icon: IconZap, bookings: 1, price: { brl: 0, usd: 0 } },
-  { id: 'viajante', icon: IconStar, bookings: 10, price: { brl: 25, usd: 25 } },
-  { id: 'premium', icon: IconCrown, bookings: 50, price: { brl: 100, usd: 100 } },
+  { id: 'viajante', icon: IconStar, bookings: 10, price: { brl: 37, usd: 9 } },
+  { id: 'premium', icon: IconCrown, bookings: 50, price: { brl: 125, usd: 36 } },
 ];
 
 const PLAN_NAMES = { free: 'Free', viajante: 'Viajante', premium: 'Premium' };
@@ -55,6 +55,19 @@ function Account() {
     user?.loyaltyPrograms || []
   );
 
+  // Synchronize form when user object is loaded or updated
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || '',
+        phone: user.phone || '',
+        dateOfBirth: user.dateOfBirth || '',
+        preferredRoomType: user.preferredRoomType || 'Standard Room',
+      });
+      setLoyaltyPrograms(user.loyaltyPrograms || []);
+    }
+  }, [user]);
+
   const handleChangePlan = async (planId) => {
     if (!user || planId === user.plan) return;
     try {
@@ -93,6 +106,9 @@ function Account() {
         setSaveMsg(t('account.profileUpdated'));
         setEditMode(false);
         setTimeout(() => setSaveMsg(''), 3000);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setSaveMsg(errData.error || t('account.saveFailed'));
       }
     } catch (err) {
       console.error('Failed to save profile:', err);

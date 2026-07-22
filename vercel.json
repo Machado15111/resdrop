@@ -1,12 +1,68 @@
 {
+  "name": "Voyu Travel",
+  "version": 2,
+  "buildCommand": "echo 'No build step required for static files'",
+  "outputDirectory": "voyu",
+  "public": true,
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://resdrop-production.up.railway.app/api/:path*"
+      "source": "/crm-dashboard",
+      "destination": "/voyu/CRM/index.html"
     },
     {
+      "source": "/crm-dashboard/:path*",
+      "destination": "/voyu/CRM/:path*"
+    },
+    {
+      "source": "/portal",
+      "destination": "/voyu/partners/index.html"
+    },
+    {
+      "source": "/portal/:path*",
+      "destination": "/voyu/partners/:path*"
+    },
+    {
+      "source": "/admin",
+      "destination": "/voyu/admin/index.html"
+    },
+    {
+      "source": "/admin/:path*",
+      "destination": "/voyu/admin/:path*"
+    },
+    {
+      "source": "/app",
+      "destination": "/voyu/index.html"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "/voyu/:path*"
+    }
+  ],
+  "env": {
+    "SUPABASE_URL": "https://sinyinnovnhfmtritdyb.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpbnlpbm5vdm5oZm10cml0ZHliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDIzMTgsImV4cCI6MjA5NzM3ODMxOH0.tk05sjLwqXSSvC5PbSpghhnzj5LMkeYToW0aywbuuPc"
+  },
+  "headers": [
+    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
     }
   ]
 }

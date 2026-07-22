@@ -208,10 +208,14 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         method: 'POST',
         body: JSON.stringify({ rawEmail: pasteText, email: userEmail }),
       });
-      if (!res.ok) {
-        throw new Error(`Parse failed with status ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        setError(data.message || (lang === 'pt' ? 'Reserva duplicada já existe.' : 'Duplicate booking already exists.'));
+        setSourceType('manual');
+        setStep(STEP_MANUAL);
+        return;
       }
-      const data = await res.json();
 
       if (data.status === 'ACTIVE_MONITORING' && data.booking?.id) {
         setProcessingStatus(lang === 'pt' ? 'Reserva criada e monitoramento ativo!' : 'Booking created and monitoring active!');
@@ -219,8 +223,8 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         return;
       }
 
-      const b = data.booking || {};
-      const hasAnyData = b.hotelName || b.checkIn || b.checkOut || b.totalPrice || b.bookingReference;
+      const b = data.booking || data.parsed || {};
+      const hasAnyData = b.hotelName || b.checkIn || b.checkinDate || b.checkOut || b.checkoutDate || b.totalPrice || b.originalPrice || b.bookingReference || b.confirmationNumber;
 
       if (hasAnyData) {
         setForm(prev => ({

@@ -126,11 +126,8 @@ export default function documentRoutes(authMiddleware) {
         missingFields,
         warnings,
         attachmentsProcessed: extraction.attachmentsProcessed || 1,
-        status: finalStatus,
-        extra: {
-          documentId: docRecord.id,
-          importId: importRecord.id,
-        },
+        documentId: docRecord.id,
+        importId: importRecord.id,
       });
 
       res.json(responsePayload);
@@ -194,8 +191,8 @@ export default function documentRoutes(authMiddleware) {
         missingFields: [],
         warnings: [],
         attachmentsProcessed: 0,
-        status: 'ACTIVE_MONITORING',
-        extra: { documentId: doc?.id, importId: importRecord?.id },
+        documentId: doc?.id,
+        importId: importRecord?.id,
       });
 
       res.status(201).json(responsePayload);

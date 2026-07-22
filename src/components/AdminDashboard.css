@@ -1,9 +1,9 @@
-/* ─── Admin Dashboard ─────────────────────────────────── */
+/* ─── Admin Dashboard (Clean Light Theme) ─────────────────── */
 
 .admin {
   min-height: 100vh;
-  background: #0a1a14;
-  color: #d8f3dc;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .admin-loading {
@@ -12,16 +12,16 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #0a1a14;
-  color: #95d5b2;
+  background: #f8fafc;
+  color: #059669;
   gap: 16px;
 }
 
 .admin-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #1b4332;
-  border-top-color: var(--color-green-500);
+  border: 3px solid #e2e8f0;
+  border-top-color: #059669;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -32,8 +32,8 @@
 
 /* Header */
 .admin-header {
-  background: #0f2e1f;
-  border-bottom: 1px solid #1b4332;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   padding: 16px 0;
   position: sticky;
   top: 0;
@@ -55,19 +55,19 @@
 .admin-header-left h1 {
   font-size: 20px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .admin-header-left .btn-ghost {
-  color: #95d5b2;
+  color: #475569;
 }
 .admin-header-left .btn-ghost:hover {
-  background: #1b4332;
-  color: #d8f3dc;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .admin-badge {
-  background: var(--color-green-700);
+  background: #059669;
   color: white;
   padding: 3px 10px;
   border-radius: 4px;
@@ -85,7 +85,7 @@
 .admin-live-dot {
   width: 8px;
   height: 8px;
-  background: var(--color-green-400);
+  background: #10b981;
   border-radius: 50%;
   animation: pulse 2s infinite;
 }
@@ -97,14 +97,14 @@
 
 .admin-live-text {
   font-size: 12px;
-  color: var(--color-green-400);
+  color: #059669;
   font-weight: 600;
 }
 
 /* Tabs */
 .admin-tabs {
-  background: #0f2e1f;
-  border-bottom: 1px solid #1b4332;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
   padding: 0;
   overflow-x: auto;
 }
@@ -116,7 +116,7 @@
 
 .admin-tab {
   padding: 12px 20px;
-  color: #95d5b2;
+  color: #64748b;
   font-size: 14px;
   font-weight: 500;
   background: transparent;
@@ -128,13 +128,14 @@
 }
 
 .admin-tab:hover {
-  color: #d8f3dc;
-  background: #1b4332;
+  color: #0f172a;
+  background: #f8fafc;
 }
 
 .admin-tab.active {
-  color: var(--color-green-400);
-  border-bottom-color: var(--color-green-400);
+  color: #059669;
+  border-bottom-color: #059669;
+  font-weight: 600;
 }
 
 /* Content */
@@ -145,7 +146,7 @@
 .admin-section h2 {
   font-size: 24px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
   margin-bottom: 24px;
 }
 
@@ -158,19 +159,21 @@
 }
 
 .kpi-card {
-  background: #0f2e1f;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
   transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .kpi-card:hover {
-  border-color: #2d6a4f;
+  border-color: #cbd5e1;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 .kpi-icon {
@@ -187,25 +190,25 @@
 .kpi-value {
   font-size: 24px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .kpi-label {
   font-size: 13px;
-  color: #95d5b2;
+  color: #64748b;
 }
 
 .kpi-trend {
   font-size: 12px;
-  color: var(--color-green-400);
+  color: #059669;
   font-weight: 500;
 }
 
-.kpi-blue .kpi-value { color: var(--color-green-300); }
-.kpi-green .kpi-value { color: var(--color-green-400); }
-.kpi-purple .kpi-value { color: var(--color-green-200); }
-.kpi-orange .kpi-value { color: var(--color-amber-500); }
-.kpi-red .kpi-value { color: var(--color-red-500); }
+.kpi-blue .kpi-value { color: #0284c7; }
+.kpi-green .kpi-value { color: #059669; }
+.kpi-purple .kpi-value { color: #7c3aed; }
+.kpi-orange .kpi-value { color: #d97706; }
+.kpi-red .kpi-value { color: #dc2626; }
 
 /* Grid */
 .admin-grid-2 {
@@ -217,26 +220,27 @@
 
 /* Cards */
 .admin-card {
-  background: #0f2e1f;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .admin-card h3 {
   font-size: 16px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #1b4332;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .admin-card h4 {
   font-size: 14px;
   font-weight: 600;
-  color: #b7e4c7;
+  color: #334155;
   margin-bottom: 8px;
 }
 
@@ -252,7 +256,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid #0f2e1f;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .stat-row:last-child {
@@ -261,13 +265,13 @@
 
 .stat-label {
   font-size: 13px;
-  color: #95d5b2;
+  color: #64748b;
 }
 
 .stat-value {
   font-size: 14px;
   font-weight: 600;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 /* Status Badges */
@@ -282,10 +286,10 @@
   letter-spacing: 0.5px;
 }
 
-.status-green { background: #052e16; color: var(--color-green-400); }
-.status-yellow { background: #422006; color: var(--color-amber-500); }
-.status-red { background: #450a0a; color: var(--color-red-500); }
-.status-gray { background: #0f2e1f; color: #52b788; }
+.status-green { background: #dcfce7; color: #166534; }
+.status-yellow { background: #fef3c7; color: #92400e; }
+.status-red { background: #fee2e2; color: #991b1b; }
+.status-gray { background: #f1f5f9; color: #475569; }
 
 /* Booking Status Badges */
 .booking-status-badge {
@@ -300,33 +304,33 @@
 }
 
 .booking-status-monitoring {
-  background: #0c2d48;
-  color: #64b5f6;
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .booking-status-lower {
-  background: #422006;
-  color: var(--color-amber-500);
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .booking-status-savings {
-  background: #1a3a1a;
-  color: #81c784;
+  background: #dcfce7;
+  color: #15803d;
 }
 
 .booking-status-confirmed {
-  background: #052e16;
-  color: var(--color-green-400);
+  background: #dcfce7;
+  color: #166534;
 }
 
 .booking-status-pending {
-  background: #3e2723;
-  color: #ffab91;
+  background: #ffedd5;
+  color: #c2410c;
 }
 
 .booking-status-dismissed {
-  background: #1a1a2e;
-  color: #9e9e9e;
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 /* Plan badges */
@@ -339,9 +343,9 @@
   text-transform: uppercase;
 }
 
-.plan-free { background: #0f2e1f; color: #95d5b2; }
-.plan-viajante { background: #1a3a2a; color: #64b5f6; }
-.plan-premium { background: #422006; color: var(--color-amber-500); }
+.plan-free { background: #f1f5f9; color: #475569; }
+.plan-viajante { background: #e0f2fe; color: #0369a1; }
+.plan-premium { background: #fef3c7; color: #b45309; }
 
 /* Tables */
 .admin-table {
@@ -352,13 +356,14 @@
 
 .admin-table th {
   text-align: left;
-  padding: 10px 12px;
-  color: #95d5b2;
+  padding: 12px 14px;
+  color: #475569;
   font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 1px solid #1b4332;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
 .admin-table th.sortable {
@@ -367,23 +372,23 @@
 }
 
 .admin-table th.sortable:hover {
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .admin-table td {
-  padding: 10px 12px;
-  color: #d8f3dc;
-  border-bottom: 1px solid #0f2e1f;
+  padding: 12px 14px;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .admin-table tr:hover td {
-  background: #0a1a14;
+  background: #f8fafc;
 }
 
 .admin-table-total td {
-  border-top: 2px solid #1b4332;
+  border-top: 2px solid #e2e8f0;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .admin-table-nested {
@@ -398,12 +403,14 @@
 
 .admin-table-wrap {
   overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
 }
 
 .admin-table-info {
   padding: 8px 0;
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
 }
 
 .text-truncate {
@@ -414,11 +421,11 @@
 }
 
 .text-danger {
-  color: var(--color-red-500) !important;
+  color: #dc2626 !important;
 }
 
 .text-savings {
-  color: var(--color-green-400) !important;
+  color: #059669 !important;
   font-weight: 600;
 }
 
@@ -427,8 +434,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 10px 16px;
   margin-bottom: 16px;
@@ -436,11 +443,11 @@
 }
 
 .admin-search-bar:focus-within {
-  border-color: #2d6a4f;
+  border-color: #059669;
 }
 
 .admin-search-bar svg {
-  color: #52b788;
+  color: #64748b;
   flex-shrink: 0;
 }
 
@@ -449,13 +456,13 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #d8f3dc;
+  color: #0f172a;
   font-size: 14px;
   font-family: inherit;
 }
 
 .admin-search-bar input::placeholder {
-  color: #52b788;
+  color: #94a3b8;
 }
 
 /* ─── Filter Pills ─────────────────────────────────────── */
@@ -469,7 +476,7 @@
 
 .filter-label {
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -481,22 +488,22 @@
   border-radius: 100px;
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid #1b4332;
-  background: transparent;
-  color: #95d5b2;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-pill:hover {
-  background: #1b4332;
-  color: #d8f3dc;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .filter-pill.active {
-  background: var(--color-green-700);
+  background: #059669;
   color: white;
-  border-color: var(--color-green-600);
+  border-color: #059669;
 }
 
 /* ─── Booking Rows (clickable) ─────────────────────────── */
@@ -506,7 +513,7 @@
 }
 
 .admin-booking-row:hover td {
-  background: #122e20 !important;
+  background: #f1f5f9 !important;
 }
 
 /* ─── Detail Modal (slide-in panel) ────────────────────── */
@@ -516,7 +523,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
   z-index: 200;
   animation: fadeIn 0.2s ease;
 }
@@ -533,8 +541,9 @@
   width: 560px;
   max-width: 90vw;
   height: 100vh;
-  background: #0f2e1f;
-  border-left: 1px solid #1b4332;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
   z-index: 201;
   display: flex;
   flex-direction: column;
@@ -552,8 +561,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid #1b4332;
+  border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
+  background: #ffffff;
 }
 
 .admin-detail-header h3 {
@@ -561,6 +571,7 @@
   padding: 0;
   border: none;
   font-size: 18px;
+  color: #0f172a;
 }
 
 .admin-detail-body {
@@ -576,10 +587,10 @@
 .admin-detail-section h4 {
   font-size: 14px;
   font-weight: 700;
-  color: #b7e4c7;
+  color: #0f172a;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #1b4332;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .admin-detail-list {
@@ -593,23 +604,23 @@
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid #0a1a14;
+  border-bottom: 1px solid #f1f5f9;
   font-size: 12px;
 }
 
 .detail-time {
-  color: #52b788;
+  color: #64748b;
   flex-shrink: 0;
   width: 150px;
 }
 
 .detail-action {
-  color: #d8f3dc;
+  color: #0f172a;
   font-weight: 600;
 }
 
 .detail-actor {
-  color: #95d5b2;
+  color: #475569;
   margin-left: auto;
 }
 
@@ -628,13 +639,13 @@
 }
 
 .btn-danger {
-  background: #450a0a !important;
-  color: var(--color-red-500) !important;
-  border: 1px solid #7f1d1d;
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fca5a5;
 }
 
 .btn-danger:hover {
-  background: #7f1d1d !important;
+  background: #fca5a5 !important;
 }
 
 .admin-status-edit {
@@ -644,9 +655,9 @@
 }
 
 .admin-status-edit select {
-  background: #0a1a14;
-  color: #d8f3dc;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
@@ -655,7 +666,7 @@
 }
 
 .admin-status-edit select:focus {
-  border-color: #2d6a4f;
+  border-color: #059669;
 }
 
 /* ─── Pagination ───────────────────────────────────────── */
@@ -672,16 +683,16 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
-  border: 1px solid #1b4332;
-  background: transparent;
-  color: #95d5b2;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .admin-pagination button:hover:not(:disabled) {
-  background: #1b4332;
-  color: #d8f3dc;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .admin-pagination button:disabled {
@@ -691,7 +702,7 @@
 
 .admin-pagination span {
   font-size: 13px;
-  color: #52b788;
+  color: #64748b;
 }
 
 /* ─── Email Compose ────────────────────────────────────── */
@@ -710,18 +721,18 @@
 .email-field label {
   font-size: 12px;
   font-weight: 600;
-  color: #95d5b2;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .email-field input,
 .email-field textarea {
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 10px 14px;
-  color: #d8f3dc;
+  color: #0f172a;
   font-size: 14px;
   font-family: inherit;
   outline: none;
@@ -731,12 +742,12 @@
 
 .email-field input:focus,
 .email-field textarea:focus {
-  border-color: #2d6a4f;
+  border-color: #059669;
 }
 
 .email-field input::placeholder,
 .email-field textarea::placeholder {
-  color: #52b788;
+  color: #94a3b8;
 }
 
 .email-actions {
@@ -752,13 +763,13 @@
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  background: #1b4332;
-  color: #b7e4c7;
+  background: #f1f5f9;
+  color: #334155;
 }
 
 /* ─── User Detail Expanded Row ─────────────────────────── */
 .admin-user-detail-row td {
-  background: #0a1a14 !important;
+  background: #f8fafc !important;
   padding: 16px 20px !important;
 }
 
@@ -771,21 +782,21 @@
 .admin-user-expanded h4 {
   font-size: 13px;
   font-weight: 700;
-  color: #b7e4c7;
+  color: #0f172a;
   margin-bottom: 8px;
 }
 
 /* Info Box */
 .admin-info-box {
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px 20px;
 }
 
 .admin-info-box p {
   font-size: 13px;
-  color: #95d5b2;
+  color: #475569;
   margin-bottom: 8px;
   line-height: 1.6;
 }
@@ -795,12 +806,12 @@
 }
 
 .admin-info-box strong {
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 /* Empty State */
 .admin-empty {
-  color: #52b788;
+  color: #64748b;
   font-size: 14px;
   text-align: center;
   padding: 24px;
@@ -809,7 +820,7 @@
 /* Note */
 .admin-note {
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
   margin-top: 12px;
   font-style: italic;
 }
@@ -823,24 +834,24 @@
 .admin-list li {
   padding: 6px 0;
   font-size: 13px;
-  color: #95d5b2;
+  color: #475569;
 }
 
 .admin-list li::before {
   content: '\2713  ';
   margin-right: 4px;
-  color: var(--color-green-400);
+  color: #059669;
 }
 
 .admin-list-danger li::before {
   content: '\2717  ';
-  color: var(--color-red-500);
+  color: #dc2626;
 }
 
 .admin-subtitle {
   font-size: 14px;
   font-weight: 600;
-  color: #b7e4c7;
+  color: #0f172a;
   margin-bottom: 8px;
 }
 
@@ -855,7 +866,7 @@
   gap: 12px;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #1b4332;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .affiliate-logo {
@@ -866,10 +877,11 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: #1b4332;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .affiliate-header h3 {
@@ -880,7 +892,7 @@
 
 .affiliate-network {
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
 }
 
 .affiliate-header .status-badge {
@@ -907,7 +919,7 @@
 
 .growth-bar {
   width: 100%;
-  background: linear-gradient(180deg, var(--color-green-500), var(--color-green-800));
+  background: linear-gradient(180deg, #10b981, #059669);
   border-radius: 4px 4px 0 0;
   min-height: 4px;
   display: flex;
@@ -925,7 +937,7 @@
 
 .growth-label {
   font-size: 10px;
-  color: #52b788;
+  color: #64748b;
   margin-top: 4px;
 }
 
@@ -945,8 +957,8 @@
 .admin-view-toggle {
   display: flex;
   gap: 4px;
-  background: #0f2e1f;
-  border: 1px solid #1b4332;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
   padding: 3px;
 }
@@ -955,7 +967,7 @@
   padding: 6px 10px;
   background: transparent;
   border: none;
-  color: #52b788;
+  color: #64748b;
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.15s;
@@ -963,8 +975,8 @@
   align-items: center;
 }
 
-.view-btn:hover { color: #d8f3dc; background: #1b4332; }
-.view-btn.active { color: #d8f3dc; background: #1b4332; }
+.view-btn:hover { color: #0f172a; background: #e2e8f0; }
+.view-btn.active { color: #0f172a; background: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
 .admin-kpi-grid-5 {
   grid-template-columns: repeat(5, 1fr);
@@ -976,7 +988,7 @@
   justify-content: center;
   min-width: 18px;
   height: 18px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.06);
   border-radius: 9px;
   font-size: 10px;
   font-weight: 700;
@@ -988,32 +1000,32 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #1b4332;
+  background: #e2e8f0;
   padding: 3px 10px;
   border-radius: 100px;
   font-size: 12px;
-  color: #95d5b2;
+  color: #334155;
   margin-left: 12px;
 }
 
 .btn-clear-search {
   background: none;
   border: none;
-  color: #52b788;
+  color: #64748b;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
   padding: 0 2px;
 }
 
-.btn-clear-search:hover { color: #d8f3dc; }
+.btn-clear-search:hover { color: #0f172a; }
 
 /* ─── Table cell styles ───────────────────────────────── */
 
 .admin-bookings-table th { font-size: 11px; }
 .th-right { text-align: right; }
 .td-right { text-align: right; }
-.td-muted { color: #52b788 !important; font-size: 12px; }
+.td-muted { color: #64748b !important; font-size: 12px; }
 
 .booking-hotel-cell {
   display: flex;
@@ -1024,7 +1036,7 @@
 
 .booking-hotel-name {
   font-weight: 600;
-  color: #d8f3dc;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1032,7 +1044,7 @@
 
 .booking-room-type {
   font-size: 11px;
-  color: #52b788;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1047,7 +1059,7 @@
 
 .booking-user-name {
   font-weight: 600;
-  color: #d8f3dc;
+  color: #0f172a;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -1056,7 +1068,7 @@
 
 .booking-user-email {
   font-size: 11px;
-  color: #52b788;
+  color: #64748b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1074,9 +1086,9 @@
   margin-top: 2px;
 }
 
-.plan-badge-sm.plan-free { background: #0f2e1f; color: #52b788; }
-.plan-badge-sm.plan-viajante { background: #0c2d48; color: #64b5f6; }
-.plan-badge-sm.plan-premium { background: #422006; color: var(--color-amber-500); }
+.plan-badge-sm.plan-free { background: #f1f5f9; color: #475569; }
+.plan-badge-sm.plan-viajante { background: #e0f2fe; color: #0369a1; }
+.plan-badge-sm.plan-premium { background: #fef3c7; color: #b45309; }
 
 .booking-dates-cell {
   display: flex;
@@ -1086,21 +1098,22 @@
 
 .booking-nights {
   font-size: 11px;
-  color: #52b788;
+  color: #64748b;
 }
 
 .booking-countdown {
   font-size: 10px;
   font-weight: 700;
-  color: #95d5b2;
+  color: #475569;
 }
 
-.booking-countdown.past { color: var(--color-red-500); }
-.booking-countdown.soon { color: var(--color-amber-500); }
+.booking-countdown.past { color: #dc2626; }
+.booking-countdown.soon { color: #d97706; }
 
 .booking-price {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  color: #0f172a;
 }
 
 .booking-savings-cell {
@@ -1112,15 +1125,15 @@
 
 .booking-savings-amount {
   font-weight: 700;
-  color: var(--color-green-400);
+  color: #059669;
   font-variant-numeric: tabular-nums;
 }
 
 .booking-savings-percent {
   font-size: 10px;
   font-weight: 600;
-  color: #52b788;
-  background: #052e16;
+  color: #15803d;
+  background: #dcfce7;
   padding: 1px 5px;
   border-radius: 3px;
 }
@@ -1135,8 +1148,8 @@
 }
 
 .booking-card {
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 20px;
   cursor: pointer;
@@ -1144,12 +1157,13 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
 .booking-card:hover {
-  border-color: #2d6a4f;
+  border-color: #cbd5e1;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 .booking-card-top {
@@ -1162,14 +1176,14 @@
 .booking-card-hotel h4 {
   font-size: 15px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
   margin: 0 0 4px 0;
   line-height: 1.3;
 }
 
 .booking-card-dest {
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
 }
 
 .booking-card-account {
@@ -1177,7 +1191,8 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #0f2e1f;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
   border-radius: 8px;
 }
 
@@ -1185,26 +1200,26 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1b4332, #2d6a4f);
+  background: #059669;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: white;
   flex-shrink: 0;
 }
 
 .booking-card-user {
   font-size: 13px;
   font-weight: 600;
-  color: #d8f3dc;
+  color: #0f172a;
   display: block;
 }
 
 .booking-card-email {
   font-size: 11px;
-  color: #52b788;
+  color: #64748b;
   display: block;
 }
 
@@ -1228,24 +1243,24 @@
 .bcd-label {
   font-size: 10px;
   font-weight: 600;
-  color: #52b788;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .bcd-value {
   font-size: 13px;
-  color: #d8f3dc;
+  color: #0f172a;
   font-weight: 500;
 }
 
-.text-warning { color: var(--color-amber-500) !important; }
+.text-warning { color: #d97706 !important; }
 
 .booking-card-pricing {
   display: flex;
   gap: 16px;
   padding-top: 12px;
-  border-top: 1px solid #1b4332;
+  border-top: 1px solid #f1f5f9;
   flex-wrap: wrap;
 }
 
@@ -1260,7 +1275,7 @@
 .bcp-label {
   font-size: 10px;
   font-weight: 600;
-  color: #52b788;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1268,13 +1283,13 @@
 .bcp-amount {
   font-size: 16px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .bcp-savings {
   font-size: 16px;
   font-weight: 700;
-  color: var(--color-green-400);
+  color: #059669;
 }
 
 .bcp-savings small {
@@ -1285,7 +1300,7 @@
 
 .bcp-source {
   font-size: 13px;
-  color: #95d5b2;
+  color: #0284c7;
   font-weight: 500;
 }
 
@@ -1311,14 +1326,14 @@
 .detail-hotel-name {
   font-size: 22px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: #0f172a;
   margin: 0;
   line-height: 1.3;
 }
 
 .detail-hotel-dest {
   font-size: 13px;
-  color: #52b788;
+  color: #64748b;
   margin-top: 4px;
   display: block;
 }
@@ -1328,8 +1343,8 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 12px 16px;
   margin-bottom: 20px;
@@ -1339,13 +1354,13 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1b4332, #2d6a4f);
+  background: #059669;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 16px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: white;
   flex-shrink: 0;
 }
 
@@ -1357,19 +1372,19 @@
 .detail-account-name {
   font-size: 14px;
   font-weight: 700;
-  color: #d8f3dc;
+  color: #0f172a;
   display: block;
 }
 
 .detail-account-email {
   font-size: 12px;
-  color: #52b788;
+  color: #64748b;
   display: block;
 }
 
 .detail-account-joined {
   font-size: 11px;
-  color: #52b788;
+  color: #64748b;
   margin-left: auto;
   white-space: nowrap;
 }
@@ -1383,8 +1398,8 @@
 }
 
 .detail-price-card {
-  background: #0a1a14;
-  border: 1px solid #1b4332;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
   display: flex;
@@ -1393,19 +1408,19 @@
 }
 
 .detail-price-best {
-  border-color: #0c2d48;
-  background: #071a2e;
+  border-color: #bae6fd;
+  background: #f0f9ff;
 }
 
 .detail-price-savings {
-  border-color: #052e16;
-  background: #041f10;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
 .dpc-label {
   font-size: 11px;
   font-weight: 600;
-  color: #52b788;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1413,23 +1428,23 @@
 .dpc-amount {
   font-size: 22px;
   font-weight: 800;
-  color: #d8f3dc;
+  color: #0f172a;
 }
 
 .detail-price-savings .dpc-amount {
-  color: var(--color-green-400);
+  color: #059669;
 }
 
 .dpc-source {
   font-size: 11px;
-  color: #64b5f6;
+  color: #0284c7;
 }
 
 .dpc-percent {
   font-size: 12px;
   font-weight: 700;
-  color: var(--color-green-400);
-  background: #052e16;
+  color: #15803d;
+  background: #dcfce7;
   display: inline-flex;
   padding: 2px 8px;
   border-radius: 4px;
@@ -1448,7 +1463,7 @@
   flex-direction: column;
   gap: 2px;
   padding: 10px 0;
-  border-bottom: 1px solid #0a1a14;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .detail-info-item:nth-child(odd) {
@@ -1457,20 +1472,20 @@
 
 .detail-info-item:nth-child(even) {
   padding-left: 16px;
-  border-left: 1px solid #0a1a14;
+  border-left: 1px solid #f1f5f9;
 }
 
 .dii-label {
   font-size: 11px;
   font-weight: 600;
-  color: #52b788;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
 .dii-value {
   font-size: 13px;
-  color: #d8f3dc;
+  color: #0f172a;
   font-weight: 500;
 }
 
@@ -1483,9 +1498,9 @@
 .detail-id-footer {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #1b4332;
+  border-top: 1px solid #e2e8f0;
   font-size: 11px;
-  color: #2d6a4f;
+  color: #64748b;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   user-select: all;
 }

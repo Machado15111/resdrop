@@ -159,9 +159,25 @@ export async function getUserWithPassword(email) {
   return null;
 }
 
+const ADMIN_EMAILS = [
+  (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+  'junior13machadojr@gmail.com',
+  'machado1jr@gmail.com'
+].filter(Boolean);
+
+export function isAdminEmail(email) {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
 export async function getUser(email) {
   const user = await getUserWithPassword(email);
-  if (user) delete user.passwordHash;
+  if (user) {
+    delete user.passwordHash;
+    if (isAdminEmail(user.email)) {
+      user.plan = 'premium';
+    }
+  }
   return user;
 }
 
@@ -188,7 +204,7 @@ export async function createUser(email, name) {
     id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     email: key,
     name: name || 'Guest',
-    plan: 'free',
+    plan: isAdminEmail(key) ? 'premium' : 'free',
     joinedAt: new Date().toISOString(),
   };
   inMemoryUsers.set(key, memUser);

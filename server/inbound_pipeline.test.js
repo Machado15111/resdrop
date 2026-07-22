@@ -182,3 +182,71 @@ test('TASK 8 — Controlled Google Places Fallback Daily Caps', async (t) => {
   const call4 = await checkAndConsumeProviderCap(provider, op, cap, 100);
   assert.equal(call4, false, 'Should block external call when cap is reached');
 });
+
+test('TASK 15 — Cloudflare Email Bridge (POST /api/inbound/cloudflare-email)', async (t) => {
+  const { default: inboundEmailRoutes } = await import('./routes/inbound-email.js');
+  const express = (await import('express')).default;
+
+  const mockUser = { email: 'traveler@resdrop.app', name: 'Verified Traveler' };
+  const mockDb = {
+    getAllBookings: async () => [],
+    getInboundEmailByMessageId: async () => null,
+    getInboundEmailByHash: async () => null,
+    createInboundEmail: async (data) => ({ id: 'inb-cf-1', ...data }),
+    getUserByEmail: async (email) => email === 'traveler@resdrop.app' ? mockUser : null,
+    createBooking: async (b) => ({ id: `bkg-cf-1`, ...b }),
+    createBookingImport: async (bi) => ({ id: `imp-cf-1`, ...bi }),
+  };
+
+  const app = express();
+  const dummyAuth = (req, res, next) => next();
+  app.use('/api', inboundEmailRoutes(dummyAuth, mockDb));
+
+  // Start temporary server
+  const server = app.listen(0);
+  const port = server.address().port;
+  const url = `http://localhost:${port}/api/inbound/cloudflare-email`;
+
+  process.env.INBOUND_WEBHOOK_SECRET = 'test-secret-123';
+
+  try {
+    // 1. Unauthorized request (wrong or missing secret)
+    const resUnauth = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'message/rfc822', 'X-Inbound-Secret': 'wrong-secret' },
+      body: 'From: traveler@resdrop.app\r\nSubject: Test\r\n\r\nHello',
+    });
+    assert.equal(resUnauth.status, 401);
+
+    // 2. Valid request with raw MIME
+    const sampleMime = `From: traveler@resdrop.app
+To: reservas@resdrop.app
+Subject: Confirmation for Hotel Fasano Rio
+Message-ID: <cf-test-msg-999@resdrop.app>
+
+Hotel: Hotel Fasano Rio
+Check-in: 2026-11-20
+Check-out: 2026-11-25
+Total: USD 2500.00
+Confirmation: FAS-12345`;
+
+    const resValid = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'message/rfc822',
+        'X-Inbound-Secret': 'test-secret-123',
+      },
+      body: sampleMime,
+    });
+
+    assert.equal(resValid.status, 200);
+    const body = await resValid.json();
+    assert.equal(body.success, true);
+    assert.equal(body.status, 'ACTIVE_MONITORING');
+    assert.equal(body.booking.hotelName, 'Hotel Fasano Rio');
+  } finally {
+    server.close();
+    delete process.env.INBOUND_WEBHOOK_SECRET;
+  }
+});
+

@@ -784,7 +784,7 @@ export default function ResDroppLanding() {
               <div className="rdp-pricing__card rdp-pricing__card--highlight">
                 <div className="rdp-pricing__pill">{pt ? 'Mais popular' : 'Most popular'}</div>
                 <div className="rdp-pricing__tier">ResDrop Plus</div>
-                <div className="rdp-pricing__amount">$9<span className="rdp-pricing__per">{pt ? '/mês' : '/month'}</span></div>
+                <div className="rdp-pricing__amount">{pt ? 'R$ 37' : '$9'}<span className="rdp-pricing__per">{pt ? '/mês' : '/month'}</span></div>
                 <p className="rdp-pricing__blurb">
                   {pt ? 'Para viajantes com várias viagens por ano ou estadias de alto valor que merecem atenção constante.' : 'For frequent travelers and high-value stays worth watching closely.'}
                 </p>
@@ -796,7 +796,7 @@ export default function ResDroppLanding() {
                 <Link to="/signup" className="rdp-btn rdp-btn--white rdp-btn--block">
                   {pt ? 'Começar com Plus' : 'Start with Plus'}
                 </Link>
-                <p className="rdp-pricing__annual">{pt ? 'Ou $89/ano, economize 2 meses' : 'Or $89/year, save two months'}</p>
+                <p className="rdp-pricing__annual">{pt ? 'Ou R$ 125/ano (US$ 36/ano)' : 'Or $36/year (R$125/year)'}</p>
               </div>
             </div>
           </div>
