@@ -390,16 +390,38 @@ export async function createBooking(booking) {
 }
 
 export async function updateBooking(id, updates) {
+  const raw = toSnake(updates);
+  const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+  if (Object.keys(row).length === 0) return await getBooking(id);
+  // Try direct sql; if the connection is unavailable (no valid DATABASE_URL),
+  // fall back to the Supabase REST layer so monitoring updates still persist.
   try {
-    const raw = toSnake(updates);
-    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
-    if (Object.keys(row).length === 0) return await getBooking(id);
     const rows = await sql`UPDATE bookings SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) {
+      const rec = toCamel(rows[0]);
+      inMemoryBookings.set(rec.id, rec);
+      return rec;
+    }
   } catch (e) {
-    console.error('[DB] updateBooking:', e.message);
-    return null;
+    console.error('[DB] updateBooking sql:', e.message);
   }
+  try {
+    const updated = await supa.update('bookings', { id }, row);
+    if (updated) {
+      const rec = toCamel(updated);
+      inMemoryBookings.set(rec.id, rec);
+      return rec;
+    }
+  } catch (e) {
+    console.error('[DB] updateBooking rest:', e.message);
+  }
+  const existing = inMemoryBookings.get(id);
+  if (existing) {
+    const merged = { ...existing, ...updates };
+    inMemoryBookings.set(id, merged);
+    return merged;
+  }
+  return null;
 }
 
 export async function getBookingCount() {
@@ -491,14 +513,20 @@ export async function getAdminBookings({ status, search, sort = 'created_at', or
 // ─── Fare Alerts ─────────────────────────────────────────────
 
 export async function createFareAlert(alert) {
+  const row = Object.fromEntries(Object.entries(toSnake(alert)).filter(([, v]) => v !== undefined));
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(alert)).filter(([, v]) => v !== undefined));
     const rows = await sql`INSERT INTO fare_alerts ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
-    console.error('[DB] createFareAlert:', e.message);
-    return null;
+    console.error('[DB] createFareAlert sql:', e.message);
   }
+  try {
+    const inserted = await supa.insert('fare_alerts', row);
+    if (inserted) return toCamel(inserted);
+  } catch (e) {
+    console.error('[DB] createFareAlert rest:', e.message);
+  }
+  return null;
 }
 
 export async function getAlertsByBooking(bookingId) {
