@@ -158,6 +158,19 @@ function DashboardPage() {
     }
   };
 
+  // Delete a booking permanently (confirmation happens in the card via t())
+  const handleDelete = async (booking) => {
+    try {
+      const res = await authFetch(`${API}/bookings/${booking.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setBookings(prev => prev.filter(b => b.id !== booking.id));
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
+
   const handleCloseReview = () => {
     searchParams.delete('reviewImport');
     setSearchParams(searchParams, { replace: true });
@@ -184,6 +197,7 @@ function DashboardPage() {
         onExport={handleExport}
         onImport={() => setShowImport(true)}
         onArchive={handleArchive}
+        onDelete={handleDelete}
         currentUser={user}
         bookingStates={bookingStates}
       />

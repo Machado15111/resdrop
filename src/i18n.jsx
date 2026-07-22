@@ -183,6 +183,8 @@ const translations = {
     'dash.import': 'Importar',
     'dash.archive': 'Arquivar',
     'dash.unarchive': 'Desarquivar',
+    'dash.delete': 'Excluir',
+    'dash.deleteConfirm': 'Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.',
     'dash.noResults': 'Nenhuma reserva corresponde aos filtros.',
     'dash.clearFilters': 'Limpar filtros',
     // Deadline alerts
@@ -529,6 +531,8 @@ const translations = {
     'dash.import': 'Import',
     'dash.archive': 'Archive',
     'dash.unarchive': 'Unarchive',
+    'dash.delete': 'Delete',
+    'dash.deleteConfirm': 'Are you sure you want to delete this booking? This cannot be undone.',
     'dash.noResults': 'No bookings match your filters.',
     'dash.clearFilters': 'Clear filters',
     // Deadline alerts

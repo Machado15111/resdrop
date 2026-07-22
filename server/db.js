@@ -136,6 +136,8 @@ function buildSet(obj) {
 
 // ─── Users ──────────────────────────────────────────────────
 
+const inMemoryUsers = new Map();
+
 export async function getUserWithPassword(email) {
   if (!email) return null;
   const key = email.toLowerCase();
@@ -150,6 +152,9 @@ export async function getUserWithPassword(email) {
     if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
     console.error('[DB] getUserWithPassword supa:', e.message);
+  }
+  if (inMemoryUsers.has(key)) {
+    return { ...inMemoryUsers.get(key) };
   }
   return null;
 }
@@ -178,7 +183,16 @@ export async function createUser(email, name) {
   } catch (e) {
     console.error('[DB] createUser supa:', e.message);
   }
-  return null;
+
+  const memUser = {
+    id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    email: key,
+    name: name || 'Guest',
+    plan: 'free',
+    joinedAt: new Date().toISOString(),
+  };
+  inMemoryUsers.set(key, memUser);
+  return { ...memUser };
 }
 
 export async function getOrCreateUser(email, name) {
@@ -195,13 +209,20 @@ export async function getOrCreateUser(email, name) {
 }
 
 export async function updateUser(email, updates) {
+  const key = email.toLowerCase();
+  if (inMemoryUsers.has(key)) {
+    const existing = inMemoryUsers.get(key);
+    const updated = { ...existing, ...updates };
+    inMemoryUsers.set(key, updated);
+  }
+
   try {
     const snake = toSnake(updates);
     const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
     if (entries.length === 0) return await getUser(email);
     const rows = await sql`
       UPDATE users SET ${sql(Object.fromEntries(entries))}
-      WHERE email = ${email.toLowerCase()}
+      WHERE email = ${key}
       RETURNING *
     `;
     if (rows && rows[0]) return toCamel(rows[0]);
@@ -210,7 +231,7 @@ export async function updateUser(email, updates) {
   }
   try {
     const snake = toSnake(updates);
-    const row = await supa.update('users', { email: email.toLowerCase() }, snake);
+    const row = await supa.update('users', { email: key }, snake);
     if (row) return toCamel(row);
   } catch (e) {
     console.error('[DB] updateUser supa:', e.message);
@@ -244,29 +265,39 @@ export async function updateUserStats(email) {
 }
 
 export async function getAllUsers(limit = 50) {
+  let list = [];
   try {
     const rows = await sql`SELECT * FROM users ORDER BY joined_at DESC LIMIT ${limit}`;
-    if (rows && rows.length > 0) return rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+    if (rows && rows.length > 0) list = rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
   } catch (e) {
     console.error('[DB] getAllUsers sql:', e.message);
   }
-  try {
-    const rows = await supa.select('users', {}, { order: 'joined_at.desc', limit });
-    return rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
-  } catch (e) {
-    console.error('[DB] getAllUsers supa:', e.message);
-    return [];
+  if (list.length === 0) {
+    try {
+      const rows = await supa.select('users', {}, { order: 'joined_at.desc', limit });
+      if (rows && rows.length > 0) list = rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+    } catch (e) {
+      console.error('[DB] getAllUsers supa:', e.message);
+    }
   }
+  for (const u of inMemoryUsers.values()) {
+    if (!list.some(x => x.email === u.email)) {
+      const c = { ...u };
+      delete c.passwordHash;
+      list.push(c);
+    }
+  }
+  return list.slice(0, limit);
 }
 
 export async function getUserCount() {
   try {
     const rows = await sql`SELECT COUNT(*)::int AS count FROM users`;
-    return rows[0]?.count || 0;
+    if (rows && rows[0] && rows[0].count > 0) return rows[0].count;
   } catch (e) {
     console.error('[DB] getUserCount:', e.message);
-    return 0;
   }
+  return inMemoryUsers.size;
 }
 
 // ─── Bookings ───────────────────────────────────────────────
@@ -435,26 +466,38 @@ export async function getBookingCount() {
 }
 
 export async function getStats(email) {
+  const defaultStats = {
+    totalBookings: 0,
+    savingsFound: 0,
+    confirmedSavings: 0,
+    potentialSavings: 0,
+    totalSavings: 0,
+    avgSavings: 0,
+    successRate: 0,
+  };
   try {
-    let rows;
-    if (email) {
-      rows = await sql`SELECT total_savings, potential_savings, status FROM bookings WHERE email = ${email.toLowerCase()}`;
+    let allBookings = [];
+    if (process.env.DATABASE_URL) {
+      const key = email ? email.toLowerCase() : null;
+      allBookings = key
+        ? await sql`SELECT total_savings, potential_savings, status FROM bookings WHERE email = ${key}`
+        : await sql`SELECT total_savings, potential_savings, status FROM bookings`;
     } else {
-      rows = await sql`SELECT total_savings, potential_savings, status FROM bookings`;
+      allBookings = await getBookings(email);
     }
-    const allBookings = rows;
     const confirmedSavings = allBookings
       .filter(b => b.status === 'confirmed_savings')
-      .reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+      .reduce((sum, b) => sum + (parseFloat(b.totalSavings || b.total_savings) || 0), 0);
     const potentialSavings = allBookings
       .filter(b => ['lower_fare_found', 'savings_found'].includes(b.status))
-      .reduce((sum, b) => sum + (parseFloat(b.potential_savings) || parseFloat(b.total_savings) || 0), 0);
+      .reduce((sum, b) => sum + (parseFloat(b.potentialSavings || b.potential_savings || b.totalSavings || b.total_savings) || 0), 0);
     const dropsFound = allBookings.filter(b =>
       ['lower_fare_found', 'savings_found', 'confirmed_savings', 'pending_user_confirmation'].includes(b.status)
     ).length;
     const total = allBookings.length;
     return {
-      totalBookings: total, savingsFound: dropsFound,
+      totalBookings: total,
+      savingsFound: dropsFound,
       confirmedSavings: Math.round(confirmedSavings * 100) / 100,
       potentialSavings: Math.round(potentialSavings * 100) / 100,
       totalSavings: Math.round(confirmedSavings * 100) / 100,
@@ -463,21 +506,29 @@ export async function getStats(email) {
     };
   } catch (e) {
     console.error('[DB] getStats:', e.message);
-    return null;
+    return defaultStats;
   }
 }
 
 export async function deleteBooking(id) {
+  let ok = false;
   try {
     await sql`DELETE FROM fare_alerts WHERE booking_id = ${id}`;
     await sql`DELETE FROM savings_confirmations WHERE booking_id = ${id}`;
     await sql`DELETE FROM activity_log WHERE entity_id = ${id} AND entity_type = 'booking'`;
     await sql`DELETE FROM bookings WHERE id = ${id}`;
-    return true;
-  } catch (e) {
-    console.error('[DB] deleteBooking:', e.message);
-    return false;
+    ok = true;
+  } catch (e) { console.error('[DB] deleteBooking sql:', e.message); }
+  if (!ok) {
+    // sql client unavailable → delete via REST (child rows cascade or are best-effort).
+    try {
+      await supa.remove('fare_alerts', { booking_id: id }).catch(() => {});
+      await supa.remove('bookings', { id });
+      ok = true;
+    } catch (e) { console.error('[DB] deleteBooking rest:', e.message); }
   }
+  inMemoryBookings.delete(id);
+  return ok;
 }
 
 export async function getAdminBookings({ status, search, sort = 'created_at', order = 'desc', page = 1, limit = 50 } = {}) {
@@ -684,34 +735,53 @@ export async function updateSpecialFare(id, updates) {
 
 // ─── Document Uploads ────────────────────────────────────────
 
+const inMemoryDocuments = new Map();
+
 export async function createDocumentUpload(doc) {
+  const fallbackId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const row = Object.fromEntries(Object.entries(toSnake(doc)).filter(([, v]) => v !== undefined));
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(doc)).filter(([, v]) => v !== undefined));
     const rows = await sql`INSERT INTO document_uploads ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
-  } catch (e) {
-    console.error('[DB] createDocumentUpload:', e.message);
-    return null;
-  }
+    if (rows && rows[0]) { const r = toCamel(rows[0]); inMemoryDocuments.set(r.id, r); return r; }
+  } catch (e) { console.error('[DB] createDocumentUpload sql:', e.message); }
+  try {
+    const inserted = await supa.insert('document_uploads', row);
+    if (inserted) { const r = toCamel(inserted); inMemoryDocuments.set(r.id, r); return r; }
+  } catch (e) { console.error('[DB] createDocumentUpload rest:', e.message); }
+  // Never return null — the upload route dereferences .id. Keep the flow alive.
+  const record = { id: fallbackId, ...doc, createdAt: new Date().toISOString() };
+  inMemoryDocuments.set(fallbackId, record);
+  return record;
 }
 
 export async function getDocumentUpload(id) {
   try {
     const rows = await sql`SELECT * FROM document_uploads WHERE id = ${id} LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
-  } catch (e) {
-    console.error('[DB] getDocumentUpload:', e.message);
-    return null;
-  }
+    if (rows && rows[0]) return toCamel(rows[0]);
+  } catch (e) { console.error('[DB] getDocumentUpload sql:', e.message); }
+  try {
+    const rows = await supa.select('document_uploads', { id }, { limit: 1 });
+    if (rows && rows[0]) return toCamel(rows[0]);
+  } catch (e) { /* fall through */ }
+  return inMemoryDocuments.get(id) || null;
 }
 
 export async function updateDocumentUpload(id, updates) {
+  const raw = toSnake(updates);
+  const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+  if (Object.keys(row).length === 0) return await getDocumentUpload(id);
   try {
-    const raw = toSnake(updates);
-    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
-    if (Object.keys(row).length === 0) return await getDocumentUpload(id);
     const rows = await sql`UPDATE document_uploads SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
+  } catch (e) { console.error('[DB] updateDocumentUpload sql:', e.message); }
+  try {
+    const updated = await supa.update('document_uploads', { id }, row);
+    if (updated) return toCamel(updated);
+  } catch (e) { /* fall through */ }
+  const existing = inMemoryDocuments.get(id);
+  if (existing) { const merged = { ...existing, ...updates }; inMemoryDocuments.set(id, merged); return merged; }
+  try {
+    return null;
   } catch (e) {
     console.error('[DB] updateDocumentUpload:', e.message);
     return null;
@@ -720,7 +790,19 @@ export async function updateDocumentUpload(id, updates) {
 
 // ─── Sessions ─────────────────────────────────────────────
 
+const inMemorySessions = new Map();
+
 export async function createSession(email, token) {
+  const sess = {
+    id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    user_email: email.toLowerCase(),
+    userEmail: email.toLowerCase(),
+    token,
+    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  inMemorySessions.set(token, sess);
+
   try {
     const rows = await sql`
       INSERT INTO sessions (user_email, token)
@@ -737,7 +819,7 @@ export async function createSession(email, token) {
   } catch (e) {
     console.error('[DB] createSession supa:', e.message);
   }
-  return null;
+  return sess;
 }
 
 export async function getSessionByToken(token) {
@@ -763,10 +845,17 @@ export async function getSessionByToken(token) {
   } catch (e) {
     console.error('[DB] getSession supa:', e.message);
   }
+  if (inMemorySessions.has(token)) {
+    const sess = inMemorySessions.get(token);
+    if (!sess.expires_at || new Date(sess.expires_at) > new Date()) {
+      return { ...sess };
+    }
+  }
   return null;
 }
 
 export async function deleteSession(token) {
+  inMemorySessions.delete(token);
   try {
     await sql`DELETE FROM sessions WHERE token = ${token}`;
   } catch (e) {
@@ -826,9 +915,21 @@ export async function markPasswordResetUsed(token) {
 }
 
 // ─── Inbound Emails ──────────────────────────────────────────
-// Uses Supabase REST API for serverless compatibility (tables may not exist in postgres direct connection)
+const inMemoryInboundEmails = new Map();
 
 export async function createInboundEmail(data) {
+  const id = `inb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const record = {
+    id,
+    messageId: data.messageId,
+    senderEmail: data.senderEmail,
+    subject: data.subject,
+    status: data.status || 'received',
+    contentHash: data.contentHash,
+    createdAt: new Date().toISOString(),
+  };
+  inMemoryInboundEmails.set(id, record);
+
   try {
     const row = {};
     if (data.messageId !== undefined) row.message_id = data.messageId;
@@ -837,31 +938,39 @@ export async function createInboundEmail(data) {
     if (data.status !== undefined) row.status = data.status;
     if (data.contentHash !== undefined) row.content_hash = data.contentHash;
     const result = await supa.insert('inbound_emails', row);
-    return result ? toCamel(result) : null;
+    if (result) return toCamel(result);
   } catch (e) {
     console.error('[DB] createInboundEmail:', e.message);
-    return null;
   }
+  return record;
 }
 
 export async function getInboundEmailByMessageId(messageId) {
+  if (!messageId) return null;
+  for (const record of inMemoryInboundEmails.values()) {
+    if (record.messageId === messageId) return record;
+  }
   try {
     const rows = await supa.select('inbound_emails', { message_id: messageId }, { limit: 1 });
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
     console.error('[DB] getInboundEmailByMessageId:', e.message);
-    return null;
   }
+  return null;
 }
 
 export async function getInboundEmailByHash(hash) {
+  if (!hash) return null;
+  for (const record of inMemoryInboundEmails.values()) {
+    if (record.contentHash === hash) return record;
+  }
   try {
     const rows = await supa.select('inbound_emails', { content_hash: hash }, { limit: 1 });
-    return rows[0] ? toCamel(rows[0]) : null;
+    if (rows && rows[0]) return toCamel(rows[0]);
   } catch (e) {
     console.error('[DB] getInboundEmailByHash:', e.message);
-    return null;
   }
+  return null;
 }
 
 export async function updateInboundEmail(id, updates) {
@@ -966,18 +1075,36 @@ export async function updateBookingImport(id, updates) {
 }
 
 export async function getAllBookingImports(limit = 50) {
+  let list = [];
   try {
     const rows = await supa.select('booking_imports', {}, { order: 'created_at.desc', limit });
-    return rows.map(r => toCamel(r));
+    if (rows && rows.length > 0) list = rows.map(r => toCamel(r));
   } catch (e) {
     console.error('[DB] getAllBookingImports error:', e.message);
-    return [];
   }
+  for (const imp of inMemoryBookingImports.values()) {
+    if (!list.some(x => x.id === imp.id)) {
+      list.push(imp);
+    }
+  }
+  return list.slice(0, limit);
 }
 
 // ─── Pending Import Tokens ───────────────────────────────────
+const inMemoryPendingTokens = new Map();
 
 export async function createPendingImportToken(data) {
+  const id = `tok-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  const record = {
+    id,
+    bookingImportId: data.bookingImportId,
+    email: data.email,
+    tokenHash: data.tokenHash,
+    expiresAt: data.expiresAt,
+    createdAt: new Date().toISOString(),
+  };
+  inMemoryPendingTokens.set(data.tokenHash, record);
+
   try {
     const row = {
       booking_import_id: data.bookingImportId,
@@ -986,25 +1113,31 @@ export async function createPendingImportToken(data) {
       expires_at: data.expiresAt,
     };
     const result = await supa.insert('pending_import_tokens', row);
-    return result ? toCamel(result) : null;
+    if (result) return toCamel(result);
   } catch (e) {
     console.error('[DB] createPendingImportToken:', e.message);
-    return null;
   }
+  return record;
 }
 
 export async function getPendingImportTokenByHash(tokenHash) {
+  if (!tokenHash) return null;
+  if (inMemoryPendingTokens.has(tokenHash)) {
+    const record = inMemoryPendingTokens.get(tokenHash);
+    if (!record.usedAt && new Date(record.expiresAt) > new Date()) {
+      return record;
+    }
+  }
   try {
     const rows = await supa.select('pending_import_tokens', { token_hash: tokenHash, used_at: null }, { limit: 1 });
-    if (!rows[0]) return null;
-    const record = toCamel(rows[0]);
-    // Check expiry
-    if (record.expiresAt && new Date(record.expiresAt) < new Date()) return null;
-    return record;
+    if (rows && rows[0]) {
+      const dbRec = toCamel(rows[0]);
+      if (new Date(dbRec.expiresAt) > new Date()) return dbRec;
+    }
   } catch (e) {
     console.error('[DB] getPendingImportTokenByHash:', e.message);
-    return null;
   }
+  return null;
 }
 
 export async function markPendingImportTokenUsed(id) {

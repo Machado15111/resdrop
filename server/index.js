@@ -209,12 +209,16 @@ async function authMiddleware(req, res, next) {
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
-  const user = await db.getUser(session.user_email);
+  const email = (session.user_email || session.userEmail || session.email || '').toLowerCase();
+  if (!email) {
+    return res.status(401).json({ error: 'Invalid session data' });
+  }
+  const user = await db.getUser(email);
   if (!user) {
     return res.status(401).json({ error: 'User not found' });
   }
   req.user = user;
-  req.userEmail = session.user_email;
+  req.userEmail = email;
   next();
 }
 
@@ -777,6 +781,22 @@ app.get('/api/bookings/:id', authMiddleware, async (req, res) => {
   res.json(filterBookingResults(booking));
 });
 
+// DELETE /api/bookings/:id — user deletes their own booking
+app.delete('/api/bookings/:id', authMiddleware, async (req, res) => {
+  try {
+    const booking = await db.getBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+    const ok = await db.deleteBooking(req.params.id);
+    if (!ok) return res.status(500).json({ error: 'Failed to delete booking' });
+    if (booking.email) await db.updateUserStats(booking.email).catch(() => {});
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Bookings] delete error:', err.message);
+    res.status(500).json({ error: 'Failed to delete booking' });
+  }
+});
+
 // Export bookings as CSV or JSON (Issue 10)
 app.get('/api/bookings/export', authMiddleware, async (req, res) => {
   const format = req.query.format || 'json'; // 'csv' or 'json'
@@ -1087,7 +1107,20 @@ app.post('/api/bookings/from-email', authMiddleware, parseRateLimit, async (req,
   if (!created) {
     return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
   }
-  res.status(201).json({ status: 'created', booking: created, parsed, fieldConfidence });
+
+  const { createImportResult } = await import('./importResult.js');
+  const resultPayload = createImportResult({
+    success: true,
+    source: 'email_paste',
+    booking: created,
+    hotel: null,
+    missingFields: optionalMissing.length > 0 ? optionalMissing : [],
+    warnings: validation.warnings || [],
+    attachmentsProcessed: 0,
+    status: status === 'monitoring' ? 'ACTIVE_MONITORING' : 'NEEDS_INFORMATION',
+  });
+
+  res.status(201).json(resultPayload);
 });
 
 // Get stats summary (always filtered by authenticated user)
@@ -1167,15 +1200,22 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
   // Insert new user — db.supabase is the postgres sql client
   let newUser;
   try {
-    const rows = await db.supabase`
-      INSERT INTO users (email, name, password_hash, phone, currency, country)
-      VALUES (
-        ${email.toLowerCase()}, ${name || 'Guest'}, ${passwordHash},
-        ${phone || null}, ${currency || 'BRL'}, ${country || null}
-      )
-      RETURNING *
-    `;
-    newUser = rows[0];
+    if (process.env.DATABASE_URL && typeof db.supabase === 'function') {
+      const rows = await db.supabase`
+        INSERT INTO users (email, name, password_hash, phone, currency, country)
+        VALUES (
+          ${email.toLowerCase()}, ${name || 'Guest'}, ${passwordHash},
+          ${phone || null}, ${currency || 'BRL'}, ${country || null}
+        )
+        RETURNING *
+      `;
+      newUser = rows[0];
+    } else {
+      newUser = await db.createUser(email.toLowerCase(), name || 'Guest');
+      if (newUser) {
+        await db.updateUser(email.toLowerCase(), { passwordHash, phone, currency, country });
+      }
+    }
   } catch (e) {
     console.error('[Signup] Insert failed:', e.message);
     return res.status(500).json({ error: 'Failed to create user' });
@@ -1508,10 +1548,12 @@ app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res
     let nuiteeMatches = 0;
     let googleFallbackMatches = 0;
     try {
-      const mappings = await db.supabase`SELECT source, count(*)::int FROM hotel_mappings GROUP BY source`;
-      for (const m of mappings) {
-        if (m.source === 'nuitee') nuiteeMatches = m.count;
-        if (m.source === 'google_places') googleFallbackMatches = m.count;
+      if (process.env.DATABASE_URL && typeof db.supabase === 'function') {
+        const mappings = await db.supabase`SELECT source, count(*)::int FROM hotel_mappings GROUP BY source`;
+        for (const m of mappings) {
+          if (m.source === 'nuitee') nuiteeMatches = m.count;
+          if (m.source === 'google_places') googleFallbackMatches = m.count;
+        }
       }
     } catch {}
 

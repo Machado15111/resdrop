@@ -11,7 +11,7 @@ function formatCurrency(amount, currencyCode) {
   return `${symbol}${Number(amount).toLocaleString(locale, { minimumFractionDigits: 0 })}`;
 }
 
-function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, onExport, onImport, onArchive, currentUser, bookingStates = {} }) {
+function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, onExport, onImport, onArchive, onDelete, currentUser, bookingStates = {} }) {
   const { t, lang } = useI18n();
   const currency = currentUser?.currency || 'BRL';
   const fmt = (amount) => formatCurrency(amount, currency);
@@ -236,6 +236,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
                   onSelect={onSelect}
                   onRefresh={onRefresh}
                   onArchive={onArchive}
+                  onDelete={onDelete}
                   formatDate={formatDate}
                   getNights={getNights}
                   t={t}
@@ -278,7 +279,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   );
 }
 
-function BookingCard({ booking, onSelect, onRefresh, onArchive, formatDate, getNights, t, lang, fmt, isPast, bookingState }) {
+function BookingCard({ booking, onSelect, onRefresh, onArchive, onDelete, formatDate, getNights, t, lang, fmt, isPast, bookingState }) {
   const statusMap = {
     received: { label: t('dash.received'), cls: 'status-pending' },
     processing: { label: t('dash.processing'), cls: 'status-pending' },
@@ -371,6 +372,18 @@ function BookingCard({ booking, onSelect, onRefresh, onArchive, formatDate, getN
             title={booking.status === 'archived' ? t('dash.unarchive') : t('dash.archive')}
           >
             {booking.status === 'archived' ? t('dash.unarchive') : t('dash.archive')}
+          </button>
+        )}
+        {onDelete && (
+          <button
+            className="btn-delete-booking"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(t('dash.deleteConfirm'))) onDelete(booking);
+            }}
+            title={t('dash.delete')}
+          >
+            {t('dash.delete')}
           </button>
         )}
       </div>
