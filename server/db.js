@@ -1002,5 +1002,110 @@ export async function logExtractionUsage(data) {
   }
 }
 
+// ─── Hotel Mappings & Provider Usage Caps ──────────────────────
+
+const inMemoryHotelMappings = new Map();
+const inMemoryProviderUsage = new Map();
+
+export async function getHotelMappingByKey(normalizedHotelKey) {
+  if (!normalizedHotelKey) return null;
+  if (inMemoryHotelMappings.has(normalizedHotelKey)) {
+    return inMemoryHotelMappings.get(normalizedHotelKey);
+  }
+  try {
+    const rows = await sql`SELECT * FROM hotel_mappings WHERE normalized_hotel_key = ${normalizedHotelKey} LIMIT 1`;
+    if (rows && rows[0]) {
+      const rec = toCamel(rows[0]);
+      inMemoryHotelMappings.set(normalizedHotelKey, rec);
+      return rec;
+    }
+  } catch (e) {
+    console.error('[DB] getHotelMappingByKey:', e.message);
+  }
+  return null;
+}
+
+export async function upsertHotelMapping(data) {
+  if (!data || !data.normalizedHotelKey) return null;
+  const key = data.normalizedHotelKey;
+  const record = {
+    normalizedHotelKey: key,
+    nuiteeHotelId: data.nuiteeHotelId || null,
+    googlePlaceId: data.googlePlaceId || null,
+    source: data.source || 'nuitee',
+    matchScore: data.matchScore || 0,
+    status: data.status || 'VERIFIED',
+    hotelData: data.hotelData || {},
+    imageData: data.imageData || [],
+    verifiedAt: data.verifiedAt || new Date().toISOString(),
+    approvedBy: data.approvedBy || null,
+  };
+
+  inMemoryHotelMappings.set(key, record);
+
+  try {
+    const row = {
+      normalized_hotel_key: key,
+      nuitee_hotel_id: data.nuiteeHotelId || null,
+      google_place_id: data.googlePlaceId || null,
+      source: data.source || 'nuitee',
+      match_score: data.matchScore || 0,
+      status: data.status || 'VERIFIED',
+      hotel_data: sql.json(data.hotelData || {}),
+      image_data: sql.json(data.imageData || []),
+      verified_at: data.verifiedAt || new Date().toISOString(),
+    };
+    await sql`
+      INSERT INTO hotel_mappings ${sql(row)}
+      ON CONFLICT (normalized_hotel_key) DO UPDATE SET
+        nuitee_hotel_id = EXCLUDED.nuitee_hotel_id,
+        google_place_id = EXCLUDED.google_place_id,
+        source = EXCLUDED.source,
+        match_score = EXCLUDED.match_score,
+        status = EXCLUDED.status,
+        hotel_data = EXCLUDED.hotel_data,
+        image_data = EXCLUDED.image_data,
+        verified_at = EXCLUDED.verified_at
+    `;
+  } catch (e) {
+    console.error('[DB] upsertHotelMapping error:', e.message);
+  }
+  return record;
+}
+
+export async function checkAndConsumeProviderCap(provider, operation, dailyCap = 10, monthlyCap = 100) {
+  const today = new Date().toISOString().slice(0, 10);
+  const currentMonth = today.slice(0, 7);
+  const memoryKey = `${provider}:${operation}:${today}`;
+
+  const currentCount = inMemoryProviderUsage.get(memoryKey) || 0;
+  if (currentCount >= dailyCap) return false;
+
+  try {
+    const rows = await sql`
+      INSERT INTO provider_usage (provider, operation, usage_date, calendar_month, external_calls)
+      VALUES (${provider}, ${operation}, ${today}, ${currentMonth}, 1)
+      ON CONFLICT (provider, operation, usage_date) DO UPDATE SET
+        external_calls = provider_usage.external_calls + 1
+      WHERE provider_usage.external_calls < ${dailyCap}
+      RETURNING external_calls
+    `;
+    if (rows && rows[0]) {
+      inMemoryProviderUsage.set(memoryKey, rows[0].external_calls);
+      return true;
+    } else {
+      return false; // Cap hit
+    }
+  } catch (e) {
+    console.error('[DB] checkAndConsumeProviderCap fallback to memory:', e.message);
+    if (currentCount < dailyCap) {
+      inMemoryProviderUsage.set(memoryKey, currentCount + 1);
+      return true;
+    }
+    return false;
+  }
+}
+
 // ─── Compat: expose sql client for index.js direct queries ────
 export { sql as supabase };
+

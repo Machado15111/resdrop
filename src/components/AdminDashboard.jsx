@@ -130,110 +130,88 @@ function AdminDashboard() {
   );
 }
 
-// ─── OVERVIEW TAB ──────────────────────────────────────────
+// ─── OVERVIEW TAB (Task 11 Redesign) ─────────────────────
 function OverviewTab({ data }) {
-  const { stats, scheduler, users, revenue } = data;
+  const { inboundStats, recentImports = [], stats, scheduler, users } = data;
+
+  const ib = inboundStats || {
+    emailsToday: 0,
+    emailsThisMonth: 0,
+    bookingsCreated: stats?.totalBookings || 0,
+    activeMonitoring: 0,
+    needsInformation: 0,
+    failed: 0,
+    duplicate: 0,
+    unknownSenders: 0,
+    nuiteeMatches: 0,
+    googleFallbackMatches: 0,
+    awaitingReview: 0,
+    attachmentsProcessed: 0,
+    queueDepth: 0,
+    lastUpdated: new Date().toISOString(),
+  };
 
   return (
-    <div className="admin-section">
-      <h2>Dashboard Overview</h2>
-
-      <div className="admin-kpi-grid">
-        <KpiCard
-          label="Total Users"
-          value={users?.total || 0}
-          icon={<IconUsers size={24} />}
-          trend={`+${users?.newToday || 0} today`}
-          color="blue"
-        />
-        <KpiCard
-          label="Active Bookings"
-          value={stats?.totalBookings || 0}
-          icon={<IconHotel size={24} />}
-          trend={`${stats?.savingsFound || 0} with savings`}
-          color="purple"
-        />
-        <KpiCard
-          label="Total Savings Found"
-          value={`$${(stats?.totalSavings || 0).toLocaleString()}`}
-          icon={<IconDollar size={24} />}
-          trend={`${stats?.successRate || 0}% success rate`}
-          color="green"
-        />
-        <KpiCard
-          label="Est. Revenue"
-          value={`$${(revenue?.estimatedMonthly || 0).toLocaleString()}`}
-          icon={<IconTrendUp size={24} />}
-          trend="this month"
-          color="orange"
-        />
-      </div>
-
-      <div className="admin-grid-2">
-        <div className="admin-card">
-          <h3>Quick Stats</h3>
-          <div className="admin-stat-list">
-            <StatRow label="Avg Savings per Booking" value={`R$${stats?.avgSavings || 0}`} />
-            <StatRow label="Price Checks Today" value={scheduler?.totalChecksRun || 0} />
-            <StatRow label="Checks Per Day" value={`${scheduler?.checksPerDay || 3}x`} />
-            <StatRow label="Last Check" value={scheduler?.lastCheck ? new Date(scheduler.lastCheck).toLocaleString() : 'Never'} />
-            <StatRow label="Next Check" value={scheduler?.nextCheck ? new Date(scheduler.nextCheck).toLocaleString() : 'N/A'} />
-            <StatRow label="API Mode" value={stats?.apiMode || 'SIMULATION'} />
-          </div>
-        </div>
-
-        <div className="admin-card">
-          <h3>Affiliate Programmes</h3>
-          <div className="admin-stat-list">
-            <StatRow
-              label="Booking.com (Awin)"
-              value={<StatusBadge status={data.config?.awinConfigured ? 'connected' : 'disconnected'} />}
-            />
-            <StatRow
-              label="Expedia (Awin)"
-              value={<StatusBadge status={data.affiliates?.expedia?.configured ? 'connected' : 'pending'} />}
-            />
-            <StatRow
-              label="Booking.com Direct API"
-              value={<StatusBadge status={data.config?.bookingComConfigured ? 'connected' : 'not needed'} />}
-            />
-            <StatRow label="Awin Publisher ID" value={data.config?.awinPublisherId || 'Not set'} />
-          </div>
+    <div className="admin-section animate-in">
+      <div className="admin-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h2>Inbound Email & Import Pipeline</h2>
+          <span style={{ fontSize: 12, color: '#6b7280' }}>
+            Last updated: {ib.lastUpdated ? new Date(ib.lastUpdated).toLocaleTimeString() : 'Just now'}
+          </span>
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {/* 12 Live Metric Cards from DB */}
+      <div className="admin-kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <KpiCard label="Emails Today" value={ib.emailsToday} icon={<IconMail size={20} />} trend="today" color="blue" />
+        <KpiCard label="Emails This Month" value={ib.emailsThisMonth} icon={<IconMail size={20} />} trend="this month" color="blue" />
+        <KpiCard label="Bookings Created" value={ib.bookingsCreated} icon={<IconHotel size={20} />} trend="total active" color="green" />
+        <KpiCard label="Active Monitoring" value={ib.activeMonitoring} icon={<IconCheck size={20} />} trend="24/7 scanning" color="green" />
+
+        <KpiCard label="Needs Info" value={ib.needsInformation} icon={<IconActivity size={20} />} trend="incomplete" color="orange" />
+        <KpiCard label="Failed Imports" value={ib.failed} icon={<IconX size={20} />} trend="parse errors" color="red" />
+        <KpiCard label="Duplicates" value={ib.duplicate} icon={<IconShield size={20} />} trend="deduped" color="purple" />
+        <KpiCard label="Unknown Senders" value={ib.unknownSenders} icon={<IconUsers size={20} />} trend="pending signup" color="orange" />
+
+        <KpiCard label="Nuitée Matches" value={ib.nuiteeMatches} icon={<IconZap size={20} />} trend="primary match" color="green" />
+        <KpiCard label="Google Fallbacks" value={ib.googleFallbackMatches} icon={<IconSearch size={20} />} trend="capped API" color="blue" />
+        <KpiCard label="Awaiting Review" value={ib.awaitingReview} icon={<IconClock size={20} />} trend="queue" color="orange" />
+        <KpiCard label="Attachments Processed" value={ib.attachmentsProcessed} icon={<IconServer size={20} />} trend="PDF/DOCX/OCR" color="purple" />
+      </div>
+
+      {/* Recent Imports Table */}
       <div className="admin-card">
-        <h3>Recent Check History</h3>
-        {scheduler?.recentHistory?.length > 0 ? (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Bookings Checked</th>
-                <th>Savings Found</th>
-                <th>New Savings</th>
-                <th>Errors</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scheduler.recentHistory.slice().reverse().map((entry, i) => (
-                <tr key={i}>
-                  <td>{new Date(entry.timestamp).toLocaleString()}</td>
-                  <td>{entry.bookingsChecked}</td>
-                  <td>{entry.savingsFound}</td>
-                  <td>R${entry.totalNewSavings || 0}</td>
-                  <td className={entry.errors > 0 ? 'text-danger' : ''}>{entry.errors}</td>
-                  <td>{entry.duration}ms</td>
-                  <td><StatusBadge status={entry.status} /></td>
+        <h3>Recent Imports</h3>
+        {recentImports.length > 0 ? (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Received</th>
+                  <th>Source</th>
+                  <th>User</th>
+                  <th>Hotel</th>
+                  <th>Status</th>
+                  <th>Missing Fields</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentImports.map((imp, i) => (
+                  <tr key={imp.id || i}>
+                    <td>{imp.createdAt ? new Date(imp.createdAt).toLocaleString() : '-'}</td>
+                    <td><span className="activity-action-badge">{imp.source || 'email'}</span></td>
+                    <td>{imp.userEmail || <span style={{ color: '#d97706' }}>Unknown (Token sent)</span>}</td>
+                    <td><strong>{imp.extractedData?.hotelName || '—'}</strong></td>
+                    <td><StatusBadge status={imp.status === 'ACTIVE_MONITORING' ? 'connected' : imp.status === 'NEEDS_INFORMATION' ? 'pending' : 'disconnected'} /></td>
+                    <td>{Array.isArray(imp.missingFields) && imp.missingFields.length > 0 ? imp.missingFields.join(', ') : 'None'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <p className="admin-empty">No checks run yet. Click &quot;Run Price Check&quot; to start.</p>
+          <p className="admin-empty">No data available yet.</p>
         )}
       </div>
     </div>

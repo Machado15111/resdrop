@@ -123,21 +123,22 @@ function DocumentUpload({ onSubmit, onBack }) {
       const data = await res.json();
       setDocumentId(data.documentId);
       setImportId(data.importId);
-      setExtractedData(data.extractedData || {});
+      const b = data.booking || data.extractedData || {};
+      setExtractedData(b);
       setConfidenceScores(data.confidenceScores || {});
 
-      // Pre-fill form with extracted data
+      // Pre-fill form with extracted data from normalized contract
       setForm(prev => ({
         ...prev,
-        hotelName: data.extractedData.hotelName || '',
-        destination: data.extractedData.destination || data.extractedData.city || '',
-        checkinDate: data.extractedData.checkinDate || '',
-        checkoutDate: data.extractedData.checkoutDate || '',
-        roomType: data.extractedData.roomType || 'Standard Room',
-        originalPrice: data.extractedData.originalPrice || '',
-        currency: data.extractedData.currency || 'USD',
-        guestName: data.extractedData.guestName || '',
-        confirmationNumber: data.extractedData.confirmationNumber || '',
+        hotelName: b.hotelName || '',
+        destination: b.destination || b.city || '',
+        checkinDate: b.checkinDate || b.checkIn || '',
+        checkoutDate: b.checkoutDate || b.checkOut || '',
+        roomType: b.roomType || 'Standard Room',
+        originalPrice: b.originalPrice || b.totalPrice || '',
+        currency: b.currency || 'USD',
+        guestName: b.guestName || '',
+        confirmationNumber: b.confirmationNumber || b.bookingReference || '',
       }));
     } catch {
       setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');

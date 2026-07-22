@@ -449,7 +449,67 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
           </div>
         )}
 
-        {/* Price Trends (paid feature; server enforces entitlement + cost cap) */}
+          {/* Hotel Reference Section (Task 9) */}
+          <div className="detail-card hotel-reference-card">
+            <h3 className="detail-card-title">{lang === 'pt' ? 'Informações do Hotel' : 'Hotel Information'}</h3>
+            <div className="hotel-ref-body">
+              <div className="hotel-ref-media">
+                {booking.hotelData?.images && booking.hotelData.images.length > 0 ? (
+                  <div className="hotel-gallery">
+                    <img src={booking.hotelData.images[0]} alt={booking.hotelName} className="hotel-main-img" />
+                    {booking.hotelData.images.slice(1, 4).length > 0 && (
+                      <div className="hotel-thumb-grid">
+                        {booking.hotelData.images.slice(1, 4).map((img, idx) => (
+                          <img key={idx} src={img} alt={`${booking.hotelName} ${idx + 2}`} className="hotel-thumb-img" />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="hotel-img-placeholder">
+                    <IconHotel size={48} />
+                    <span>{booking.hotelName}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="hotel-ref-details">
+                <div className="hotel-ref-row">
+                  <strong>{booking.hotelName}</strong>
+                  {booking.hotelData?.star && <span className="hotel-stars">{'★'.repeat(Math.round(booking.hotelData.star))}</span>}
+                </div>
+                {booking.hotelData?.address && (
+                  <p className="hotel-ref-address">📍 {booking.hotelData.address}, {booking.destination}</p>
+                )}
+                {booking.hotelData?.coords && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${booking.hotelData.coords.lat},${booking.hotelData.coords.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hotel-maps-link"
+                  >
+                    🗺️ {lang === 'pt' ? 'Ver no Google Maps' : 'View on Google Maps'}
+                  </a>
+                )}
+                <div className="hotel-meta-grid">
+                  <div><strong>{lang === 'pt' ? 'Check-in' : 'Check-in'}:</strong> {formatDate(booking.checkinDate)}</div>
+                  <div><strong>{lang === 'pt' ? 'Check-out' : 'Check-out'}:</strong> {formatDate(booking.checkoutDate)}</div>
+                  <div><strong>{lang === 'pt' ? 'Quarto' : 'Room'}:</strong> {booking.roomType}</div>
+                  <div><strong>{lang === 'pt' ? 'Refeição' : 'Meal Plan'}:</strong> {booking.mealPlan || (lang === 'pt' ? 'Conforme confirmação' : 'As confirmed')}</div>
+                  <div><strong>{lang === 'pt' ? 'Confirmação' : 'Confirmation'}:</strong> {booking.confirmationNumber || '—'}</div>
+                  <div><strong>{lang === 'pt' ? 'Canal' : 'Source'}:</strong> {booking.bookingSource || 'Direct'}</div>
+                </div>
+
+                <div className="hotel-ref-disclaimer">
+                  ℹ️ {lang === 'pt'
+                    ? 'As informações e imagens do hotel são exibidas como referência. As condições válidas da reserva são as informadas na confirmação original.'
+                    : 'Hotel information and images are shown for reference. The valid booking conditions are those stated in the original confirmation.'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Price Trends (paid feature; server enforces entitlement + cost cap) */}
         <div style={{ marginTop: 20 }}>
           <PriceTrends
             hotelIds={booking.nuiteeHotelId ? [booking.nuiteeHotelId] : []}

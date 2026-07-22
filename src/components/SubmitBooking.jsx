@@ -209,35 +209,33 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         body: JSON.stringify({ rawEmail: pasteText, email: userEmail }),
       });
       if (!res.ok) {
-        throw new Error(`Primary endpoint failed with status ${res.status}`);
+        throw new Error(`Parse failed with status ${res.status}`);
       }
       const data = await res.json();
 
-      if (data.status === 'created' && data.booking) {
-        setProcessingStatus(lang === 'pt' ? 'Reserva criada!' : 'Booking created!');
+      if (data.status === 'ACTIVE_MONITORING' && data.booking?.id) {
+        setProcessingStatus(lang === 'pt' ? 'Reserva criada e monitoramento ativo!' : 'Booking created and monitoring active!');
         setTimeout(() => navigate(`/bookings/${data.booking.id}`), 600);
         return;
       }
 
-      // Try to extract data from any response shape
-      const p = data.parsed || data.extractedData || data;
-      const hasAnyData = p.hotelName || p.checkinDate || p.checkoutDate || p.originalPrice || p.confirmationNumber;
+      const b = data.booking || {};
+      const hasAnyData = b.hotelName || b.checkIn || b.checkOut || b.totalPrice || b.bookingReference;
 
       if (hasAnyData) {
         setForm(prev => ({
           ...prev,
-          hotelName: p.hotelName || prev.hotelName,
-          destination: p.destination || prev.destination,
-          checkinDate: p.checkinDate || prev.checkinDate,
-          checkoutDate: p.checkoutDate || prev.checkoutDate,
-          roomType: p.roomType || prev.roomType,
-          originalPrice: p.originalPrice || prev.originalPrice,
-          confirmationNumber: p.confirmationNumber || prev.confirmationNumber,
-          guestName: p.guestName || prev.guestName,
+          hotelName: b.hotelName || prev.hotelName,
+          destination: b.city || b.destination || prev.destination,
+          checkinDate: b.checkIn || b.checkinDate || prev.checkinDate,
+          checkoutDate: b.checkOut || b.checkoutDate || prev.checkoutDate,
+          roomType: b.roomType || prev.roomType,
+          originalPrice: b.totalPrice || b.originalPrice || prev.originalPrice,
+          confirmationNumber: b.bookingReference || b.confirmationNumber || prev.confirmationNumber,
+          guestName: b.guestName || prev.guestName,
         }));
-        // If we have enough data for review, go there; otherwise manual form
-        const hasRequired = p.hotelName && p.checkinDate && p.checkoutDate && p.originalPrice;
-        setTimeout(() => setStep(hasRequired ? STEP_REVIEW : STEP_MANUAL), 600);
+        const missing = data.missingFields || [];
+        setTimeout(() => setStep(missing.length === 0 ? STEP_REVIEW : STEP_MANUAL), 600);
       } else {
         setError(lang === 'pt'
           ? 'Não foi possível extrair dados. Preencha o formulário abaixo.'
@@ -247,27 +245,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
       }
     } catch (err) {
       console.error('Parse error:', err);
-      // Fallback to secondary endpoint
-      try {
-        const res2 = await fetch(`${API}/parse-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailContent: pasteText }),
-        });
-        const parsed = await res2.json();
-        const fallbackFields = {};
-        // Only merge known booking fields to avoid polluting state
-        for (const key of ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'originalPrice', 'confirmationNumber', 'guestName']) {
-          if (parsed[key]) fallbackFields[key] = parsed[key];
-        }
-        setForm(prev => ({ ...prev, ...fallbackFields }));
-        const hasRequired = fallbackFields.hotelName && fallbackFields.checkinDate && fallbackFields.checkoutDate && fallbackFields.originalPrice;
-        setTimeout(() => setStep(hasRequired ? STEP_REVIEW : STEP_MANUAL), 400);
-      } catch {
-        setError(lang === 'pt' ? 'Erro ao analisar. Preencha o formulário abaixo.' : 'Parse error. Please fill in the form below.');
-        setSourceType('manual');
-        setStep(STEP_MANUAL);
-      }
+      setError(lang === 'pt' ? 'Erro ao analisar. Preencha o formulário abaixo.' : 'Parse error. Please fill in the form below.');
+      setSourceType('manual');
+      setStep(STEP_MANUAL);
     }
   };
 

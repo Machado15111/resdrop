@@ -1,7 +1,23 @@
+/* Full-screen centered overlay — without this the modal flows to the bottom
+   of the page instead of appearing centered over it. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
+}
+
 .import-review-modal {
   background: #ffffff;
   border-radius: 16px;
-  width: 90%;
+  width: 100%;
   max-width: 680px;
   max-height: 90vh;
   overflow-y: auto;

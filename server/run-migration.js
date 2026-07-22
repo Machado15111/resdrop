@@ -360,7 +360,54 @@ try {
       created_at             TIMESTAMPTZ DEFAULT now()
     )
   `;
-  console.log('✓ Inbound email and extraction tables');
+  await sql`
+    CREATE TABLE IF NOT EXISTS email_attachments (
+      id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      inbound_email_id    UUID REFERENCES inbound_emails(id) ON DELETE CASCADE,
+      filename            TEXT NOT NULL,
+      mime_type           TEXT,
+      file_size           INTEGER,
+      content_hash        TEXT,
+      parser_used         TEXT,
+      extraction_status   TEXT DEFAULT 'PROCESSED',
+      created_at          TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_email_attachments_email ON email_attachments(inbound_email_id)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS hotel_mappings (
+      id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      normalized_hotel_key TEXT UNIQUE NOT NULL,
+      nuitee_hotel_id     TEXT,
+      google_place_id     TEXT,
+      source              TEXT NOT NULL DEFAULT 'nuitee',
+      match_score         NUMERIC DEFAULT 0,
+      status              TEXT NOT NULL DEFAULT 'NEEDS_REVIEW',
+      hotel_data          JSONB DEFAULT '{}',
+      image_data          JSONB DEFAULT '[]',
+      verified_at         TIMESTAMPTZ,
+      approved_by         TEXT,
+      created_at          TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_hotel_mappings_key ON hotel_mappings(normalized_hotel_key)`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS provider_usage (
+      id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider            TEXT NOT NULL,
+      operation           TEXT NOT NULL,
+      usage_date          DATE DEFAULT CURRENT_DATE,
+      calendar_month      TEXT NOT NULL,
+      external_calls      INTEGER DEFAULT 0,
+      cache_hits          INTEGER DEFAULT 0,
+      estimated_cost      NUMERIC DEFAULT 0,
+      created_at          TIMESTAMPTZ DEFAULT now(),
+      CONSTRAINT unq_provider_op_date UNIQUE (provider, operation, usage_date)
+    )
+  `;
+  console.log('✓ Inbound email, attachments, hotel mappings, and provider usage tables');
 
   console.log('\n✓ Migration complete');
 } catch (e) {

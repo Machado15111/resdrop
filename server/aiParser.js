@@ -7,7 +7,8 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const aiCache = new Map();
 
 export function isAiParserConfigured() {
-  return !!process.env.OPENAI_API_KEY;
+  // Task 2 requirement: Kill AI on the import path (no LLM, no tokens)
+  return false;
 }
 
 export function computeHash(data) {

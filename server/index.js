@@ -984,13 +984,29 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   res.json(booking);
 });
 
-// Parse a forwarded confirmation email (requires auth)
-app.post('/api/parse-email', authMiddleware, parseRateLimit, (req, res) => {
+app.post('/api/parse-email', authMiddleware, parseRateLimit, async (req, res) => {
   const { emailContent } = req.body;
   if (!emailContent) return res.status(400).json({ error: 'emailContent is required' });
 
-  const { parsed, fieldConfidence } = parseEmailContent(emailContent);
-  res.json({ ...parsed, fieldConfidence });
+  const { extractBookingFromSource } = await import('./extractors/index.js');
+  const { createImportResult } = await import('./importResult.js');
+
+  const extraction = await extractBookingFromSource({ text: emailContent });
+  const essentialFields = ['hotelName', 'checkIn', 'checkOut', 'totalPrice', 'currency'];
+  const missingFields = essentialFields.filter(f => !extraction.fields[f] && !extraction.fields[f === 'checkIn' ? 'checkinDate' : f === 'checkOut' ? 'checkoutDate' : f === 'totalPrice' ? 'originalPrice' : f]);
+
+  const result = createImportResult({
+    success: true,
+    source: 'manual_text',
+    booking: extraction.fields,
+    hotel: null,
+    missingFields,
+    warnings: extraction.warnings || [],
+    attachmentsProcessed: 0,
+    status: missingFields.length === 0 ? 'ACTIVE_MONITORING' : 'NEEDS_INFORMATION',
+  });
+
+  res.json(result);
 });
 
 // Email-to-booking workflow: forward email → auto-create booking
@@ -1476,7 +1492,47 @@ app.get('/api/admin/dashboard', authMiddleware, adminMiddleware, async (req, res
     let expediaInfo = {};
     try { expediaInfo = getExpediaProgrammeInfo(); } catch {}
 
+    // Inbound import stats from real DB
+    let imports = [];
+    try { imports = await db.getAllBookingImports(100); } catch {}
+
+    const emailsToday = imports.filter(i => String(i.createdAt || '').startsWith(today)).length;
+    const currentMonthStr = today.slice(0, 7);
+    const emailsThisMonth = imports.filter(i => String(i.createdAt || '').startsWith(currentMonthStr)).length;
+    const activeMonitoring = imports.filter(i => i.status === 'ACTIVE_MONITORING').length;
+    const needsInformation = imports.filter(i => i.status === 'NEEDS_INFORMATION').length;
+    const failed = imports.filter(i => i.status === 'FAILED').length;
+    const duplicate = imports.filter(i => i.status === 'DUPLICATE').length;
+    const unknownSenders = imports.filter(i => !i.userEmail).length;
+
+    let nuiteeMatches = 0;
+    let googleFallbackMatches = 0;
+    try {
+      const mappings = await db.supabase`SELECT source, count(*)::int FROM hotel_mappings GROUP BY source`;
+      for (const m of mappings) {
+        if (m.source === 'nuitee') nuiteeMatches = m.count;
+        if (m.source === 'google_places') googleFallbackMatches = m.count;
+      }
+    } catch {}
+
     res.json({
+      inboundStats: {
+        emailsToday,
+        emailsThisMonth,
+        bookingsCreated: allBookings.length,
+        activeMonitoring,
+        needsInformation,
+        failed,
+        duplicate,
+        unknownSenders,
+        nuiteeMatches,
+        googleFallbackMatches,
+        awaitingReview: needsInformation,
+        attachmentsProcessed: imports.reduce((sum, i) => sum + (i.attachmentsProcessed || 1), 0),
+        queueDepth: 0,
+        lastUpdated: new Date().toISOString(),
+      },
+      recentImports: imports.slice(0, 20),
       stats: {
         totalBookings: allBookings.length,
         savingsFound,
