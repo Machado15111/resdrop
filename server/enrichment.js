@@ -15,6 +15,34 @@ function normalizeForMatch(str) {
     .trim();
 }
 
+// Nuitée's hotel search REQUIRES an ISO-2 country code (a missing one → HTTP 400).
+// Confirmations rarely state the country, so derive it from the currency or a
+// country name when it isn't given explicitly.
+const CURRENCY_TO_COUNTRY = {
+  BRL: 'BR', USD: 'US', CAD: 'CA', GBP: 'GB', AUD: 'AU', MXN: 'MX', ARS: 'AR',
+  CLP: 'CL', COP: 'CO', PEN: 'PE', UYU: 'UY', EUR: '', JPY: 'JP', CNY: 'CN',
+};
+const COUNTRY_NAME_TO_ISO = {
+  brasil: 'BR', brazil: 'BR', 'estados unidos': 'US', 'united states': 'US', usa: 'US',
+  portugal: 'PT', espanha: 'ES', spain: 'ES', 'reino unido': 'GB', 'united kingdom': 'GB',
+  england: 'GB', franca: 'FR', france: 'FR', italia: 'IT', italy: 'IT', alemanha: 'DE',
+  germany: 'DE', argentina: 'AR', chile: 'CL', mexico: 'MX', uruguai: 'UY', uruguay: 'UY',
+  bulgaria: 'BG', 'emirados arabes': 'AE', 'united arab emirates': 'AE',
+};
+
+export function resolveCountryCode(extractedBooking = {}) {
+  const c = extractedBooking.country;
+  if (c) {
+    const s = String(c).trim();
+    if (/^[A-Za-z]{2}$/.test(s)) return s.toUpperCase();
+    const iso = COUNTRY_NAME_TO_ISO[s.toLowerCase()];
+    if (iso) return iso;
+  }
+  const cur = extractedBooking.currency;
+  if (cur && CURRENCY_TO_COUNTRY[cur]) return CURRENCY_TO_COUNTRY[cur];
+  return undefined;
+}
+
 /**
  * Computes deterministic match score (0.0 to 1.0) between extracted hotel & catalog property.
  */
@@ -98,11 +126,12 @@ export async function matchHotelWithNuitee(extractedBooking) {
 
   try {
     const city = extractedBooking.city || extractedBooking.destination || undefined;
-    const candidates = await getHotels({
-      cityName: city,
-      countryCode: extractedBooking.country ? String(extractedBooking.country).substring(0, 2).toUpperCase() : undefined,
-      limit: 50,
-    });
+    const countryCode = resolveCountryCode(extractedBooking);
+    if (!countryCode) {
+      // Nuitée requires a country; without one we can't query — leave for review.
+      return { hotel: null, matchScore: 0, status: 'NEEDS_REVIEW', reason: 'country unknown' };
+    }
+    const candidates = await getHotels({ cityName: city, countryCode, limit: 50 });
 
     let bestMatch = null;
     let maxScore = 0;
