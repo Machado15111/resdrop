@@ -1,1 +1,3 @@
-web: node index.js
+# Run DB migrations on boot, then start the server. Semicolon (not &&) so a
+# migration hiccup can't take the API down — the server still starts.
+web: node run-migration.js; node index.js
