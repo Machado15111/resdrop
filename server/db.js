@@ -368,20 +368,18 @@ export async function createBooking(booking) {
     ];
     const row = {};
     for (const k of allowedColumns) {
-      if (raw[k] !== undefined) {
-        if (['price_history', 'change_history', 'latest_results'].includes(k)) {
-          row[k] = sql.json(raw[k]);
-        } else {
-          row[k] = raw[k];
-        }
-      }
+      if (raw[k] !== undefined) row[k] = raw[k];
     }
     if (row.email) row.email = row.email.toLowerCase();
 
-    const rows = await sql`INSERT INTO bookings ${sql(row)} RETURNING *`;
-    if (rows && rows[0]) {
-      const dbRecord = toCamel(rows[0]);
+    // Persist through the Supabase REST layer. The direct `sql` client is a dead
+    // mock connection in this deployment (no DATABASE_URL), which silently sent
+    // every booking to the in-memory fallback. Return the REAL persisted row.
+    const inserted = await supa.insert('bookings', row);
+    if (inserted) {
+      const dbRecord = toCamel(inserted);
       inMemoryBookings.set(dbRecord.id, dbRecord);
+      return dbRecord;
     }
   } catch (e) {
     console.error('[DB] createBooking DB error:', e.message);
