@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import crypto from 'crypto';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
@@ -724,6 +724,93 @@ export async function pollInboundEmails() {
 
 export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
   const router = Router();
+  const rawParser = express.raw({ type: '*/*', limit: '30mb' });
+
+  /**
+   * POST /api/inbound/cloudflare-email
+   * Public raw RFC822 email endpoint for Cloudflare Email Routing Workers.
+   */
+  router.post('/inbound/cloudflare-email', rawParser, async (req, res) => {
+    try {
+      // Secret authentication
+      const expectedSecret = process.env.INBOUND_WEBHOOK_SECRET;
+      const providedSecret = req.headers['x-inbound-secret'];
+
+      if (expectedSecret) {
+        if (!providedSecret || providedSecret !== expectedSecret) {
+          return res.status(401).json({ error: 'Unauthorized: invalid or missing X-Inbound-Secret header' });
+        }
+      } else {
+        console.warn('[Cloudflare Inbound] INBOUND_WEBHOOK_SECRET environment variable is not configured');
+      }
+
+      // Parse payload body
+      let rawBuffer;
+      if (Buffer.isBuffer(req.body)) {
+        rawBuffer = req.body;
+      } else if (typeof req.body === 'string') {
+        rawBuffer = Buffer.from(req.body, 'utf-8');
+      } else if (req.body && typeof req.body === 'object') {
+        if (req.body.raw) {
+          rawBuffer = Buffer.from(req.body.raw, 'base64');
+        } else if (req.body.rawEmail) {
+          rawBuffer = Buffer.from(req.body.rawEmail, 'utf-8');
+        }
+      }
+
+      if (!rawBuffer || rawBuffer.length === 0) {
+        return res.status(400).json({ error: 'Raw email payload is empty or invalid' });
+      }
+
+      // Size guard
+      const maxMb = parseInt(process.env.INBOUND_EMAIL_MAX_SIZE_MB || '25', 10);
+      const maxBytes = maxMb * 1024 * 1024;
+      if (rawBuffer.length > maxBytes) {
+        return res.status(413).json({ error: `Payload exceeds maximum size of ${maxMb}MB` });
+      }
+
+      // Parse raw MIME with simpleParser
+      const parsed = await simpleParser(rawBuffer);
+      const senderEmail = (parsed.from?.value?.[0]?.address || '').toLowerCase().trim();
+
+      if (!senderEmail) {
+        return res.status(400).json({ error: 'Sender email (From) missing in MIME payload' });
+      }
+
+      const subject = parsed.subject || '';
+      const textContent = parsed.text || sanitizeHtmlText(parsed.html || '');
+      const attachments = (parsed.attachments || []).map(a => ({
+        filename: a.filename || 'attachment',
+        contentType: a.contentType || 'application/octet-stream',
+        content: a.content,
+      }));
+
+      const messageId = parsed.messageId || `cf-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+      const contentHash = crypto.createHash('sha256').update(rawBuffer).digest('hex');
+
+      // Idempotency check
+      const existingByMsg = await dbClient.getInboundEmailByMessageId(messageId);
+      const existingByHash = await dbClient.getInboundEmailByHash(contentHash);
+      if (existingByMsg || existingByHash) {
+        return res.status(200).json({ status: 'ignored_duplicate', messageId });
+      }
+
+      const result = await processInboundEmailPayload({
+        senderEmail,
+        subject,
+        textContent,
+        attachments,
+        messageId,
+        contentHash,
+        dbClient,
+      });
+
+      return res.status(200).json(result);
+    } catch (err) {
+      console.error('[Cloudflare Inbound] Processing error:', err.message);
+      return res.status(500).json({ error: 'Failed to process Cloudflare raw email' });
+    }
+  });
 
   /**
    * POST /api/inbound/webhook

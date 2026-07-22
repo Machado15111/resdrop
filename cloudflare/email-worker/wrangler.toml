@@ -1,0 +1,6 @@
+name = "resdrop-inbound"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+
+# Set secret via command line:
+# npx wrangler secret put INBOUND_WEBHOOK_SECRET
