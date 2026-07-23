@@ -138,3 +138,27 @@ test('calculateMatchScore never throws on null / missing fields', () => {
   assert.equal(calculateMatchScore({}, {}), 0);
   assert.equal(calculateMatchScore({ hotelName: 'Ibis' }, { name: 'Ibis' }), 0.7);
 });
+
+test('logActivity handles both object and positional parameter signatures', async () => {
+  const { logActivity } = await import('./db.js');
+  // assert.doesNotReject actually awaits the promise; a plain
+  // assert.doesNotThrow(async () => ...) would swallow async rejections.
+  await assert.doesNotReject(
+    logActivity({
+      entityType: 'booking',
+      entityId: 'test-123',
+      action: 'test_action',
+      actorEmail: 'test@example.com',
+      details: { foo: 'bar' },
+    })
+  );
+  await assert.doesNotReject(
+    logActivity('booking', 'test-123', 'test_action', 'test@example.com', { foo: 'bar' })
+  );
+});
+
+test('whatsapp-webhook module imports cleanly as ESM', async () => {
+  const mod = await import('./whatsapp-webhook.js');
+  assert.ok(mod.default, 'whatsapp-webhook must export default express router');
+});
+

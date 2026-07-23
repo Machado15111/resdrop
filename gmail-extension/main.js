@@ -65,8 +65,9 @@ function sendToResDrop(e) {
   };
   
   try {
-    // Note: ensure api.resdrop.app accepts this POST payload structure 
-    var response = UrlFetchApp.fetch('https://api.resdrop.app/bookings/from-email', options);
+    // POST to ResDrop API endpoint (/api/bookings/from-email)
+    var apiUrl = PropertyService.getScriptProperties().getProperty('RESDROP_API_URL') || 'https://resdrop.app/api/bookings/from-email';
+    var response = UrlFetchApp.fetch(apiUrl, options);
     
     if (response.getResponseCode() >= 200 && response.getResponseCode() < 300) {
       var nav = CardService.newNavigation().pushCard(createSuccessCard());

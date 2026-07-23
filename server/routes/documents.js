@@ -101,6 +101,18 @@ export default function documentRoutes(authMiddleware) {
       // Create booking in DB if ACTIVE_MONITORING or create portal booking for NEEDS_INFORMATION
       createdBooking = await db.createBooking({
         ...extractedData,
+        // Normalize the fields createBooking persists AFTER the spread so these
+        // canonical values always win (extractedData may carry raw variants like
+        // `checkIn`/`totalPrice` or an un-uppercased `currency`).
+        hotelName: extractedData.hotelName || extractedData.hotel || '',
+        checkinDate: extractedData.checkinDate || extractedData.checkIn || '',
+        checkoutDate: extractedData.checkoutDate || extractedData.checkOut || '',
+        originalPrice: parseFloat(extractedData.originalPrice || extractedData.totalPrice || 0),
+        currency: (extractedData.currency || 'USD').toUpperCase(),
+        roomType: extractedData.roomType || extractedData.room_type || 'Standard Room',
+        confirmationNumber: extractedData.confirmationNumber || extractedData.bookingReference || null,
+        guestName: extractedData.guestName || null,
+        destination: extractedData.destination || null,
         email: req.userEmail,
         status: finalStatus === 'ACTIVE_MONITORING' ? 'monitoring' : 'needs_information',
         parseMethod: 'deterministic',

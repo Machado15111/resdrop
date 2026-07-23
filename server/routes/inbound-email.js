@@ -818,6 +818,22 @@ export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
    */
   router.post('/inbound/webhook', async (req, res) => {
     try {
+      // Secret authentication — header only (never accept secrets via query
+      // string; they leak into access logs). Constant-time compare to avoid
+      // timing oracles. Mirrors /inbound/cloudflare-email above.
+      const expectedSecret = process.env.INBOUND_WEBHOOK_SECRET;
+      const providedSecret = req.headers['x-inbound-secret'];
+      if (expectedSecret) {
+        const expBuf = Buffer.from(String(expectedSecret));
+        const gotBuf = Buffer.from(String(providedSecret || ''));
+        const ok = expBuf.length === gotBuf.length && crypto.timingSafeEqual(expBuf, gotBuf);
+        if (!ok) {
+          return res.status(401).json({ error: 'Unauthorized: invalid or missing X-Inbound-Secret header' });
+        }
+      } else {
+        console.warn('[Inbound Webhook] INBOUND_WEBHOOK_SECRET environment variable is not configured');
+      }
+
       const { from, sender, subject, text, html, attachments, messageId, rawEmail } = req.body;
       const senderEmail = (from || sender || '').toLowerCase().trim();
 

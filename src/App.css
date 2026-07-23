@@ -12,6 +12,38 @@
   animation-delay: 0.1s;
 }
 
+/* Fast, lightweight transition for in-app navigation — no full-screen curtain,
+   no blur (GPU-costly). Keeps page switches feeling instant. */
+.page-fade {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: page-fade-in 0.18s ease-out both;
+}
+
+@keyframes page-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .page-transition,
+  .page-fade {
+    animation: none;
+  }
+  .page-transition::before,
+  .page-transition::after {
+    display: none;
+  }
+}
+
 /* Stunning layered curtain reveal */
 .page-transition::before,
 .page-transition::after {

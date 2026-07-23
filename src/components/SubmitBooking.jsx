@@ -49,8 +49,12 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const dropzoneRef = useRef(null);
+  // Synchronous re-entrancy guard: refs update immediately (no re-render round-trip),
+  // so rapid double/quadruple clicks can't fire the handler more than once.
+  const submittingRef = useRef(false);
 
   const [step, setStep] = useState(STEP_INTAKE);
+  const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState(null);
   const [pasteText, setPasteText] = useState('');
@@ -310,12 +314,14 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
   // --- Submit from review or manual form ---
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
+    // Re-entrancy guard — bail immediately if a submit is already in flight.
+    if (submittingRef.current) return;
     if (!form.hotelName || !form.checkinDate || !form.checkoutDate || !form.originalPrice) return;
     if (form.roomType === 'Other' && !form.roomTypeCustom.trim()) return;
 
     setError(null);
     setDuplicateWarning(null);
-    
+
     // Validate price is positive
     const price = parseFloat(form.originalPrice);
     if (isNaN(price) || price <= 0) {
@@ -331,9 +337,14 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
       return;
     }
 
-    // If we have a documentId, create booking via document route
-    if (documentId) {
-      try {
+    // Lock the handler for the duration of the async work. Reset in `finally`
+    // so the user can retry after an error, but never fire twice in flight.
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    try {
+      // If we have a documentId, create booking via document route
+      if (documentId) {
         const res = await authFetch(`${API}/documents/${documentId}/create-booking`, {
           method: 'POST',
           body: JSON.stringify({
@@ -358,18 +369,22 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         // Booking already created — navigate directly, don't re-POST
         navigate(`/bookings/${data.booking.id}`);
         return;
-      } catch (err) {
-        setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
       }
-      return;
-    }
 
-    // Regular form submit
-    const submitData = { ...form };
-    if (submitData.roomType !== 'Other') {
-      delete submitData.roomTypeCustom;
+      // Regular form submit — parent owns the request; await it so the guard
+      // stays locked until the parent resolves (success navigates away, error
+      // flips `loading` back off).
+      const submitData = { ...form };
+      if (submitData.roomType !== 'Other') {
+        delete submitData.roomTypeCustom;
+      }
+      await onSubmit(submitData);
+    } catch (err) {
+      setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-    onSubmit(submitData);
   };
 
   // --- Reset to intake ---
@@ -794,9 +809,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 <button
                   className="review-submit-btn"
                   onClick={handleSubmit}
-                  disabled={loading || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate}
+                  disabled={loading || submitting || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate}
                 >
-                  {loading ? (
+                  {(loading || submitting) ? (
                     <span className="loading-pulse">{t('submit.searching')}</span>
                   ) : (
                     <>
@@ -1063,9 +1078,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                 <button
                   className="submit-cta"
                   type="submit"
-                  disabled={loading || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
+                  disabled={loading || submitting || !form.hotelName.trim() || !form.checkinDate || !form.checkoutDate || !form.originalPrice || parseFloat(form.originalPrice) <= 0 || form.checkoutDate <= form.checkinDate || !form.roomType || (form.roomType === 'Other' && !form.roomTypeCustom.trim())}
                 >
-                  {loading ? (
+                  {(loading || submitting) ? (
                     <span className="loading-pulse">{t('submit.searching')}</span>
                   ) : (
                     <>

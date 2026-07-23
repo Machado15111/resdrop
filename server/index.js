@@ -1377,7 +1377,7 @@ app.put('/api/users/:email/plan', authMiddleware, async (req, res) => {
 
 // ─── AWIN ROUTES ─────────────────────────────────────────────
 
-app.get('/api/awin/status', async (req, res) => {
+app.get('/api/awin/status', authMiddleware, adminMiddleware, async (req, res) => {
   if (!isAwinConfigured()) {
     return res.json({ connected: false, error: 'Awin not configured' });
   }
@@ -1431,7 +1431,7 @@ app.post('/api/awin/link', (req, res) => {
   res.json({ affiliateLink: link });
 });
 
-app.get('/api/awin/transactions', async (req, res) => {
+app.get('/api/awin/transactions', authMiddleware, adminMiddleware, async (req, res) => {
   if (!isAwinConfigured()) {
     return res.status(400).json({ error: 'Awin not configured' });
   }

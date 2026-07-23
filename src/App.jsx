@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
@@ -8,26 +9,30 @@ import HowItWorks from './components/HowItWorks';
 import PriceStrategy from './components/PriceStrategy';
 import Pricing from './components/Pricing';
 import Footer from './components/Footer';
+// Core auth + app-shell routes stay eager for instant first interaction.
 import Login from './components/Login';
 import Signup from './components/Signup';
 import DashboardPage from './components/DashboardPage';
 import SubmitBookingPage from './components/SubmitBookingPage';
 import BookingDetailPage from './components/BookingDetailPage';
-import AlertsPage from './components/AlertsPage';
 import Onboarding from './components/Onboarding';
 import Account from './components/Account';
-import AdminDashboard from './components/AdminDashboard';
-import AdminSpecialFares from './components/AdminSpecialFares';
-import AboutPage from './components/AboutPage';
-import PrivacyPage from './components/PrivacyPage';
-import TermsPage from './components/TermsPage';
 import ResetPassword from './components/ResetPassword';
-import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
-import PremiumLanding from './components/PremiumLanding';
-import TravelerLanding from './components/TravelerLanding';
 import ResDroppLanding from './components/ResDroppLanding';
 import ResDroppLogin from './components/ResDroppLogin';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
+import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
+
+// Heavy / rarely-first-loaded routes are code-split so they don't bloat the
+// initial bundle (admin dashboards, analytics, content pages, landing previews).
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AdminSpecialFares = lazy(() => import('./components/AdminSpecialFares'));
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
+const AlertsPage = lazy(() => import('./components/AlertsPage'));
+const AboutPage = lazy(() => import('./components/AboutPage'));
+const PrivacyPage = lazy(() => import('./components/PrivacyPage'));
+const TermsPage = lazy(() => import('./components/TermsPage'));
+const PremiumLanding = lazy(() => import('./components/PremiumLanding'));
+const TravelerLanding = lazy(() => import('./components/TravelerLanding'));
 
 
 function LayoutWithHeader() {
@@ -66,9 +71,18 @@ function App() {
 
   if (loading) return null;
 
+  // The dramatic full-screen "curtain" reveal is a first-impression effect for the
+  // marketing landing pages only. In-app navigation uses a fast, subtle fade so
+  // switching between Dashboard / Submit / Account etc. feels instant.
+  const LANDING_ROUTES = ['/', '/v2', '/v3', '/v4'];
+  const transitionClass = LANDING_ROUTES.includes(location.pathname)
+    ? 'page-transition'
+    : 'page-fade';
+
   return (
     <div className="app">
-      <div key={location.pathname} className="page-transition">
+      <div key={location.pathname} className={transitionClass}>
+        <Suspense fallback={null}>
         <Routes location={location}>
           {/* Admin — no header, admin-only */}
           <Route element={<AdminRoute />}>
@@ -131,6 +145,7 @@ function App() {
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </div>
     </div>
   );

@@ -609,6 +609,14 @@ export async function updateUserConfirmedSavings(email) {
 // ─── Activity Log ────────────────────────────────────────────
 
 export async function logActivity(entityType, entityId, action, actorEmail, details = {}) {
+  if (typeof entityType === 'object' && entityType !== null) {
+    const obj = entityType;
+    entityType = obj.entityType;
+    entityId = obj.entityId;
+    action = obj.action;
+    actorEmail = obj.actorEmail;
+    details = obj.details || {};
+  }
   try {
     await sql`
       INSERT INTO activity_log (entity_type, entity_id, action, actor_email, details)
