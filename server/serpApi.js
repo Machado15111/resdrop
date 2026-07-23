@@ -686,10 +686,20 @@ export async function searchRealPrices(booking, options = {}) {
     // Booking.com) and pollutes results with unrelated hotels.
     const properties = searchData.properties || [];
     if (properties.length > 0) {
-      const matched =
-        properties.find(p => p.property_token && isHotelNameMatch(p.name, booking.hotelName)) || null;
+      const withToken = properties.filter(p => p.property_token);
+      // Prefer a name-matched property; otherwise fall back to Google's TOP
+      // relevance result (for a specific-hotel-name query it's almost always the
+      // intended hotel). Fetching its detail page is safe: the parser tags each
+      // result with isExactMatch via the detail page's own name, and the UI only
+      // ever shows exact-hotel quotes — a wrong guess yields an empty panel, not
+      // a wrong rate. This maximizes the chance of reaching the multi-vendor page.
+      const nameMatched = withToken.find(p => isHotelNameMatch(p.name, booking.hotelName));
+      const target = nameMatched || withToken[0] || null;
 
-      if (matched) {
+      if (target) {
+        if (!nameMatched) {
+          console.log(`[SerpApi] No strict name match for "${booking.hotelName}"; trying top result "${target.name}". List: [${properties.slice(0, 8).map(p => p.name).join(' | ')}]`);
+        }
         try {
           const detailData = await searchGoogleHotels({
             hotelName: booking.hotelName,
@@ -697,18 +707,16 @@ export async function searchRealPrices(booking, options = {}) {
             checkinDate: booking.checkinDate,
             checkoutDate: booking.checkoutDate,
             currency,
-            propertyToken: matched.property_token,
+            propertyToken: target.property_token,
           });
           const detailResults = parseGoogleHotelsResults(detailData, booking.originalPrice, booking);
           if (detailResults.length > 0) {
-            console.log(`[SerpApi] Detail page for "${matched.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
+            console.log(`[SerpApi] Detail page for "${target.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
             return detailResults;
           }
         } catch (detailErr) {
           console.error(`[SerpApi] Detail-page fetch failed, using list results: ${detailErr.message}`);
         }
-      } else {
-        console.log(`[SerpApi] No property matched "${booking.hotelName}". Search returned: [${properties.slice(0, 8).map(p => p.name).join(' | ')}]`);
       }
     }
 
