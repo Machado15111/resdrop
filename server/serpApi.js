@@ -166,6 +166,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
 
     // Combine prices and featured_prices, dedup by source name
     const allPrices = [...(data.prices || []), ...(data.featured_prices || [])];
+    // Diagnostic: log every raw vendor Google returned, before any filtering,
+    // so we can see from the logs why a vendor may be missing.
+    console.log(`[SerpApi] Detail "${hotelName}" raw vendors: [${allPrices.map(p => `${p.source}${p.official ? '*' : ''}=${p.total_rate?.extracted_lowest || p.rate_per_night?.extracted_lowest || '?'}`).join(', ')}]`);
     const seen = new Set();
 
     for (const p of allPrices) {
@@ -188,8 +191,10 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       // Skip Google aggregator results — not bookable
       if (isHiddenSource(sourceName)) continue;
 
-      // Trust and room type checks
-      const trusted = isTrustedSource(source.name);
+      // Trust and room type checks. On the hotel's OWN detail page, the official
+      // hotel site (SerpApi flags it `official: true`) is a legitimate direct
+      // source even for independent hotels not in the brand allow-list.
+      const trusted = isTrustedSource(source.name) || p.official === true;
       const resultRoomType = p.room_type || p.room_name || '';
       const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
       const freeCancellation = detectFreeCancellation(p);
@@ -703,7 +708,7 @@ export async function searchRealPrices(booking, options = {}) {
           console.error(`[SerpApi] Detail-page fetch failed, using list results: ${detailErr.message}`);
         }
       } else {
-        console.log(`[SerpApi] No property in the list matched "${booking.hotelName}" — no exact-hotel quotes`);
+        console.log(`[SerpApi] No property matched "${booking.hotelName}". Search returned: [${properties.slice(0, 8).map(p => p.name).join(' | ')}]`);
       }
     }
 
