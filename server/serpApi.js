@@ -110,16 +110,14 @@ export async function searchGoogleHotels({
     api_key: apiKey,
   });
 
-  // Two request modes:
-  //  • property_token  → the hotel's OWN detail page (FORMAT A): prices from
-  //    Booking.com, Expedia, Hotels.com AND the official hotel site.
-  //  • q (text search) → a list of matching properties (FORMAT B). Used first to
-  //    discover the property_token, or as a fallback when no token is available.
+  // Google Hotels ALWAYS requires `q` (SerpApi 400s without it, even when a
+  // property_token is supplied). Adding property_token on top narrows the same
+  // query to that hotel's OWN detail page (FORMAT A): prices from Booking.com,
+  // Expedia, Hotels.com AND the official hotel site.
+  // sort_by omitted = relevance (default), so the exact hotel appears first.
+  params.set('q', destination ? `${hotelName} ${destination}` : hotelName);
   if (propertyToken) {
     params.set('property_token', propertyToken);
-  } else {
-    // sort_by omitted = relevance (default), so the exact hotel appears first
-    params.set('q', destination ? `${hotelName} ${destination}` : hotelName);
   }
 
   const url = `https://serpapi.com/search.json?${params.toString()}`;
