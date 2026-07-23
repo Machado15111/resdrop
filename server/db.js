@@ -350,11 +350,9 @@ export async function getBookingsByEmail(email) {
       if (rows && rows.length > 0) list = rows.map(toCamel);
     } catch (e) {}
   }
-  for (const b of inMemoryBookings.values()) {
-    if (b.email === normalizedEmail && !list.some(x => x.id === b.id)) {
-      list.unshift(b);
-    }
-  }
+  // Do NOT merge in-memory fallback bookings here: bookings persist to the DB now,
+  // so in-memory entries are stale artifacts from failed inserts and would show as
+  // undeletable "ghost" bookings (no hotel, R$0). The DB is the source of truth.
   return list;
 }
 
@@ -372,11 +370,7 @@ export async function getAllBookings() {
       if (rows && rows.length > 0) list = rows.map(toCamel);
     } catch (e) {}
   }
-  for (const b of inMemoryBookings.values()) {
-    if (!list.some(x => x.id === b.id)) {
-      list.unshift(b);
-    }
-  }
+  // No in-memory merge — DB is the source of truth (avoids ghost bookings).
   return list;
 }
 
@@ -499,7 +493,7 @@ export async function getStats(email) {
         ? await sql`SELECT total_savings, potential_savings, status FROM bookings WHERE email = ${key}`
         : await sql`SELECT total_savings, potential_savings, status FROM bookings`;
     } else {
-      allBookings = await getBookings(email);
+      allBookings = await getBookingsByEmail(email);
     }
     const confirmedSavings = allBookings
       .filter(b => b.status === 'confirmed_savings')
