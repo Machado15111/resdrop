@@ -259,22 +259,12 @@ export async function updateUserStats(email) {
   if (!email) return;
   try {
     const key = email.toLowerCase();
-    let rows = [];
-    try {
-      rows = await sql`SELECT total_savings FROM bookings WHERE email = ${key}`;
-    } catch {
-      rows = await supa.select('bookings', { email: key }, { select: 'total_savings' });
-    }
-    const count = rows ? rows.length : 0;
-    const savings = (rows || []).reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
-    try {
-      await sql`
-        UPDATE users SET bookings_count = ${count}, total_savings = ${Math.round(savings * 100) / 100}
-        WHERE email = ${key}
-      `;
-    } catch {
-      await supa.update('users', { email: key }, { bookings_count: count, total_savings: Math.round(savings * 100) / 100 });
-    }
+    // Count via REST (source of truth), not the stale sql/DATABASE_URL path.
+    const rows = await supa.select('bookings', { email: key }, { select: 'total_savings' });
+    const list = Array.isArray(rows) ? rows : [];
+    const count = list.length;
+    const savings = list.reduce((sum, b) => sum + (parseFloat(b.total_savings) || 0), 0);
+    await supa.update('users', { email: key }, { bookings_count: count, total_savings: Math.round(savings * 100) / 100 });
   } catch (e) {
     console.error('[DB] updateUserStats:', e.message);
   }
@@ -337,41 +327,17 @@ export async function getBooking(id) {
 
 export async function getBookingsByEmail(email) {
   const normalizedEmail = (email || '').toLowerCase();
-  let list = [];
-  try {
-    const rows = await sql`SELECT * FROM bookings WHERE email = ${normalizedEmail} ORDER BY created_at DESC`;
-    if (rows && rows.length > 0) list = rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getBookingsByEmail sql:', e.message);
-  }
-  if (list.length === 0) {
-    try {
-      const rows = await supa.select('bookings', { email: normalizedEmail }, { order: 'created_at.desc' });
-      if (rows && rows.length > 0) list = rows.map(toCamel);
-    } catch (e) {}
-  }
-  // Do NOT merge in-memory fallback bookings here: bookings persist to the DB now,
-  // so in-memory entries are stale artifacts from failed inserts and would show as
-  // undeletable "ghost" bookings (no hotel, R$0). The DB is the source of truth.
-  return list;
+  // Supabase REST is authoritative in this deployment. The direct sql/DATABASE_URL
+  // client can read a stale/other database (returning phantom counts), so read via
+  // REST only — no sql, no in-memory merge (both produced ghost bookings).
+  const rows = await supa.select('bookings', { email: normalizedEmail }, { order: 'created_at.desc' });
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 export async function getAllBookings() {
-  let list = [];
-  try {
-    const rows = await sql`SELECT * FROM bookings ORDER BY created_at DESC`;
-    if (rows && rows.length > 0) list = rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getAllBookings sql:', e.message);
-  }
-  if (list.length === 0) {
-    try {
-      const rows = await supa.select('bookings', {}, { order: 'created_at.desc', limit: 200 });
-      if (rows && rows.length > 0) list = rows.map(toCamel);
-    } catch (e) {}
-  }
-  // No in-memory merge — DB is the source of truth (avoids ghost bookings).
-  return list;
+  // Authoritative via Supabase REST (see getBookingsByEmail).
+  const rows = await supa.select('bookings', {}, { order: 'created_at.desc', limit: 500 });
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 export async function createBooking(booking) {
@@ -486,15 +452,8 @@ export async function getStats(email) {
     successRate: 0,
   };
   try {
-    let allBookings = [];
-    if (process.env.DATABASE_URL) {
-      const key = email ? email.toLowerCase() : null;
-      allBookings = key
-        ? await sql`SELECT total_savings, potential_savings, status FROM bookings WHERE email = ${key}`
-        : await sql`SELECT total_savings, potential_savings, status FROM bookings`;
-    } else {
-      allBookings = await getBookingsByEmail(email);
-    }
+    // Count via REST (source of truth) — never the stale sql/DATABASE_URL path.
+    const allBookings = email ? await getBookingsByEmail(email) : await getAllBookings();
     const confirmedSavings = allBookings
       .filter(b => b.status === 'confirmed_savings')
       .reduce((sum, b) => sum + (parseFloat(b.totalSavings || b.total_savings) || 0), 0);
