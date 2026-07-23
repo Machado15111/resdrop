@@ -10,9 +10,39 @@
  * (searchPrices) and the frontend can treat every source uniformly.
  */
 
-import { searchRates, nuiteeConfigured } from './liteApi.js';
-import { matchHotelWithNuitee } from './enrichment.js';
-import { isRoomTypeCompatible, normalizeRoomType } from './serpApi.js';
+import { searchRates, nuiteeConfigured, getHotels } from './liteApi.js';
+import { matchHotelWithNuitee, resolveCountryCode } from './enrichment.js';
+import { isRoomTypeCompatible, normalizeRoomType, isHotelNameMatch } from './serpApi.js';
+
+/**
+ * Resolve the booking's hotel to a Nuitée hotel id.
+ *   1. The verified/cached mapping (enrichment, score ≥ 0.80).
+ *   2. Lenient fallback: search the city catalog and take a strong NAME match.
+ *      Enrichment's overall score also weighs address/coords, so a real hotel
+ *      can land in "needs review" while its NAME is unambiguous — good enough to
+ *      fetch rates for the same property.
+ */
+async function resolveNuiteeHotelId(booking, hints) {
+  const match = await matchHotelWithNuitee({
+    hotelName: booking.hotelName,
+    city: hints.city,
+    country: hints.country,
+    destination: booking.destination,
+  });
+  if (match?.hotel?.nuiteeHotelId) return match.hotel.nuiteeHotelId;
+
+  const countryCode = resolveCountryCode({ country: hints.country, currency: booking.currency });
+  if (!countryCode || !hints.city) return null;
+
+  const candidates = await getHotels({ cityName: hints.city, countryCode, limit: 100 });
+  const named = (Array.isArray(candidates) ? candidates : [])
+    .find(c => c?.name && isHotelNameMatch(c.name, booking.hotelName));
+  if (named?.id) {
+    console.log(`[Nuitée] Lenient name match for "${booking.hotelName}" → "${named.name}" (${named.id})`);
+    return named.id;
+  }
+  return null;
+}
 
 function nightsBetween(checkin, checkout) {
   const a = new Date(checkin);
@@ -32,16 +62,14 @@ export async function searchNuiteeRates(booking, { currency = 'BRL' } = {}) {
   try {
     // Best-effort city/country from the free-text destination ("City, Country").
     const [destCity, destCountry] = (booking.destination || '').split(',').map(s => s.trim());
-    const match = await matchHotelWithNuitee({
-      hotelName: booking.hotelName,
+    const hints = {
       city: booking.city || destCity || '',
       country: booking.country || destCountry || '',
-      destination: booking.destination,
-    });
+    };
 
-    const hotelId = match?.hotel?.nuiteeHotelId;
+    const hotelId = await resolveNuiteeHotelId(booking, hints);
     if (!hotelId) {
-      console.log(`[Nuitée] No hotel id for "${booking.hotelName}" (${match?.status || 'no match'}) — skipping rates`);
+      console.log(`[Nuitée] No hotel id for "${booking.hotelName}" — skipping rates`);
       return [];
     }
 

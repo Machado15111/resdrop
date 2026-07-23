@@ -35,7 +35,7 @@ function normalize(str) {
  *   - Minimum 2 word matches required
  *   - Single-word names require exact match
  */
-function isHotelNameMatch(resultName, bookingName) {
+export function isHotelNameMatch(resultName, bookingName) {
   if (!resultName || !bookingName) return false;
 
   const a = normalize(resultName);
@@ -149,6 +149,15 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
   const results = [];
   const properties = data.properties || [];
 
+  // Nights in the stay — used to reconstruct a total when a vendor only quotes
+  // a per-night rate (some Google Hotels vendors omit total_rate).
+  const stayNights = (() => {
+    const a = new Date(booking.checkinDate);
+    const b = new Date(booking.checkoutDate);
+    const n = Math.round((b - a) / (1000 * 60 * 60 * 24));
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  })();
+
   // ── FORMAT A: Property Detail Page ──────────────────────────
   // When Google Hotels finds an exact match, it returns a single hotel's
   // detail page with prices from multiple vendors (prices[] / featured_prices[])
@@ -176,8 +185,10 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       if (seen.has(sourceName)) continue;
       seen.add(sourceName);
 
-      const totalRate = p.total_rate?.extracted_lowest || 0;
       const perNight = p.rate_per_night?.extracted_lowest || 0;
+      // Fall back to per-night × nights when a vendor omits the total rate,
+      // otherwise the vendor would be silently dropped.
+      const totalRate = p.total_rate?.extracted_lowest || (perNight > 0 ? perNight * stayNights : 0);
       const link = p.link || data.link || '';
 
       if (totalRate <= 0) continue;
@@ -264,8 +275,8 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
 
   for (const prop of properties.slice(0, 15)) {
     const name = prop.name || 'Unknown Hotel';
-    const totalRate = prop.total_rate?.extracted_lowest || 0;
     const perNight = prop.rate_per_night?.extracted_lowest || 0;
+    const totalRate = prop.total_rate?.extracted_lowest || (perNight > 0 ? perNight * stayNights : 0);
     const link = prop.link || '';
     const rating = prop.overall_rating || 0;
     const reviews = prop.reviews || 0;
