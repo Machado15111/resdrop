@@ -48,6 +48,8 @@ import {
   isSerpApiConfigured,
   searchRealPrices,
 } from './serpApi.js';
+import { searchNuiteeRates } from './nuiteeRates.js';
+import { nuiteeConfigured } from './liteApi.js';
 import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
@@ -264,6 +266,21 @@ async function searchPrices(booking, options = {}) {
     }
   }
 
+  // 1b) Nuitée (LiteAPI) live rates — an independent source. Runs alongside
+  // SerpApi so the hotel still gets a real quote when Google's OTA coverage is
+  // thin. Deduped against SerpApi's Nuitée entry (if any) by source name below.
+  if (nuiteeConfigured()) {
+    try {
+      const nuiteeResults = await searchNuiteeRates(booking, { currency: options.currency || 'BRL' });
+      if (nuiteeResults.length > 0) {
+        allResults.push(...nuiteeResults);
+        console.log(`[Search] Nuitée returned ${nuiteeResults.length} real result(s)`);
+      }
+    } catch (err) {
+      console.error(`[Search] Nuitée failed: ${err.message}`);
+    }
+  }
+
   // 2) Try Booking.com Demand API if configured
   if (isBookingApiConfigured() && allResults.length === 0) {
     try {
@@ -289,8 +306,23 @@ async function searchPrices(booking, options = {}) {
 
   // Filter out blocked/unreliable sources from all results
   const filtered = filterBlockedResults(allResults);
-  filtered.sort((a, b) => a.totalPrice - b.totalPrice);
-  return filtered;
+
+  // Dedup by source name — if the same vendor appears from more than one API
+  // (e.g. Nuitée via SerpApi AND via the direct LiteAPI source), keep the
+  // cheapest. Prefer exact-hotel matches when prices tie.
+  const bySource = new Map();
+  for (const r of filtered) {
+    const key = (r.source || 'Unknown').toLowerCase();
+    const existing = bySource.get(key);
+    if (!existing
+      || r.totalPrice < existing.totalPrice
+      || (r.totalPrice === existing.totalPrice && r.isExactMatch && !existing.isExactMatch)) {
+      bySource.set(key, r);
+    }
+  }
+  const deduped = [...bySource.values()];
+  deduped.sort((a, b) => a.totalPrice - b.totalPrice);
+  return deduped;
 }
 
 // ─── Helper: update booking with best result ─────────────────
