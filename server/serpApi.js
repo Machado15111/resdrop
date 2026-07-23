@@ -677,6 +677,15 @@ function detectSource(prop, link) {
  */
 export async function searchRealPrices(booking, options = {}) {
   const currency = options.currency || 'BRL';
+  // Normalize the user's price to a stay TOTAL so per-vendor savings compare
+  // like-for-like against Google's total rates. If the booking was entered
+  // per-night, multiply by nights.
+  const stayNights = Math.max(1, Math.round(
+    (new Date(booking.checkoutDate) - new Date(booking.checkinDate)) / (1000 * 60 * 60 * 24)
+  ));
+  const effectiveOriginal = booking.rateType === 'per_night'
+    ? (parseFloat(booking.originalPrice) || 0) * stayNights
+    : (parseFloat(booking.originalPrice) || 0);
   try {
     // Step 1 — text search to locate the property.
     const searchData = await searchGoogleHotels({
@@ -718,7 +727,7 @@ export async function searchRealPrices(booking, options = {}) {
             currency,
             propertyToken: target.property_token,
           });
-          const detailResults = parseGoogleHotelsResults(detailData, booking.originalPrice, booking);
+          const detailResults = parseGoogleHotelsResults(detailData, effectiveOriginal, booking);
           if (detailResults.length > 0) {
             console.log(`[SerpApi] Detail page for "${target.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
             return detailResults;
@@ -731,7 +740,7 @@ export async function searchRealPrices(booking, options = {}) {
 
     // Fallback — parse whatever the first response gave us (detail page when the
     // search resolved directly to one hotel, or the list otherwise).
-    const results = parseGoogleHotelsResults(searchData, booking.originalPrice, booking);
+    const results = parseGoogleHotelsResults(searchData, effectiveOriginal, booking);
     const bestMatch = results.find(r => r.isExactMatch);
     console.log(`[SerpApi] Parsed ${results.length} results | Best match: ${bestMatch ? `R$${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'}`);
     return results;

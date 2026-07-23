@@ -19,7 +19,15 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [priceDisplay, setPriceDisplay] = useState('total');
+  // The stored originalPrice is the value as entered; rateType says whether that
+  // value is per-night or the stay total. Derive both representations correctly.
+  const isPerNight = booking.rateType === 'per_night';
+  const totalPrice = isPerNight ? booking.originalPrice * nights : booking.originalPrice;
+  const perNightPrice = isPerNight
+    ? booking.originalPrice
+    : (nights > 0 ? booking.originalPrice / nights : booking.originalPrice);
+  // Default the headline to how the user entered it.
+  const [priceDisplay, setPriceDisplay] = useState(isPerNight ? 'pernight' : 'total');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const isLoading = bookingState?.state === 'loading';
@@ -228,12 +236,14 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   <div className="info-row">
                     <span className="info-label">{t('detail.originalPrice')}</span>
                     <div className="price-display-toggle">
-                      <span className="info-value price">{fmt(booking.originalPrice)}</span>
+                      <span className="info-value price">{fmt(priceDisplay === 'pernight' ? perNightPrice : totalPrice)}</span>
                       <button
                         className="btn-price-toggle"
                         onClick={() => setPriceDisplay(p => p === 'total' ? 'pernight' : 'total')}
                       >
-                        {priceDisplay === 'total' ? `${lang === 'pt' ? '/noite' : '/night'}: ${fmt(booking.originalPrice / nights)}` : `total: ${fmt(booking.originalPrice)}`}
+                        {priceDisplay === 'total'
+                          ? `${lang === 'pt' ? '/noite' : '/night'}: ${fmt(perNightPrice)}`
+                          : `total: ${fmt(totalPrice)}`}
                       </button>
                     </div>
                   </div>
@@ -385,9 +395,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                         style={{
                           width: `${(entry.price / maxPrice) * 100}%`,
                           background:
-                            entry.price < booking.originalPrice
+                            entry.price < totalPrice
                               ? 'var(--accent)'
-                              : entry.price > booking.originalPrice
+                              : entry.price > totalPrice
                               ? '#ef4444'
                               : 'var(--primary)',
                         }}
