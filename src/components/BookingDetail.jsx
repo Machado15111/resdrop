@@ -3,11 +3,14 @@ import { useI18n } from '../i18n';
 import { IconArrowLeft, IconHotel, IconRefresh } from './Icons';
 import SavingsConfirmationModal from './SavingsConfirmationModal';
 import PriceTrends from './PriceTrends';
+import { formatCurrency } from '../currency';
 import './BookingDetail.css';
 
 function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onConfirmSavings, onDismissSavings }) {
   const { t, lang } = useI18n();
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
+  // Render every price in the currency the booking was actually saved in.
+  const fmt = (amount, curr) => formatCurrency(amount, curr || booking.currency || 'USD');
   const nights = Math.ceil(
     (new Date(booking.checkoutDate) - new Date(booking.checkinDate)) /
       (1000 * 60 * 60 * 24)
@@ -110,12 +113,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             {hasUnconfirmedSavings ? (
               <div className="detail-savings-highlight unconfirmed">
                 <span className="savings-label">{t('savings.potentialSavings')}</span>
-                <span className="savings-amount">R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}</span>
+                <span className="savings-amount">{fmt(booking.potentialSavings || booking.totalSavings)}</span>
               </div>
             ) : booking.status === 'confirmed_savings' && booking.totalSavings > 0 ? (
               <div className="detail-savings-highlight confirmed">
                 <span className="savings-label">{t('savings.confirmedBadge')}</span>
-                <span className="savings-amount">R${booking.totalSavings.toFixed(0)}</span>
+                <span className="savings-amount">{fmt(booking.totalSavings)}</span>
               </div>
             ) : (
               <div className="detail-monitoring-active">
@@ -225,12 +228,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   <div className="info-row">
                     <span className="info-label">{t('detail.originalPrice')}</span>
                     <div className="price-display-toggle">
-                      <span className="info-value price">R${booking.originalPrice}</span>
+                      <span className="info-value price">{fmt(booking.originalPrice)}</span>
                       <button
                         className="btn-price-toggle"
                         onClick={() => setPriceDisplay(p => p === 'total' ? 'pernight' : 'total')}
                       >
-                        {priceDisplay === 'total' ? `/noite: R$${(booking.originalPrice / nights).toFixed(0)}` : `total: R$${booking.originalPrice}`}
+                        {priceDisplay === 'total' ? `${lang === 'pt' ? '/noite' : '/night'}: ${fmt(booking.originalPrice / nights)}` : `total: ${fmt(booking.originalPrice)}`}
                       </button>
                     </div>
                   </div>
@@ -269,18 +272,10 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
 
             {(() => {
               const results = booking.latestResults || [];
-              const exactMatches = results.filter(r => r.isExactMatch);
-              const hasResults = exactMatches.length > 0;
+              const exactMatches = results.filter(r => r.isExactMatch !== false);
+              const displayResults = exactMatches.length > 0 ? exactMatches : results;
 
-              if (!hasResults && results.length === 0) {
-                return (
-                  <div className="no-results">
-                    <p>{t('detail.noPriceData')}</p>
-                  </div>
-                );
-              }
-
-              if (!hasResults) {
+              if (displayResults.length === 0) {
                 return (
                   <div className="no-results">
                     <p>{t('detail.noQuotes')}</p>
@@ -290,7 +285,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
 
               return (
                 <div className="results-list">
-                  {exactMatches.map((result, i) => (
+                  {displayResults.map((result, i) => (
                     <div
                       className={`result-row ${result.hasDrop ? 'has-savings' : ''} ${i === 0 && result.hasDrop ? 'best' : ''}`}
                       key={`${result.sourceId}-${i}`}
@@ -311,10 +306,10 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       </div>
                       <div className="result-pricing">
                         <div className="result-pn">
-                          R${result.pricePerNight}{t('common.perNight')}
+                          {fmt(result.pricePerNight, result.currency)}{t('common.perNight')}
                         </div>
                         <div className="result-total">
-                          R${result.totalPrice}
+                          {fmt(result.totalPrice, result.currency)}
                           <span className="result-total-label"> {t('common.total')}</span>
                         </div>
                       </div>
@@ -322,7 +317,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                         {result.hasDrop ? (
                           <>
                             <span className="result-savings">
-                              {t('common.save')} R${result.savings} ({result.savingsPercent}%)
+                              {t('common.save')} {fmt(result.savings, result.currency)} ({result.savingsPercent}%)
                             </span>
                             {(result.affiliateLink || result.link) ? (
                               <a href={result.affiliateLink || result.link} target="_blank" rel="noopener noreferrer" className="btn btn-accent btn-sm">
@@ -396,7 +391,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       />
                     </div>
                     <div className="ph-details">
-                      <span className="ph-price">R${entry.price}</span>
+                      <span className="ph-price">{fmt(entry.price)}</span>
                       <span className="ph-source">{entry.source}</span>
                       <span className="ph-date">
                         {new Date(entry.date).toLocaleDateString(locale)}
@@ -429,7 +424,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
         {hasUnconfirmedSavings && (
           <div className="confirm-savings-banner">
             <div className="rebook-content">
-              <h3>{t('detail.readyToSave')} R${(booking.potentialSavings || booking.totalSavings).toFixed(0)}?</h3>
+              <h3>{t('detail.readyToSave')} {fmt(booking.potentialSavings || booking.totalSavings)}?</h3>
               <p>
                 {t('detail.rebookSteps')}{' '}
                 <strong>{booking.confirmationNumber}</strong>.
@@ -445,7 +440,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
         {booking.status === 'confirmed_savings' && (
           <div className="confirmed-banner">
             <span className="confirmed-icon">&#10003;</span>
-            <span>{t('savings.confirmedBadge')} — R${booking.totalSavings?.toFixed(0)}</span>
+            <span>{t('savings.confirmedBadge')} — {fmt(booking.totalSavings)}</span>
           </div>
         )}
 

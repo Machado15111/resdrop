@@ -36,40 +36,52 @@ function normalize(str) {
  *   - Single-word names require exact match
  */
 function isHotelNameMatch(resultName, bookingName) {
+  if (!resultName || !bookingName) return false;
+
   const a = normalize(resultName);
   const b = normalize(bookingName);
 
   // Identical after normalization
   if (a === b) return true;
 
-  // Direct containment — only when the full name is contained
-  // (catches "Hilton Copacabana" inside "Hilton Copacabana Rio de Janeiro")
+  const stopWords = new Set([
+    // Property terms
+    'hotel', 'resort', 'spa', 'suites', 'suite', 'inn', 'hostel', 'pousada', 'lodge',
+    'palace', 'grand', 'royal', 'boutique', 'luxury', 'beach', 'praia', 'airport', 'aeroporto',
+    // Prepositions & articles
+    'the', 'de', 'do', 'da', 'dos', 'das', 'e', 'a', 'o', 'em', 'por', 'na', 'no',
+    'and', 'by', 'at', 'in', 'of', '&',
+    // Common geographic / city qualifiers
+    'rio', 'janeiro', 'sao', 'paulo', 'copacabana', 'ipanema', 'leblon', 'barra',
+    'tokyo', 'london', 'paris', 'miami', 'york', 'city', 'downtown', 'center', 'centro'
+  ]);
+
+  const stripStop = (str) =>
+    str.split(' ')
+       .filter(w => !stopWords.has(w))
+       .join(' ')
+       .trim();
+
+  const sa = stripStop(a);
+  const sb = stripStop(b);
+
+  if (sa && sb && (sa.includes(sb) || sb.includes(sa))) return true;
   if (a.includes(b) || b.includes(a)) return true;
 
-  // Word overlap — strict: exact word match only, 70% threshold
-  const stopWords = new Set([
-    'hotel', 'resort', 'spa', 'suites', 'inn', 'hostel', 'pousada', 'lodge',
-    'the', 'de', 'do', 'da', 'dos', 'das', 'e', 'a', 'o', 'em', 'por', 'na', 'no',
-    'and', 'by', 'at', 'in', 'of',
-  ]);
-  const wordsA = a.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
-  const wordsB = b.split(' ').filter(w => w.length > 2 && !stopWords.has(w));
+  const wordsA = a.split(' ').filter(w => w.length > 1 && !stopWords.has(w));
+  const wordsB = b.split(' ').filter(w => w.length > 1 && !stopWords.has(w));
 
-  // If either name has no significant words after filtering, cannot match
   if (wordsA.length === 0 || wordsB.length === 0) return false;
 
   let overlap = 0;
   for (const w of wordsA) {
-    // Exact word match only — no substring matching
-    if (wordsB.some(wb => wb === w)) overlap++;
+    if (wordsB.includes(w)) overlap++;
   }
 
-  // Require minimum 2 overlapping words
-  if (overlap < 2) return false;
-
-  // Require 70%+ overlap of the shorter name's significant words
   const minWords = Math.min(wordsA.length, wordsB.length);
-  return overlap / minWords >= 0.7;
+
+  if (minWords <= 2 && overlap >= 1) return true;
+  return (overlap / minWords) >= 0.5;
 }
 
 /**
@@ -395,14 +407,11 @@ export function isRoomTypeCompatible(roomTypeA, roomTypeB) {
   const catA = normalizeRoomType(roomTypeA);
   const catB = normalizeRoomType(roomTypeB);
 
-  // Both unknown — allow comparison but caller should flag as unconfirmed
-  if (catA === ROOM_TYPE_CATEGORIES.OTHER && catB === ROOM_TYPE_CATEGORIES.OTHER) return true;
-
-  // One known, one unknown — do NOT assume match
-  if (catA === ROOM_TYPE_CATEGORIES.OTHER || catB === ROOM_TYPE_CATEGORIES.OTHER) return false;
-
-  // Both known — must be same category
-  return catA === catB;
+  // If both categories are known and distinct (e.g. SUITE vs STANDARD), incompatible
+  if (catA !== ROOM_TYPE_CATEGORIES.OTHER && catB !== ROOM_TYPE_CATEGORIES.OTHER && catA !== catB) {
+    return false;
+  }
+  return true;
 }
 
 // ── Source Trust Filtering ──────────────────────────────────────────

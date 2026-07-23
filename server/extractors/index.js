@@ -359,34 +359,53 @@ export function extractGenericFields(text) {
     confidence.currency = 0.9;
   }
 
-  // 5. Booking Reference / Confirmation Number
+  // 5. Booking Reference / Confirmation Number — vocabulary spans OTAs and hotels:
+  // "Confirmation number/code" (most), "Itinerary #" (Expedia), "Reservation
+  // number/ID/code", "Booking reference/ID", "Record locator/PNR" (GDS), airline
+  // "Trip ID", "Voucher number", plus PT "código/número da reserva", "localizador".
   const confPatterns = [
-    /(?:n[úo]mero\s*d[ao]\s*confirma[çc][ãa]o|n[°o]\s*d[ao]\s*confirma[çc][ãa]o|c[óo]digo\s*d[ao]\s*reserva|n[°o]\s*d[ao]\s*reserva|confirmation\s*number|confirmation\s*code|booking\s*number|booking\s*id|confirma[çc][ãa]o|confirmation)[^\r\n:]*[:#.]?[ \t]*([A-Z0-9\-]{4,25})/i,
-    /code[^\r\n:]*[:.]?[ \t]*([A-Z0-9\-]{5,20})/i,
+    /(?:n[úo]mero\s*d[ao]\s*confirma[çc][ãa]o|n[°o]\s*d[ao]\s*confirma[çc][ãa]o|c[óo]digo\s*d[ao]\s*reserva|n[úo]mero\s*d[ao]\s*reserva|n[°o]\s*d[ao]\s*reserva|localizador|confirmation\s*(?:number|code|no|#|id)|booking\s*(?:number|reference|ref|id|no|code)|itiner[áa]rio|itinerary(?:\s*(?:number|no|#|id))?|reservation\s*(?:number|code|id|no|#)|record\s*locator|voucher\s*(?:number|no|#)?|trip\s*id|confirma[çc][ãa]o|confirmation)[ \t]*[:#.]?[ \t]*([A-Z0-9][A-Z0-9\-]{3,24})/i,
+    /\bpnr\b[ \t]*[:#.]?[ \t]*([A-Z0-9]{5,8})/i,
+    /code[ \t]*[:.]?[ \t]*([A-Z0-9][A-Z0-9\-]{4,19})/i,
   ];
   for (const p of confPatterns) {
     const m = clean.match(p);
-    if (m && !/^(confirmation|confirmação|reserva|booking|details)$/i.test(m[1])) {
-      fields.bookingReference = m[1].trim();
-      fields.confirmationNumber = m[1].trim();
-      confidence.bookingReference = 0.85;
-      confidence.confirmationNumber = 0.85;
-      break;
+    if (m) {
+      // Trim stray leading/trailing separators OCR often glues on (e.g. "…1541–").
+      const ref = m[1].trim().replace(/^[-–—.]+|[-–—.]+$/g, '').trim();
+      if (ref.length >= 4 && !/^(confirmation|confirma[çc][ãa]o|reserva|booking|details|itinerary|reservation|voucher)$/i.test(ref)) {
+        fields.bookingReference = ref;
+        fields.confirmationNumber = ref;
+        confidence.bookingReference = 0.85;
+        confidence.confirmationNumber = 0.85;
+        break;
+      }
     }
   }
 
   // 6. Guest Name — accepts ALL-CAPS names ("PERVAIZ KHAN") and agency
   // "Prepared for" headers; [ \t]+ keeps the match from bleeding onto the next line.
+  // The label vocabulary spans OTAs and hotel confirmations across EN/PT:
+  // Booking.com/Agoda "Guest", Expedia/Hotels.com "Traveler(s)", hotel PMS
+  // "Lead/Primary guest", agency "Prepared for", airline-style "Passenger", and
+  // PT equivalents ("Hóspede", "Titular", "Em nome de").
   const NAME = "([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.-]+(?:[ \\t]+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'.-]+){1,3})";
+  // A value that is really a section header / another label — never a person.
+  const NAME_BLOCK = /^(hotel|booking|reserva|reservation|confirmation|confirma|details|detalhes|room|quarto|check|guests?|adults?|crian|total|price|pre[çc]o|payment|pagamento|dates?|datas?|night|noite|standard|deluxe|superior)/i;
   const guestPatterns = [
-    new RegExp(`(?:guest|h[óo]spede)\\s*[:.]?\\s*${NAME}`, 'i'),
-    new RegExp(`(?:prepared\\s*for|preparado\\s*para|passageiro|passenger)\\s*[:.]?\\s*${NAME}`, 'i'),
+    // High-precision "principal/lead" labels first.
+    new RegExp(`(?:lead\\s*guest|primary\\s*guest|main\\s*guest|guest\\s*name|nome\\s*d[oe]\\s*h[óo]spede|h[óo]spede\\s*principal|nome\\s*do\\s*titular|titular\\s*d[ao]\\s*reserva)\\s*[:.]?\\s*${NAME}`, 'i'),
+    // Traveler(s) / Guest(s) / Hóspede(s) — the OTA screenshot labels.
+    new RegExp(`(?:travell?er\\s*name|travell?ers?|guests?|h[óo]spedes?)\\s*[:.]?\\s*${NAME}`, 'i'),
+    // "Prepared for" / "In the name of" / passenger-style labels.
+    new RegExp(`(?:prepared\\s*for|preparado\\s*para|reservation\\s*for|reserva\\s*(?:em\\s*nome|no\\s*nome)\\s*de|booking\\s*for|booked\\s*for|in\\s*the\\s*name\\s*of|em\\s*nome\\s*de|name\\s*on\\s*(?:reservation|booking|file)|passageiro|passenger|titular)\\s*[:.]?\\s*${NAME}`, 'i'),
     new RegExp(`(?:sr\\.|sra\\.|mr\\.|mrs\\.|ms\\.)\\s*${NAME}`, 'i'),
+    // Loosest fallback last — bare "Name:" / "Nome:".
     new RegExp(`(?:nome|name)\\s*[:.]?\\s*${NAME}`, 'i'),
   ];
   for (const p of guestPatterns) {
     const m = clean.match(p);
-    if (m) {
+    if (m && !NAME_BLOCK.test(m[1].trim())) {
       fields.guestName = m[1].trim();
       confidence.guestName = 0.7;
       break;
