@@ -94,28 +94,36 @@ export async function searchGoogleHotels({
   checkoutDate,
   adults = 2,
   currency = 'BRL',
+  propertyToken = '',
 }) {
   const apiKey = env('SERPAPI_KEY');
   if (!apiKey) throw new Error('SERPAPI_KEY not configured');
 
-  // Build search query — hotel name + destination for best match
-  const query = destination ? `${hotelName} ${destination}` : hotelName;
-
   const params = new URLSearchParams({
     engine: 'google_hotels',
-    q: query,
     check_in_date: checkinDate,
     check_out_date: checkoutDate,
     adults: adults.toString(),
     currency,
     gl: 'br',
     hl: 'pt-br',
-    // sort_by omitted = relevance (default), so the exact hotel appears first
     api_key: apiKey,
   });
 
+  // Two request modes:
+  //  • property_token  → the hotel's OWN detail page (FORMAT A): prices from
+  //    Booking.com, Expedia, Hotels.com AND the official hotel site.
+  //  • q (text search) → a list of matching properties (FORMAT B). Used first to
+  //    discover the property_token, or as a fallback when no token is available.
+  if (propertyToken) {
+    params.set('property_token', propertyToken);
+  } else {
+    // sort_by omitted = relevance (default), so the exact hotel appears first
+    params.set('q', destination ? `${hotelName} ${destination}` : hotelName);
+  }
+
   const url = `https://serpapi.com/search.json?${params.toString()}`;
-  console.log(`[SerpApi] Searching: "${query}" | ${checkinDate} → ${checkoutDate} | ${currency}`);
+  console.log(`[SerpApi] ${propertyToken ? `Detail page (token) ` : `Searching: "${destination ? `${hotelName} ${destination}` : hotelName}"`} | ${checkinDate} → ${checkoutDate} | ${currency}`);
 
   const response = await fetch(url);
 
@@ -654,19 +662,56 @@ function detectSource(prop, link) {
  * Full search: query SerpApi and return parsed results
  */
 export async function searchRealPrices(booking, options = {}) {
+  const currency = options.currency || 'BRL';
   try {
-    const data = await searchGoogleHotels({
+    // Step 1 — text search to locate the property.
+    const searchData = await searchGoogleHotels({
       hotelName: booking.hotelName,
       destination: booking.destination,
       checkinDate: booking.checkinDate,
       checkoutDate: booking.checkoutDate,
-      currency: options.currency || 'BRL',
+      currency,
     });
 
-    const results = parseGoogleHotelsResults(data, booking.originalPrice, booking);
+    // Step 2 — if the search returned a LIST of properties, find the one that
+    // actually matches the booked hotel and fetch its detail page by
+    // property_token. That page carries per-vendor prices (Booking.com, Expedia,
+    // Hotels.com, official hotel site) for the EXACT hotel — the multi-source
+    // comparison. A plain list only yields one price per property (usually just
+    // Booking.com) and pollutes results with unrelated hotels.
+    const properties = searchData.properties || [];
+    if (properties.length > 0) {
+      const matched =
+        properties.find(p => p.property_token && isHotelNameMatch(p.name, booking.hotelName)) || null;
+
+      if (matched) {
+        try {
+          const detailData = await searchGoogleHotels({
+            hotelName: booking.hotelName,
+            destination: booking.destination,
+            checkinDate: booking.checkinDate,
+            checkoutDate: booking.checkoutDate,
+            currency,
+            propertyToken: matched.property_token,
+          });
+          const detailResults = parseGoogleHotelsResults(detailData, booking.originalPrice, booking);
+          if (detailResults.length > 0) {
+            console.log(`[SerpApi] Detail page for "${matched.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
+            return detailResults;
+          }
+        } catch (detailErr) {
+          console.error(`[SerpApi] Detail-page fetch failed, using list results: ${detailErr.message}`);
+        }
+      } else {
+        console.log(`[SerpApi] No property in the list matched "${booking.hotelName}" — no exact-hotel quotes`);
+      }
+    }
+
+    // Fallback — parse whatever the first response gave us (detail page when the
+    // search resolved directly to one hotel, or the list otherwise).
+    const results = parseGoogleHotelsResults(searchData, booking.originalPrice, booking);
     const bestMatch = results.find(r => r.isExactMatch);
-    const bestAlt = results.find(r => !r.isExactMatch);
-    console.log(`[SerpApi] Parsed ${results.length} results | Best match: ${bestMatch ? `R$${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'} | Best alt: R$${bestAlt?.totalPrice || 'N/A'}`);
+    console.log(`[SerpApi] Parsed ${results.length} results | Best match: ${bestMatch ? `R$${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'}`);
     return results;
   } catch (err) {
     console.error(`[SerpApi] Search failed: ${err.message}`);

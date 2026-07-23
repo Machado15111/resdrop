@@ -96,11 +96,9 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:al
 
 <!-- Logo row -->
 <tr><td style="padding:0 0 24px;" align="center">
-  <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-    <td style="font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1;">
-      <span style="color:${C.green700};">Res</span><span style="color:${C.gold};">Drop</span>
-    </td>
-  </tr></table>
+  <a href="${BASE_URL}" style="text-decoration:none;color:${C.green800};font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1;">
+    ResDrop
+  </a>
 </td></tr>
 
 <!-- Card -->

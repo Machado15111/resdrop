@@ -272,8 +272,11 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
 
             {(() => {
               const results = booking.latestResults || [];
-              const exactMatches = results.filter(r => r.isExactMatch !== false);
-              const displayResults = exactMatches.length > 0 ? exactMatches : results;
+              // Only ever show quotes for the SAME hotel the user booked. Never
+              // fall back to nearby/other-hotel results — showing an unrelated
+              // property's rate as a "quote" is misleading (that was the
+              // "getting it from anywhere" bug). No match → show the empty state.
+              const displayResults = results.filter(r => r.isExactMatch !== false);
 
               if (displayResults.length === 0) {
                 return (
