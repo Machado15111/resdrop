@@ -49,7 +49,7 @@ import {
   searchRealPrices,
 } from './serpApi.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
-import { nuiteeConfigured } from './liteApi.js';
+import { nuiteeConfigured, nuiteeEnv } from './liteApi.js';
 import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
@@ -1169,6 +1169,9 @@ app.get('/api/config', (req, res) => {
     bookingComConfigured: isBookingApiConfigured(),
     awinConfigured: isAwinConfigured(),
     expediaConfigured: isExpediaConfigured(),
+    // Nuitée live-rate source status (non-secret: booleans / mode only)
+    nuiteeConfigured: nuiteeConfigured(),
+    nuiteeEnv: nuiteeEnv(),
     // Security: Don't expose affiliate IDs or internal config to public
     sandboxMode: process.env.BOOKING_USE_SANDBOX === 'true',
     resendConfigured: isEmailConfigured(),
