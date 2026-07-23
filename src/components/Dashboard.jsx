@@ -263,6 +263,8 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
                   booking={booking}
                   onSelect={onSelect}
                   onRefresh={onRefresh}
+                  onArchive={onArchive}
+                  onDelete={onDelete}
                   formatDate={formatDate}
                   getNights={getNights}
                   t={t}
