@@ -141,33 +141,37 @@ function DashboardPage() {
     return data;
   };
 
-  // Archive / unarchive a booking
+  // Archive / unarchive a booking — optimistic so the card updates instantly.
   const handleArchive = async (booking) => {
     const newStatus = booking.status === 'archived' ? 'monitoring' : 'archived';
+    const snapshot = bookings;
+    setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: newStatus } : b));
     try {
       const res = await authFetch(`${API}/bookings/${booking.id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) {
-        const updated = await res.json();
-        setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = await res.json();
+      setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
     } catch (err) {
       console.error('Archive failed:', err);
+      setBookings(snapshot); // roll back on failure
     }
   };
 
-  // Delete a booking permanently (confirmation happens in the card via t())
+  // Delete a booking permanently (confirmation happens in the card via t()).
+  // Optimistic: the card disappears immediately instead of waiting on the API.
   const handleDelete = async (booking) => {
+    const snapshot = bookings;
+    setBookings(prev => prev.filter(b => b.id !== booking.id));
     try {
       const res = await authFetch(`${API}/bookings/${booking.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setBookings(prev => prev.filter(b => b.id !== booking.id));
-        fetchStats();
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      fetchStats();
     } catch (err) {
       console.error('Delete failed:', err);
+      setBookings(snapshot); // restore the card if the server rejected it
     }
   };
 

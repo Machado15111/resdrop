@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
-import { IconCheck, IconX, IconCrown, IconZap, IconStar } from './Icons';
+import { IconCheck, IconX } from './Icons';
 import './Pricing.css';
 
 const plans = [
@@ -9,7 +9,6 @@ const plans = [
     name: 'Free',
     namePt: 'Gratuito',
     price: { usd: 0, brl: 0 },
-    icon: IconZap,
     desc: {
       en: 'Monitor one upcoming reservation at no cost. Full rate monitoring, immediate alerts.',
       pt: 'Monitore uma reserva por conta propria, sem custo. Monitoramento completo com alertas imediatos.',
@@ -29,7 +28,6 @@ const plans = [
     name: 'Traveler',
     namePt: 'Viajante',
     price: { usd: 9, brl: 37 },
-    icon: IconStar,
     desc: {
       en: 'For travelers with multiple upcoming stays. Monitor all your bookings at once.',
       pt: 'Para quem viaja com frequencia. Monitore todas as suas reservas ao mesmo tempo.',
@@ -50,7 +48,6 @@ const plans = [
     name: 'Premium',
     namePt: 'Premium',
     price: { usd: 36, brl: 125 },
-    icon: IconCrown,
     desc: {
       en: 'For frequent travelers who want full coverage, including special fares from partner sources.',
       pt: 'Para viajantes frequentes que querem cobertura total, incluindo tarifas especiais de fontes parceiras.',
@@ -103,9 +100,6 @@ function Pricing() {
                   </div>
                 )}
                 <div className="pricing-card-header">
-                  <div className={`pricing-icon pricing-icon-${plan.id}`}>
-                    <plan.icon size={22} />
-                  </div>
                   <h3 className="pricing-name">{lang === 'pt' ? plan.namePt : plan.name}</h3>
                   <p className="pricing-desc">{plan.desc[lang === 'pt' ? 'pt' : 'en']}</p>
                 </div>

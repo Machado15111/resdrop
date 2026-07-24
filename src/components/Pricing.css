@@ -5,7 +5,9 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  align-items: start;
+  /* stretch (not start) so every card is the same height regardless of how many
+     feature rows it has — otherwise the boxes end up visibly different sizes. */
+  align-items: stretch;
 }
 .pricing-card {
   background: #ffffff;
@@ -43,19 +45,10 @@
 }
 .pricing-card-header {
   margin-bottom: 24px;
+  /* Reserve a consistent block so descriptions of different lengths don't push
+     the price row to a different height on each card. */
+  min-height: 96px;
 }
-.pricing-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-.pricing-icon-free { background: var(--color-neutral-100); color: var(--color-neutral-600); }
-.pricing-icon-viajante { background: var(--emerald-light); color: var(--color-green-700); }
-.pricing-icon-premium { background: var(--gold-light); color: var(--gold-dark); }
 .pricing-free { font-size: 36px !important; }
 .pricing-name {
   font-family: var(--font-display);
