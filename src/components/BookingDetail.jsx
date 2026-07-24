@@ -7,6 +7,9 @@ import PriceTrends from './PriceTrends';
 import { formatCurrency } from '../currency';
 import './BookingDetail.css';
 
+// Hotel images are URL strings; tolerate legacy {url}/{urlHd} objects too.
+const imgUrl = (img) => (typeof img === 'string' ? img : (img?.urlHd || img?.url || ''));
+
 function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onConfirmSavings, onDismissSavings }) {
   const { t, lang } = useI18n();
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
@@ -484,11 +487,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
               <div className="hotel-ref-media">
                 {booking.hotelData?.images && booking.hotelData.images.length > 0 ? (
                   <div className="hotel-gallery">
-                    <img src={booking.hotelData.images[0]} alt={booking.hotelName} className="hotel-main-img" />
+                    {/* Defensive: images are URL strings, but tolerate {url} objects too. */}
+                    <img src={imgUrl(booking.hotelData.images[0])} alt={booking.hotelName} className="hotel-main-img" loading="lazy" />
                     {booking.hotelData.images.slice(1, 4).length > 0 && (
                       <div className="hotel-thumb-grid">
                         {booking.hotelData.images.slice(1, 4).map((img, idx) => (
-                          <img key={idx} src={img} alt={`${booking.hotelName} ${idx + 2}`} className="hotel-thumb-img" />
+                          <img key={idx} src={imgUrl(img)} alt={`${booking.hotelName} ${idx + 2}`} className="hotel-thumb-img" loading="lazy" />
                         ))}
                       </div>
                     )}

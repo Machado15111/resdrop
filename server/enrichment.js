@@ -98,7 +98,7 @@ export function calculateMatchScore(extracted, candidate) {
 /**
  * ─── Task 7: Nuitée Hotel Matching ─────────────────────────────────────
  */
-export async function matchHotelWithNuitee(extractedBooking) {
+export async function matchHotelWithNuitee(extractedBooking, { cacheOnly = false } = {}) {
   if (!extractedBooking || !extractedBooking.hotelName) {
     return { hotel: null, matchScore: 0, status: 'NEEDS_REVIEW' };
   }
@@ -122,6 +122,14 @@ export async function matchHotelWithNuitee(extractedBooking) {
 
   if (!nuiteeConfigured()) {
     return { hotel: null, matchScore: 0, status: 'NEEDS_REVIEW' };
+  }
+
+  // Fast path for latency-sensitive callers (the booking detail view): don't run
+  // the multi-second catalog search inline. Warm the cache in the background so
+  // the NEXT read is instant, and tell the caller it's still resolving.
+  if (cacheOnly) {
+    matchHotelWithNuitee(extractedBooking).catch(() => {});
+    return { hotel: null, matchScore: 0, status: 'PENDING' };
   }
 
   try {
@@ -158,12 +166,11 @@ export async function matchHotelWithNuitee(extractedBooking) {
         console.warn('[Enrichment] hotel details unavailable:', e.message);
       }
       const rawImages = details?.hotelImages || details?.images || [];
+      // Store plain URL strings — that is what the booking detail gallery renders.
       const images = (Array.isArray(rawImages) ? rawImages : [])
         .slice(0, 12) // bound the stored payload; galleries only show a handful
-        .map(img => (typeof img === 'string'
-          ? { url: img }
-          : { url: img.urlHd || img.url, caption: img.caption || null }))
-        .filter(i => i.url);
+        .map(img => (typeof img === 'string' ? img : (img.urlHd || img.url)))
+        .filter(Boolean);
       const rawAmenities = details?.hotelFacilities || details?.amenities || [];
       const amenities = (Array.isArray(rawAmenities) ? rawAmenities : [])
         .slice(0, 30)

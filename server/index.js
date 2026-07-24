@@ -49,6 +49,7 @@ import {
   searchRealPrices,
 } from './serpApi.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
+import { matchHotelWithNuitee } from './enrichment.js';
 import { getCachedAuth, setCachedAuth } from './authCache.js';
 import { nuiteeConfigured, nuiteeEnv } from './liteApi.js';
 import savingsRoutes from './routes/savings.js';
@@ -90,6 +91,49 @@ function filterBlockedResults(results) {
 function filterBookingResults(booking) {
   if (booking && Array.isArray(booking.latestResults)) {
     booking.latestResults = filterBlockedResults(booking.latestResults);
+  }
+  return booking;
+}
+
+/**
+ * Attach Nuitée hotel data (images, star, address, coords) + nuiteeHotelId to a
+ * single booking for the detail view. These were never stored on the booking
+ * row — they live in hotel_mappings — so the detail page had nothing to render.
+ *
+ * matchHotelWithNuitee checks the permanent cache first and only calls the API
+ * on a cache miss (then caches the result), so this is one fast lookup after the
+ * first view. Best-effort with a timeout: hotel imagery must never block or slow
+ * the reservation itself. Bookings that can't be confidently matched simply come
+ * back without hotelData (correct — we don't show a guessed hotel's photos).
+ */
+async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
+  if (!booking || !booking.hotelName || !nuiteeConfigured()) return null;
+  const [city, country] = String(booking.destination || '').split(',').map(s => s.trim());
+  const match = await matchHotelWithNuitee({
+    hotelName: booking.hotelName,
+    city: booking.city || city || '',
+    country: booking.country || country || '',
+    destination: booking.destination,
+    currency: booking.currency,
+  }, { cacheOnly });
+  return match?.hotel ? match : null;
+}
+
+/**
+ * Fast, cache-only hotel attach for the booking response. On a cache miss it
+ * warms the cache in the background (see matchHotelWithNuitee cacheOnly) and the
+ * frontend fills images in progressively via GET /api/bookings/:id/hotel — so
+ * the reservation itself never waits on a multi-second catalog search.
+ */
+async function attachHotelData(booking) {
+  if (!booking || (booking.hotelData && booking.nuiteeHotelId)) return booking;
+  try {
+    const match = await resolveBookingHotel(booking, { cacheOnly: true });
+    if (match?.hotel) {
+      return { ...booking, hotelData: match.hotel, nuiteeHotelId: match.hotel.nuiteeHotelId || null };
+    }
+  } catch (e) {
+    console.error('[attachHotelData]', e.message);
   }
   return booking;
 }
@@ -823,7 +867,27 @@ app.get('/api/bookings/:id', authMiddleware, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
-  res.json(filterBookingResults(booking));
+  const enriched = await attachHotelData(filterBookingResults(booking));
+  res.json(enriched);
+});
+
+// Progressive hotel data (images, star, address, coords + nuiteeHotelId) for the
+// detail view. Runs the full resolution (may hit Nuitée) OUT of the critical
+// booking-load path, so the reservation renders instantly and images fill in.
+app.get('/api/bookings/:id/hotel', authMiddleware, async (req, res) => {
+  const booking = await db.getBooking(req.params.id);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+  try {
+    const match = await resolveBookingHotel(booking, { cacheOnly: false });
+    if (match?.hotel) {
+      return res.json({ status: 'ok', hotelData: match.hotel, nuiteeHotelId: match.hotel.nuiteeHotelId || null });
+    }
+    return res.json({ status: match ? 'ok' : 'unmatched', hotelData: null, nuiteeHotelId: null });
+  } catch (e) {
+    console.error('[bookings/:id/hotel]', e.message);
+    return res.status(502).json({ status: 'error', hotelData: null });
+  }
 });
 
 // DELETE /api/bookings/:id — user deletes their own booking

@@ -13,20 +13,37 @@ function BookingDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchBooking = async () => {
       try {
         const res = await authFetch(`${API}/bookings/${id}`);
         if (res.ok) {
-          setBooking(await res.json());
-        } else {
-          navigate('/dashboard', { replace: true });
+          const data = await res.json();
+          if (cancelled) return;
+          setBooking(data);
+          setLoading(false);
+          // Progressive: if hotel imagery isn't attached yet, fetch it out of
+          // band and merge it in — the reservation is already on screen.
+          if (!data.hotelData) {
+            authFetch(`${API}/bookings/${id}/hotel`)
+              .then(r => (r.ok ? r.json() : null))
+              .then(h => {
+                if (!cancelled && h?.hotelData) {
+                  setBooking(prev => (prev ? { ...prev, hotelData: h.hotelData, nuiteeHotelId: h.nuiteeHotelId } : prev));
+                }
+              })
+              .catch(() => {});
+          }
+          return;
         }
-      } catch {
         navigate('/dashboard', { replace: true });
+      } catch {
+        if (!cancelled) navigate('/dashboard', { replace: true });
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     };
     fetchBooking();
+    return () => { cancelled = true; };
   }, [id, authFetch, navigate]);
 
   const handleRefresh = async (bookingId) => {
