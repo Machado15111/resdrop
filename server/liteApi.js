@@ -25,20 +25,30 @@ const BREAKER_COOLDOWN_MS = 60_000;
 
 function env(k, d = '') { return process.env[k] || d; }
 
-/** Resolve the active key from the environment, sandbox vs production. */
+/** Resolve the active key from the environment, sandbox vs production.
+ * Accepted names (first non-empty wins):
+ *   - env-specific: NUITEE_API_KEY_PRODUCTION (when NUITEE_ENV=production) or
+ *     NUITEE_API_KEY_SANDBOX (default)
+ *   - env-agnostic: NUITEE_API_KEY  (convenient single name — set this and it
+ *     works regardless of NUITEE_ENV; a sand_… value works even in prod mode)
+ *   - legacy:       LITEAPI_KEY
+ */
 function key() {
   const mode = env('NUITEE_ENV', 'sandbox').toLowerCase();
-  const k = mode === 'production'
+  const envSpecific = mode === 'production'
     ? env('NUITEE_API_KEY_PRODUCTION')
     : env('NUITEE_API_KEY_SANDBOX');
-  const resolved = k || env('LITEAPI_KEY'); // legacy fallback
-  if (!resolved) throw new Error('[Nuitée] Missing API key (NUITEE_API_KEY_* / LITEAPI_KEY)');
+  const resolved = envSpecific || env('NUITEE_API_KEY') || env('LITEAPI_KEY');
+  if (!resolved) throw new Error('[Nuitée] Missing API key (NUITEE_API_KEY / NUITEE_API_KEY_* / LITEAPI_KEY)');
   return resolved;
 }
 
 export function nuiteeEnv() { return env('NUITEE_ENV', 'sandbox').toLowerCase(); }
 export function nuiteeConfigured() {
-  return Boolean(env('NUITEE_API_KEY_SANDBOX') || env('NUITEE_API_KEY_PRODUCTION') || env('LITEAPI_KEY'));
+  return Boolean(
+    env('NUITEE_API_KEY_SANDBOX') || env('NUITEE_API_KEY_PRODUCTION') ||
+    env('NUITEE_API_KEY') || env('LITEAPI_KEY')
+  );
 }
 // Back-compat alias used by scripts/sync-hotels.js
 export const liteApiConfigured = nuiteeConfigured;
