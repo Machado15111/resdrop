@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as supa from './supabase-rest.js';
+import { invalidateToken, invalidateEmail } from './authCache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -224,6 +225,8 @@ export async function updateUser(email, updates) {
     inMemoryUsers.set(key, updated);
   }
 
+  // A plan/permission change must not be served from the cached auth entry.
+  invalidateEmail(key);
   // REST is authoritative for accounts; sql is best-effort mirroring.
   const snake = toSnake(updates);
   const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
@@ -277,10 +280,9 @@ export async function getAllUsers(limit = 50) {
 }
 
 export async function getUserCount() {
-  // Count from the source of truth (Supabase REST), not the divergent sql DB.
-  const rows = await supa.select('users', {}, { select: 'email', limit: 10000 });
-  if (Array.isArray(rows)) return rows.length;
-  return inMemoryUsers.size;
+  // Count via PostgREST's count header — no row transfer.
+  const n = await supa.count('users');
+  return n || inMemoryUsers.size;
 }
 
 // ─── Bookings ───────────────────────────────────────────────
@@ -300,18 +302,36 @@ export async function getBooking(id) {
   return inMemoryBookings.get(id) || null;
 }
 
-export async function getBookingsByEmail(email) {
+/**
+ * Columns the booking LIST views actually render. The heavy JSONB columns
+ * (latest_results, price_history, change_history) are ~86% of a row's bytes and
+ * are only needed by the detail view — fetching them for lists wasted most of
+ * the payload on every dashboard load.
+ */
+export const BOOKING_LIST_COLUMNS = [
+  'id', 'email', 'hotel_name', 'destination', 'checkin_date', 'checkout_date',
+  'room_type', 'original_price', 'currency', 'rate_type', 'status',
+  'total_savings', 'potential_savings', 'best_price', 'best_source',
+  'last_checked', 'check_count', 'cancellation_policy', 'confirmation_number',
+  'guest_name', 'created_at', 'updated_at',
+].join(',');
+
+export async function getBookingsByEmail(email, { columns } = {}) {
   const normalizedEmail = (email || '').toLowerCase();
   // Supabase REST is authoritative in this deployment. The direct sql/DATABASE_URL
   // client can read a stale/other database (returning phantom counts), so read via
   // REST only — no sql, no in-memory merge (both produced ghost bookings).
-  const rows = await supa.select('bookings', { email: normalizedEmail }, { order: 'created_at.desc' });
+  const opts = { order: 'created_at.desc' };
+  if (columns) opts.select = columns;
+  const rows = await supa.select('bookings', { email: normalizedEmail }, opts);
   return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
-export async function getAllBookings() {
+export async function getAllBookings({ columns } = {}) {
   // Authoritative via Supabase REST (see getBookingsByEmail).
-  const rows = await supa.select('bookings', {}, { order: 'created_at.desc', limit: 500 });
+  const opts = { order: 'created_at.desc', limit: 500 };
+  if (columns) opts.select = columns;
+  const rows = await supa.select('bookings', {}, opts);
   return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
@@ -420,9 +440,8 @@ export async function updateBooking(id, updates) {
 }
 
 export async function getBookingCount() {
-  // Source of truth is Supabase REST (the sql/DATABASE_URL DB reports stale counts).
-  const rows = await supa.select('bookings', {}, { select: 'id', limit: 10000 });
-  return Array.isArray(rows) ? rows.length : 0;
+  // Count via PostgREST's count header — no row transfer.
+  return await supa.count('bookings');
 }
 
 export async function getStats(email) {
@@ -437,7 +456,11 @@ export async function getStats(email) {
   };
   try {
     // Count via REST (source of truth) — never the stale sql/DATABASE_URL path.
-    const allBookings = email ? await getBookingsByEmail(email) : await getAllBookings();
+    // Only the columns the stats math touches — avoids pulling latest_results.
+    const statsCols = 'id,status,total_savings,potential_savings';
+    const allBookings = email
+      ? await getBookingsByEmail(email, { columns: statsCols })
+      : await getAllBookings({ columns: statsCols });
     const confirmedSavings = allBookings
       .filter(b => b.status === 'confirmed_savings')
       .reduce((sum, b) => sum + (parseFloat(b.totalSavings || b.total_savings) || 0), 0);
@@ -509,7 +532,7 @@ export async function getAdminBookings({ status, search, sort = 'created_at', or
     const sortCol = validSorts.includes(sort) ? sort : 'created_at';
 
     const filters = (status && status !== 'all') ? { status } : {};
-    const rows = await supa.select('bookings', filters, { order: `${sortCol}.${order === 'asc' ? 'asc' : 'desc'}`, limit: 5000 });
+    const rows = await supa.select('bookings', filters, { order: `${sortCol}.${order === 'asc' ? 'asc' : 'desc'}`, limit: 5000, select: BOOKING_LIST_COLUMNS });
     let list = Array.isArray(rows) ? rows.map(toCamel) : [];
 
     if (search) {
@@ -554,7 +577,7 @@ export async function getAlertsByBooking(bookingId) {
 }
 
 export async function getAlertsByEmail(email) {
-  const bookings = await getBookingsByEmail(email);
+  const bookings = await getBookingsByEmail(email, { columns: 'id' });
   const ids = bookings.map(b => b.id).filter(Boolean);
   if (ids.length === 0) return [];
   const rows = await supa.select(
@@ -790,6 +813,7 @@ export async function getSessionByToken(token) {
 
 export async function deleteSession(token) {
   inMemorySessions.delete(token);
+  invalidateToken(token); // logout must take effect immediately
   // REST is authoritative (logout must invalidate the session that auth reads).
   try {
     await supa.remove('sessions', { token });
@@ -801,6 +825,7 @@ export async function deleteSession(token) {
 
 export async function deleteUserSessions(email) {
   const key = email.toLowerCase();
+  invalidateEmail(key); // logout-all must take effect immediately
   try {
     await supa.remove('sessions', { user_email: key });
   } catch (e) {

@@ -1,5 +1,5 @@
 import * as db from './db.js';
-import { getHotels, nuiteeConfigured } from './liteApi.js';
+import { getHotels, getHotelDetails, nuiteeConfigured } from './liteApi.js';
 
 /**
  * Normalizes strings for matching.
@@ -146,20 +146,45 @@ export async function matchHotelWithNuitee(extractedBooking) {
     }
 
     if (bestMatch && maxScore >= 0.80) {
+      // The catalog endpoint carries no images/amenities, so images were always
+      // stored empty and hotel pictures never appeared. Pull them from the hotel
+      // detail endpoint. Best-effort: a failure here must not lose a good match,
+      // and the result is cached permanently in hotel_mappings, so this runs once
+      // per property rather than on every import.
+      let details = null;
+      try {
+        details = await getHotelDetails(bestMatch.id);
+      } catch (e) {
+        console.warn('[Enrichment] hotel details unavailable:', e.message);
+      }
+      const rawImages = details?.hotelImages || details?.images || [];
+      const images = (Array.isArray(rawImages) ? rawImages : [])
+        .slice(0, 12) // bound the stored payload; galleries only show a handful
+        .map(img => (typeof img === 'string'
+          ? { url: img }
+          : { url: img.urlHd || img.url, caption: img.caption || null }))
+        .filter(i => i.url);
+      const rawAmenities = details?.hotelFacilities || details?.amenities || [];
+      const amenities = (Array.isArray(rawAmenities) ? rawAmenities : [])
+        .slice(0, 30)
+        .map(a => (typeof a === 'string' ? a : a?.name))
+        .filter(Boolean);
+
       const enrichedHotel = {
         nuiteeHotelId: bestMatch.id,
         googlePlaceId: null,
         name: bestMatch.name,
-        address: bestMatch.address || null,
+        address: bestMatch.address || details?.address || null,
         city: bestMatch.city || extractedBooking.city || null,
         country: bestMatch.countryCode || extractedBooking.country || null,
         // Use != null so a valid 0° coordinate (equator/prime meridian) isn't dropped.
         coords: bestMatch.lat != null && bestMatch.lng != null ? { lat: bestMatch.lat, lng: bestMatch.lng } : null,
-        star: bestMatch.stars || null,
-        amenities: [],
-        images: [],
-        phone: null,
-        website: null,
+        star: bestMatch.stars || details?.starRating || null,
+        description: details?.hotelDescription || details?.description || null,
+        amenities,
+        images,
+        phone: details?.phone || details?.hotelPhone || null,
+        website: details?.website || null,
         matchScore: maxScore,
         matchSource: 'nuitee',
         verifiedAt: new Date().toISOString(),

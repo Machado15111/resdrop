@@ -2,16 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API } from '../api';
+import { getCached, setCached, dedupedFetch, invalidatePrefix } from '../lib/dataCache';
 import Dashboard from './Dashboard';
 import BulkImportModal from './BulkImportModal';
 import ImportReviewModal from './ImportReviewModal';
+
+const BOOKINGS_KEY = 'bookings:list';
+const STATS_KEY = 'bookings:stats';
 
 function DashboardPage() {
   const { user, authFetch } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [bookings, setBookings] = useState([]);
-  const [stats, setStats] = useState(null);
+  // Seed from cache so returning to the dashboard paints instantly instead of
+  // showing an empty list while the request is in flight.
+  const [bookings, setBookings] = useState(() => getCached(BOOKINGS_KEY) ?? []);
+  const [stats, setStats] = useState(() => getCached(STATS_KEY) ?? null);
   const [bookingStates, setBookingStates] = useState({});
   const [showImport, setShowImport] = useState(false);
 
@@ -19,11 +25,13 @@ function DashboardPage() {
 
   const fetchBookings = useCallback(async () => {
     try {
-      const res = await authFetch(`${API}/bookings`);
-      if (res.ok) {
-        const data = await res.json();
-        setBookings(data);
-      }
+      // dedupedFetch collapses concurrent callers into a single request.
+      const data = await dedupedFetch(BOOKINGS_KEY, async () => {
+        const res = await authFetch(`${API}/bookings`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      });
+      setBookings(data);
     } catch (err) {
       console.error('Failed to fetch bookings:', err);
     }
@@ -31,11 +39,12 @@ function DashboardPage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await authFetch(`${API}/stats`);
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
+      const data = await dedupedFetch(STATS_KEY, async () => {
+        const res = await authFetch(`${API}/stats`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      });
+      setStats(data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
@@ -141,11 +150,18 @@ function DashboardPage() {
     return data;
   };
 
+  // Apply a change to local state AND the shared cache together, so navigating
+  // away and back does not resurrect a stale copy of the list.
+  const applyBookings = useCallback((next) => {
+    setBookings(next);
+    setCached(BOOKINGS_KEY, next);
+  }, []);
+
   // Archive / unarchive a booking — optimistic so the card updates instantly.
   const handleArchive = async (booking) => {
     const newStatus = booking.status === 'archived' ? 'monitoring' : 'archived';
     const snapshot = bookings;
-    setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: newStatus } : b));
+    applyBookings(bookings.map(b => (b.id === booking.id ? { ...b, status: newStatus } : b)));
     try {
       const res = await authFetch(`${API}/bookings/${booking.id}`, {
         method: 'PUT',
@@ -153,10 +169,13 @@ function DashboardPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();
-      setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
+      // Reconcile the optimistic row with the saved record by stable id.
+      applyBookings((getCached(BOOKINGS_KEY) ?? snapshot).map(b => (b.id === updated.id ? updated : b)));
+      invalidatePrefix('bookings:stats');
+      fetchStats();
     } catch (err) {
       console.error('Archive failed:', err);
-      setBookings(snapshot); // roll back on failure
+      applyBookings(snapshot); // roll back on failure
     }
   };
 
@@ -164,14 +183,15 @@ function DashboardPage() {
   // Optimistic: the card disappears immediately instead of waiting on the API.
   const handleDelete = async (booking) => {
     const snapshot = bookings;
-    setBookings(prev => prev.filter(b => b.id !== booking.id));
+    applyBookings(bookings.filter(b => b.id !== booking.id));
     try {
       const res = await authFetch(`${API}/bookings/${booking.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      invalidatePrefix('bookings:stats');
       fetchStats();
     } catch (err) {
       console.error('Delete failed:', err);
-      setBookings(snapshot); // restore the card if the server rejected it
+      applyBookings(snapshot); // restore the card if the server rejected it
     }
   };
 

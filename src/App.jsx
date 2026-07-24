@@ -96,7 +96,14 @@ function App() {
 
   return (
     <div className="app">
-      <div key={location.pathname} className={transitionClass}>
+      {/* The key is only applied to marketing routes, where remounting replays the
+          curtain reveal. In-app navigation omits it so React reconciles instead of
+          tearing down and rebuilding the whole tree (and replaying an animation)
+          on every page change — cached pages then paint immediately. */}
+      <div
+        key={transitionClass === 'page-transition' ? location.pathname : 'app'}
+        className={transitionClass}
+      >
         <Suspense fallback={null}>
         <Routes location={location}>
           {/* Admin — no header, admin-only */}

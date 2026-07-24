@@ -66,6 +66,35 @@ export async function select(table, filters = {}, options = {}) {
 }
 
 /**
+ * COUNT rows without transferring them.
+ * Uses PostgREST's `Prefer: count=exact` + a HEAD request, so the server returns
+ * the total in the Content-Range header and zero row data. Counting by selecting
+ * every row (the previous approach) cost a full table transfer per call.
+ */
+export async function count(table, filters = {}) {
+  if (!isConfigured) return 0;
+  try {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+    for (const [k, v] of Object.entries(filters)) {
+      if (v === null || v === undefined) url.searchParams.set(k, 'is.null');
+      else url.searchParams.set(k, `eq.${v}`);
+    }
+    url.searchParams.set('select', 'id');
+    const res = await fetch(url.toString(), {
+      method: 'HEAD',
+      headers: { ...baseHeaders(), Prefer: 'count=exact', Range: '0-0' },
+    });
+    if (!res.ok) return 0;
+    // Content-Range looks like "0-0/1234" (or "*/1234" when empty).
+    const total = (res.headers.get('content-range') || '').split('/')[1];
+    return Number.parseInt(total, 10) || 0;
+  } catch (e) {
+    console.error(`[Supabase REST] COUNT ${table} error:`, e.message);
+    return 0;
+  }
+}
+
+/**
  * INSERT a row into a table.
  */
 export async function insert(table, row) {

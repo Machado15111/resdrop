@@ -49,6 +49,7 @@ import {
   searchRealPrices,
 } from './serpApi.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
+import { getCachedAuth, setCachedAuth } from './authCache.js';
 import { nuiteeConfigured, nuiteeEnv } from './liteApi.js';
 import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
@@ -207,6 +208,16 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'Authentication required' });
   }
   const token = authHeader.slice(7);
+
+  // Fast path: a recently validated token. Saves two serial Supabase round-trips
+  // (~460ms) per request. Purged on logout and on user updates — see authCache.js.
+  const cached = getCachedAuth(token);
+  if (cached) {
+    req.user = cached.user;
+    req.userEmail = cached.email;
+    return next();
+  }
+
   const session = await db.getSessionByToken(token);
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
@@ -219,6 +230,7 @@ async function authMiddleware(req, res, next) {
   if (!user) {
     return res.status(401).json({ error: 'User not found' });
   }
+  setCachedAuth(token, email, user);
   req.user = user;
   req.userEmail = email;
   next();
@@ -673,7 +685,8 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
 
 // Get bookings with filtering & search (Issue 20)
 app.get('/api/bookings', authMiddleware, async (req, res) => {
-  const results = await db.getBookingsByEmail(req.userEmail);
+  // List view never renders latest_results/price_history (~86% of row bytes).
+  const results = await db.getBookingsByEmail(req.userEmail, { columns: db.BOOKING_LIST_COLUMNS });
 
   // Filter by status
   let filtered = results;
