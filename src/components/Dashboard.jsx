@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconBarChart, IconDollar, IconSearch, IconUpload, IconExternalLink, IconClock } from './Icons';
 import { useI18n } from '../i18n';
+import HotelDetailsModal from './HotelDetailsModal';
 import './Dashboard.css';
 
 const CURRENCY_SYMBOLS = { BRL: 'R$', USD: '$', EUR: '€', GBP: '£' };
@@ -19,6 +20,8 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [showNuiteeModal, setShowNuiteeModal] = useState(false);
+  const [nuiteeHotelId, setNuiteeHotelId] = useState('lp3803c');
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
@@ -99,6 +102,13 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
             <button className="btn-primary" onClick={onNewBooking}>
               <IconPlus size={18} />
               {t('dash.addBooking')}
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => { setNuiteeHotelId(null); setShowNuiteeModal(true); }}
+            >
+              <IconHotel size={18} />
+              Hotel Explorer (Nuitée)
             </button>
             {onViewAnalytics && (
               <button className="btn-secondary" onClick={onViewAnalytics}>
@@ -277,6 +287,13 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
           </div>
         )}
       </div>
+
+      {showNuiteeModal && (
+        <HotelDetailsModal
+          hotelId={nuiteeHotelId || null}
+          onClose={() => setShowNuiteeModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { IconArrowLeft, IconHotel, IconRefresh } from './Icons';
 import SavingsConfirmationModal from './SavingsConfirmationModal';
+import HotelDetailsModal from './HotelDetailsModal';
 import PriceTrends from './PriceTrends';
 import { formatCurrency } from '../currency';
 import './BookingDetail.css';
@@ -19,6 +20,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [showNuiteeModal, setShowNuiteeModal] = useState(false);
   // The stored originalPrice is the value as entered; rateType says whether that
   // value is per-night or the stay total. Derive both representations correctly.
   const isPerNight = booking.rateType === 'per_night';
@@ -114,7 +116,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             <div>
               <h1 className="detail-hotel-name">{booking.hotelName}</h1>
               <p className="detail-dest">{booking.destination}</p>
-              <span className={`badge ${st.cls}`} style={{ marginTop: 6, display: 'inline-block' }}>{st.label}</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+                <span className={`badge ${st.cls}`}>{st.label}</span>
+                <button
+                  className="btn btn-secondary btn-xs"
+                  onClick={() => setShowNuiteeModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 12, padding: '3px 10px' }}
+                >
+                  <IconHotel size={13} /> Nuitée Details & Rates
+                </button>
+              </div>
             </div>
           </div>
           <div className="detail-status-area">
@@ -549,6 +560,13 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             setShowConfirmModal(false);
           }}
           onClose={() => setShowConfirmModal(false)}
+        />
+      )}
+
+      {showNuiteeModal && (
+        <HotelDetailsModal
+          hotelId={booking.nuiteeHotelId || booking.hotelId || null}
+          onClose={() => setShowNuiteeModal(false)}
         />
       )}
     </div>

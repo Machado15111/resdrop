@@ -464,6 +464,24 @@ export function IconTrash({ size = 24, className }) {
   );
 }
 
+export function IconAlertCircle({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+export function IconSparkles({ size = 24, className }) {
+  return (
+    <svg {...defaultProps(size, className)}>
+      <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
+    </svg>
+  );
+}
+
 export function LogoMark({ size = 32, className }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className}>
