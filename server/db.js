@@ -379,6 +379,26 @@ export async function createBooking(booking) {
     }
     if (row.email) row.email = row.email.toLowerCase();
 
+    // Idempotency / dedup — prevent duplicate rows from double submits, retries,
+    // multiple tabs, or reprocessed imports. If an active booking already exists
+    // for the same guest + hotel + stay, return it instead of inserting again.
+    if (row.email && row.hotel_name && row.checkin_date && row.checkout_date) {
+      try {
+        const existing = await supa.select('bookings', {
+          email: row.email,
+          hotel_name: row.hotel_name,
+          checkin_date: row.checkin_date,
+          checkout_date: row.checkout_date,
+        }, { limit: 1 });
+        if (Array.isArray(existing) && existing.length > 0) {
+          const dupe = toCamel(existing[0]);
+          console.log(`[DB] createBooking: duplicate suppressed for "${row.hotel_name}" ${row.checkin_date}→${row.checkout_date} (${row.email})`);
+          inMemoryBookings.set(dupe.id, dupe);
+          return dupe;
+        }
+      } catch (e) { console.error('[DB] createBooking dedup check:', e.message); }
+    }
+
     // Persist through the Supabase REST layer. The direct `sql` client is a dead
     // mock connection in this deployment (no DATABASE_URL), which silently sent
     // every booking to the in-memory fallback. Return the REAL persisted row.
@@ -480,22 +500,27 @@ export async function getStats(email) {
 }
 
 export async function deleteBooking(id) {
+  // Supabase REST is the source of truth in production. Delete there FIRST and
+  // treat ITS result as authoritative. The direct `sql` client is a dead mock in
+  // serverless (no DATABASE_URL) and silently "succeeds" without throwing — the
+  // old sql-first code set ok=true and skipped the REST delete, so the row stayed
+  // in Supabase and reappeared on reload.
   let ok = false;
+  try {
+    await supa.remove('fare_alerts', { booking_id: id }).catch(() => {});
+    await supa.remove('savings_confirmations', { booking_id: id }).catch(() => {});
+    ok = await supa.remove('bookings', { id });
+  } catch (e) { console.error('[DB] deleteBooking rest:', e.message); }
+
+  // Best-effort cleanup for installs that DO have a real DATABASE_URL. Never let
+  // this flip `ok` — REST is authoritative.
   try {
     await sql`DELETE FROM fare_alerts WHERE booking_id = ${id}`;
     await sql`DELETE FROM savings_confirmations WHERE booking_id = ${id}`;
     await sql`DELETE FROM activity_log WHERE entity_id = ${id} AND entity_type = 'booking'`;
     await sql`DELETE FROM bookings WHERE id = ${id}`;
-    ok = true;
-  } catch (e) { console.error('[DB] deleteBooking sql:', e.message); }
-  if (!ok) {
-    // sql client unavailable → delete via REST (child rows cascade or are best-effort).
-    try {
-      await supa.remove('fare_alerts', { booking_id: id }).catch(() => {});
-      await supa.remove('bookings', { id });
-      ok = true;
-    } catch (e) { console.error('[DB] deleteBooking rest:', e.message); }
-  }
+  } catch { /* ignore — REST already handled the authoritative delete */ }
+
   inMemoryBookings.delete(id);
   return ok;
 }
