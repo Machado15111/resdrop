@@ -141,15 +141,12 @@ const inMemoryUsers = new Map();
 export async function getUserWithPassword(email) {
   if (!email) return null;
   const key = email.toLowerCase();
-  try {
-    const rows = await sql`SELECT * FROM users WHERE email = ${key} LIMIT 1`;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) {
-    console.error('[DB] getUserWithPassword sql:', e.message);
-  }
+  // Supabase REST is the source of truth for accounts (auth-critical). The sql
+  // client points at a different database, so reading it first could return a
+  // stale user record — or miss one created via REST.
   try {
     const rows = await supa.select('users', { email: key }, { limit: 1 });
-    if (rows && rows[0]) return toCamel(rows[0]);
+    if (Array.isArray(rows) && rows[0]) return toCamel(rows[0]);
   } catch (e) {
     console.error('[DB] getUserWithPassword supa:', e.message);
   }
@@ -183,19 +180,13 @@ export async function getUser(email) {
 
 export async function createUser(email, name) {
   const key = (email || '').toLowerCase();
-  try {
-    const rows = await sql`
-      INSERT INTO users (email, name)
-      VALUES (${key}, ${name || 'Guest'})
-      RETURNING *
-    `;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) {
-    console.error('[DB] createUser sql:', e.message);
-  }
+  // REST is authoritative (see getUserWithPassword); sql is best-effort mirroring.
   try {
     const row = await supa.insert('users', { email: key, name: name || 'Guest' });
-    if (row) return toCamel(row);
+    if (row) {
+      sql`INSERT INTO users (email, name) VALUES (${key}, ${name || 'Guest'})`.catch(() => {});
+      return toCamel(row);
+    }
   } catch (e) {
     console.error('[DB] createUser supa:', e.message);
   }
@@ -215,10 +206,11 @@ export async function getOrCreateUser(email, name) {
   if (!email) return null;
   let user = await getUser(email);
   if (user) {
-    try {
-      await sql`UPDATE users SET last_active = NOW() WHERE email = ${email.toLowerCase()}`;
-    } catch {}
-    user.lastActive = new Date().toISOString();
+    const now = new Date().toISOString();
+    // Fire-and-forget: last_active must never block or fail a login.
+    supa.update('users', { email: email.toLowerCase() }, { last_active: now }).catch(() => {});
+    sql`UPDATE users SET last_active = NOW() WHERE email = ${email.toLowerCase()}`.catch(() => {});
+    user.lastActive = now;
     return user;
   }
   return await createUser(email, name);
@@ -232,26 +224,21 @@ export async function updateUser(email, updates) {
     inMemoryUsers.set(key, updated);
   }
 
+  // REST is authoritative for accounts; sql is best-effort mirroring.
+  const snake = toSnake(updates);
+  const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return await getUser(email);
+  const clean = Object.fromEntries(entries);
   try {
-    const snake = toSnake(updates);
-    const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
-    if (entries.length === 0) return await getUser(email);
-    const rows = await sql`
-      UPDATE users SET ${sql(Object.fromEntries(entries))}
-      WHERE email = ${key}
-      RETURNING *
-    `;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) {
-    console.error('[DB] updateUser sql:', e.message);
-  }
-  try {
-    const snake = toSnake(updates);
-    const row = await supa.update('users', { email: key }, snake);
-    if (row) return toCamel(row);
+    const row = await supa.update('users', { email: key }, clean);
+    if (row) {
+      sql`UPDATE users SET ${sql(clean)} WHERE email = ${key}`.catch(() => {});
+      return toCamel(row);
+    }
   } catch (e) {
     console.error('[DB] updateUser supa:', e.message);
   }
+  sql`UPDATE users SET ${sql(clean)} WHERE email = ${key}`.catch(() => {});
   return await getUser(email);
 }
 
@@ -272,19 +259,12 @@ export async function updateUserStats(email) {
 
 export async function getAllUsers(limit = 50) {
   let list = [];
+  // Source of truth only (REST) — the sql DB holds a divergent user set.
   try {
-    const rows = await sql`SELECT * FROM users ORDER BY joined_at DESC LIMIT ${limit}`;
-    if (rows && rows.length > 0) list = rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
+    const rows = await supa.select('users', {}, { order: 'joined_at.desc', limit });
+    if (Array.isArray(rows)) list = rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
   } catch (e) {
-    console.error('[DB] getAllUsers sql:', e.message);
-  }
-  if (list.length === 0) {
-    try {
-      const rows = await supa.select('users', {}, { order: 'joined_at.desc', limit });
-      if (rows && rows.length > 0) list = rows.map(r => { const u = toCamel(r); delete u.passwordHash; return u; });
-    } catch (e) {
-      console.error('[DB] getAllUsers supa:', e.message);
-    }
+    console.error('[DB] getAllUsers supa:', e.message);
   }
   for (const u of inMemoryUsers.values()) {
     if (!list.some(x => x.email === u.email)) {
@@ -297,12 +277,9 @@ export async function getAllUsers(limit = 50) {
 }
 
 export async function getUserCount() {
-  try {
-    const rows = await sql`SELECT COUNT(*)::int AS count FROM users`;
-    if (rows && rows[0] && rows[0].count > 0) return rows[0].count;
-  } catch (e) {
-    console.error('[DB] getUserCount:', e.message);
-  }
+  // Count from the source of truth (Supabase REST), not the divergent sql DB.
+  const rows = await supa.select('users', {}, { select: 'email', limit: 10000 });
+  if (Array.isArray(rows)) return rows.length;
   return inMemoryUsers.size;
 }
 
@@ -312,13 +289,11 @@ const inMemoryBookings = new Map();
 
 export async function getBooking(id) {
   if (!id) return null;
+  // Read the source of truth (Supabase REST) only — the sql/DATABASE_URL client
+  // points at a different database and returned stale/phantom rows.
   try {
-    if (typeof id === 'string' && id.length === 36 && !id.startsWith('bkg-')) {
-      const rows = await sql`SELECT * FROM bookings WHERE id = ${id} LIMIT 1`;
-      if (rows && rows[0]) return toCamel(rows[0]);
-      const sRows = await supa.select('bookings', { id }, { limit: 1 });
-      if (sRows && sRows[0]) return toCamel(sRows[0]);
-    }
+    const rows = await supa.select('bookings', { id }, { limit: 1 });
+    if (Array.isArray(rows) && rows[0]) return toCamel(rows[0]);
   } catch (e) {
     console.error('[DB] getBooking:', e.message);
   }
@@ -420,28 +395,21 @@ export async function updateBooking(id, updates) {
   const raw = toSnake(updates);
   const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
   if (Object.keys(row).length === 0) return await getBooking(id);
-  // Try direct sql; if the connection is unavailable (no valid DATABASE_URL),
-  // fall back to the Supabase REST layer so monitoring updates still persist.
-  try {
-    const rows = await sql`UPDATE bookings SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    if (rows && rows[0]) {
-      const rec = toCamel(rows[0]);
-      inMemoryBookings.set(rec.id, rec);
-      return rec;
-    }
-  } catch (e) {
-    console.error('[DB] updateBooking sql:', e.message);
-  }
+  // Supabase REST is authoritative — reads come from there, so writes must too.
+  // (Previously sql-first: monitoring results landed in the other database and
+  // never showed up in the app.) sql is best-effort mirroring only.
   try {
     const updated = await supa.update('bookings', { id }, row);
     if (updated) {
       const rec = toCamel(updated);
       inMemoryBookings.set(rec.id, rec);
+      sql`UPDATE bookings SET ${sql(row)} WHERE id = ${id}`.catch(() => {});
       return rec;
     }
   } catch (e) {
     console.error('[DB] updateBooking rest:', e.message);
   }
+  sql`UPDATE bookings SET ${sql(row)} WHERE id = ${id}`.catch(() => {});
   const existing = inMemoryBookings.get(id);
   if (existing) {
     const merged = { ...existing, ...updates };
@@ -452,13 +420,9 @@ export async function updateBooking(id, updates) {
 }
 
 export async function getBookingCount() {
-  try {
-    const rows = await sql`SELECT COUNT(*)::int AS count FROM bookings`;
-    return rows[0]?.count || 0;
-  } catch (e) {
-    console.error('[DB] getBookingCount:', e.message);
-    return 0;
-  }
+  // Source of truth is Supabase REST (the sql/DATABASE_URL DB reports stale counts).
+  const rows = await supa.select('bookings', {}, { select: 'id', limit: 10000 });
+  return Array.isArray(rows) ? rows.length : 0;
 }
 
 export async function getStats(email) {
@@ -526,29 +490,30 @@ export async function deleteBooking(id) {
 }
 
 export async function getAdminBookings({ status, search, sort = 'created_at', order = 'desc', page = 1, limit = 50 } = {}) {
+  // Reads the source of truth (Supabase REST). The status filter is pushed to the
+  // server; free-text search and sort are applied here because the REST helper
+  // has no `or`. Bounded by a generous fetch cap — revisit with a server-side
+  // full-text filter if the table grows past that.
   try {
     const validSorts = ['created_at', 'hotel_name', 'original_price', 'total_savings', 'checkin_date', 'status'];
     const sortCol = validSorts.includes(sort) ? sort : 'created_at';
-    const dir = order === 'asc' ? sql`ASC` : sql`DESC`;
-    const offset = (page - 1) * limit;
 
-    let rows, countRows;
-    if (status && status !== 'all' && search) {
-      const s = `%${search.replace(/[%_\\]/g, '')}%`;
-      rows = await sql`SELECT * FROM bookings WHERE status = ${status} AND (hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s}) ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
-      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE status = ${status} AND (hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s})`;
-    } else if (status && status !== 'all') {
-      rows = await sql`SELECT * FROM bookings WHERE status = ${status} ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
-      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE status = ${status}`;
-    } else if (search) {
-      const s = `%${search.replace(/[%_\\]/g, '')}%`;
-      rows = await sql`SELECT * FROM bookings WHERE hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s} ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
-      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings WHERE hotel_name ILIKE ${s} OR email ILIKE ${s} OR destination ILIKE ${s}`;
-    } else {
-      rows = await sql`SELECT * FROM bookings ORDER BY ${sql(sortCol)} ${dir} LIMIT ${limit} OFFSET ${offset}`;
-      countRows = await sql`SELECT COUNT(*)::int AS count FROM bookings`;
+    const filters = (status && status !== 'all') ? { status } : {};
+    const rows = await supa.select('bookings', filters, { order: `${sortCol}.${order === 'asc' ? 'asc' : 'desc'}`, limit: 5000 });
+    let list = Array.isArray(rows) ? rows.map(toCamel) : [];
+
+    if (search) {
+      const s = String(search).toLowerCase();
+      list = list.filter(b =>
+        (b.hotelName || '').toLowerCase().includes(s) ||
+        (b.email || '').toLowerCase().includes(s) ||
+        (b.destination || '').toLowerCase().includes(s)
+      );
     }
-    return { bookings: rows.map(toCamel), total: countRows[0]?.count || 0, page, limit };
+
+    const total = list.length;
+    const offset = (page - 1) * limit;
+    return { bookings: list.slice(offset, offset + limit), total, page, limit };
   } catch (e) {
     console.error('[DB] getAdminBookings:', e.message);
     return { bookings: [], total: 0, page, limit };
@@ -559,73 +524,64 @@ export async function getAdminBookings({ status, search, sort = 'created_at', or
 
 export async function createFareAlert(alert) {
   const row = Object.fromEntries(Object.entries(toSnake(alert)).filter(([, v]) => v !== undefined));
-  try {
-    const rows = await sql`INSERT INTO fare_alerts ${sql(row)} RETURNING *`;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) {
-    console.error('[DB] createFareAlert sql:', e.message);
-  }
+  // Supabase REST is the single source of truth (see getBookingsByEmail). Write
+  // there authoritatively; the direct sql client points at a different database
+  // in this deployment, so it is best-effort mirroring only.
+  let created = null;
   try {
     const inserted = await supa.insert('fare_alerts', row);
-    if (inserted) return toCamel(inserted);
+    if (inserted) created = toCamel(inserted);
   } catch (e) {
     console.error('[DB] createFareAlert rest:', e.message);
   }
-  return null;
+  sql`INSERT INTO fare_alerts ${sql(row)}`.catch(() => {});
+  return created;
 }
 
 export async function getAlertsByBooking(bookingId) {
-  try {
-    const rows = await sql`SELECT * FROM fare_alerts WHERE booking_id = ${bookingId} ORDER BY created_at DESC`;
-    return rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getAlertsByBooking:', e.message);
-    return [];
-  }
+  const rows = await supa.select('fare_alerts', { booking_id: bookingId }, { order: 'created_at.desc' });
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 export async function getAlertsByEmail(email) {
-  try {
-    const bookings = await getBookingsByEmail(email);
-    const ids = bookings.map(b => b.id);
-    if (ids.length === 0) return [];
-    const rows = await sql`SELECT * FROM fare_alerts WHERE booking_id = ANY(${ids}) ORDER BY created_at DESC LIMIT 100`;
-    return rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getAlertsByEmail:', e.message);
-    return [];
-  }
+  const bookings = await getBookingsByEmail(email);
+  const ids = bookings.map(b => b.id).filter(Boolean);
+  if (ids.length === 0) return [];
+  const rows = await supa.select(
+    'fare_alerts',
+    { booking_id: { op: 'in', value: `(${ids.join(',')})` } },
+    { order: 'created_at.desc', limit: 100 }
+  );
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 // ─── Savings Confirmations ───────────────────────────────────
 
 export async function createSavingsConfirmation(confirmation) {
+  const row = Object.fromEntries(Object.entries(toSnake(confirmation)).filter(([, v]) => v !== undefined));
+  let created = null;
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(confirmation)).filter(([, v]) => v !== undefined));
-    const rows = await sql`INSERT INTO savings_confirmations ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const inserted = await supa.insert('savings_confirmations', row);
+    if (inserted) created = toCamel(inserted);
   } catch (e) {
-    console.error('[DB] createSavingsConfirmation:', e.message);
-    return null;
+    console.error('[DB] createSavingsConfirmation rest:', e.message);
   }
+  sql`INSERT INTO savings_confirmations ${sql(row)}`.catch(() => {});
+  return created;
 }
 
 export async function getConfirmationByBooking(bookingId) {
-  try {
-    const rows = await sql`SELECT * FROM savings_confirmations WHERE booking_id = ${bookingId} ORDER BY created_at DESC LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
-  } catch (e) {
-    console.error('[DB] getConfirmationByBooking:', e.message);
-    return null;
-  }
+  const rows = await supa.select('savings_confirmations', { booking_id: bookingId }, { order: 'created_at.desc', limit: 1 });
+  return Array.isArray(rows) && rows[0] ? toCamel(rows[0]) : null;
 }
 
 export async function updateUserConfirmedSavings(email) {
+  const key = email.toLowerCase();
   try {
-    const key = email.toLowerCase();
-    const rows = await sql`SELECT confirmed_savings FROM savings_confirmations WHERE user_email = ${key} AND status = 'confirmed'`;
-    const total = rows.reduce((sum, c) => sum + (parseFloat(c.confirmed_savings) || 0), 0);
-    await sql`UPDATE users SET confirmed_savings = ${Math.round(total * 100) / 100} WHERE email = ${key}`;
+    const rows = await supa.select('savings_confirmations', { user_email: key, status: 'confirmed' }, { select: 'confirmed_savings' });
+    const total = (Array.isArray(rows) ? rows : [])
+      .reduce((sum, c) => sum + (parseFloat(c.confirmed_savings) || 0), 0);
+    await supa.update('users', { email: key }, { confirmed_savings: Math.round(total * 100) / 100 });
   } catch (e) {
     console.error('[DB] updateUserConfirmedSavings:', e.message);
   }
@@ -642,97 +598,81 @@ export async function logActivity(entityType, entityId, action, actorEmail, deta
     actorEmail = obj.actorEmail;
     details = obj.details || {};
   }
+  const row = {
+    entity_type: entityType,
+    entity_id: entityId,
+    action,
+    actor_email: actorEmail || null,
+    details: details || {},
+  };
   try {
-    await sql`
-      INSERT INTO activity_log (entity_type, entity_id, action, actor_email, details)
-      VALUES (${entityType}, ${entityId}, ${action}, ${actorEmail || null}, ${sql.json(details)})
-    `;
+    await supa.insert('activity_log', row);
   } catch (e) {
-    console.error('[DB] logActivity:', e.message);
+    console.error('[DB] logActivity rest:', e.message);
   }
+  sql`
+    INSERT INTO activity_log (entity_type, entity_id, action, actor_email, details)
+    VALUES (${entityType}, ${entityId}, ${action}, ${actorEmail || null}, ${sql.json(details || {})})
+  `.catch(() => {});
 }
 
 export async function getActivityLog(entityType, entityId) {
-  try {
-    const rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${entityType} AND entity_id = ${entityId} ORDER BY created_at DESC LIMIT 50`;
-    return rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getActivityLog:', e.message);
-    return [];
-  }
+  const rows = await supa.select(
+    'activity_log',
+    { entity_type: entityType, entity_id: entityId },
+    { order: 'created_at.desc', limit: 50 }
+  );
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 export async function getGlobalActivityLog(limit = 200, filters = {}) {
-  try {
-    let rows;
-    if (filters.entityType && filters.action) {
-      rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${filters.entityType} AND action = ${filters.action} ORDER BY created_at DESC LIMIT ${limit}`;
-    } else if (filters.entityType) {
-      rows = await sql`SELECT * FROM activity_log WHERE entity_type = ${filters.entityType} ORDER BY created_at DESC LIMIT ${limit}`;
-    } else if (filters.action) {
-      rows = await sql`SELECT * FROM activity_log WHERE action = ${filters.action} ORDER BY created_at DESC LIMIT ${limit}`;
-    } else {
-      rows = await sql`SELECT * FROM activity_log ORDER BY created_at DESC LIMIT ${limit}`;
-    }
-    return rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getGlobalActivityLog:', e.message);
-    return [];
-  }
+  const f = {};
+  if (filters.entityType) f.entity_type = filters.entityType;
+  if (filters.action) f.action = filters.action;
+  const rows = await supa.select('activity_log', f, { order: 'created_at.desc', limit });
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 // ─── Special Fare Cases ─────────────────────────────────────
 
 export async function createSpecialFare(fareCase) {
+  const row = Object.fromEntries(Object.entries(toSnake(fareCase)).filter(([, v]) => v !== undefined));
+  let created = null;
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(fareCase)).filter(([, v]) => v !== undefined));
-    const rows = await sql`INSERT INTO special_fare_cases ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const inserted = await supa.insert('special_fare_cases', row);
+    if (inserted) created = toCamel(inserted);
   } catch (e) {
-    console.error('[DB] createSpecialFare:', e.message);
-    return null;
+    console.error('[DB] createSpecialFare rest:', e.message);
   }
+  sql`INSERT INTO special_fare_cases ${sql(row)}`.catch(() => {});
+  return created;
 }
 
 export async function getSpecialFare(id) {
-  try {
-    const rows = await sql`SELECT * FROM special_fare_cases WHERE id = ${id} LIMIT 1`;
-    return rows[0] ? toCamel(rows[0]) : null;
-  } catch (e) {
-    console.error('[DB] getSpecialFare:', e.message);
-    return null;
-  }
+  const rows = await supa.select('special_fare_cases', { id }, { limit: 1 });
+  return (Array.isArray(rows) && rows[0]) ? toCamel(rows[0]) : null;
 }
 
 export async function getAllSpecialFares(filters = {}) {
-  try {
-    let rows;
-    if (filters.status && filters.assignedAgent) {
-      rows = await sql`SELECT * FROM special_fare_cases WHERE status = ${filters.status} AND assigned_agent = ${filters.assignedAgent} ORDER BY created_at DESC LIMIT 200`;
-    } else if (filters.status) {
-      rows = await sql`SELECT * FROM special_fare_cases WHERE status = ${filters.status} ORDER BY created_at DESC LIMIT 200`;
-    } else if (filters.assignedAgent) {
-      rows = await sql`SELECT * FROM special_fare_cases WHERE assigned_agent = ${filters.assignedAgent} ORDER BY created_at DESC LIMIT 200`;
-    } else {
-      rows = await sql`SELECT * FROM special_fare_cases ORDER BY created_at DESC LIMIT 200`;
-    }
-    return rows.map(toCamel);
-  } catch (e) {
-    console.error('[DB] getAllSpecialFares:', e.message);
-    return [];
-  }
+  const f = {};
+  if (filters.status) f.status = filters.status;
+  if (filters.assignedAgent) f.assigned_agent = filters.assignedAgent;
+  const rows = await supa.select('special_fare_cases', f, { order: 'created_at.desc', limit: 200 });
+  return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
 export async function updateSpecialFare(id, updates) {
+  const raw = toSnake({ ...updates, updatedAt: new Date().toISOString() });
+  const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
+  let updated = null;
   try {
-    const raw = toSnake({ ...updates, updatedAt: new Date().toISOString() });
-    const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
-    const rows = await sql`UPDATE special_fare_cases SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const res = await supa.update('special_fare_cases', { id }, row);
+    if (res) updated = toCamel(res);
   } catch (e) {
-    console.error('[DB] updateSpecialFare:', e.message);
-    return null;
+    console.error('[DB] updateSpecialFare rest:', e.message);
   }
+  sql`UPDATE special_fare_cases SET ${sql(row)} WHERE id = ${id}`.catch(() => {});
+  return updated;
 }
 
 // ─── Document Uploads ────────────────────────────────────────
@@ -742,13 +682,15 @@ const inMemoryDocuments = new Map();
 export async function createDocumentUpload(doc) {
   const fallbackId = `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const row = Object.fromEntries(Object.entries(toSnake(doc)).filter(([, v]) => v !== undefined));
-  try {
-    const rows = await sql`INSERT INTO document_uploads ${sql(row)} RETURNING *`;
-    if (rows && rows[0]) { const r = toCamel(rows[0]); inMemoryDocuments.set(r.id, r); return r; }
-  } catch (e) { console.error('[DB] createDocumentUpload sql:', e.message); }
+  // REST authoritative; sql best-effort mirroring.
   try {
     const inserted = await supa.insert('document_uploads', row);
-    if (inserted) { const r = toCamel(inserted); inMemoryDocuments.set(r.id, r); return r; }
+    if (inserted) {
+      const r = toCamel(inserted);
+      inMemoryDocuments.set(r.id, r);
+      sql`INSERT INTO document_uploads ${sql(row)}`.catch(() => {});
+      return r;
+    }
   } catch (e) { console.error('[DB] createDocumentUpload rest:', e.message); }
   // Never return null — the upload route dereferences .id. Keep the flow alive.
   const record = { id: fallbackId, ...doc, createdAt: new Date().toISOString() };
@@ -758,13 +700,9 @@ export async function createDocumentUpload(doc) {
 
 export async function getDocumentUpload(id) {
   try {
-    const rows = await sql`SELECT * FROM document_uploads WHERE id = ${id} LIMIT 1`;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) { console.error('[DB] getDocumentUpload sql:', e.message); }
-  try {
     const rows = await supa.select('document_uploads', { id }, { limit: 1 });
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) { /* fall through */ }
+    if (Array.isArray(rows) && rows[0]) return toCamel(rows[0]);
+  } catch (e) { console.error('[DB] getDocumentUpload rest:', e.message); }
   return inMemoryDocuments.get(id) || null;
 }
 
@@ -773,13 +711,12 @@ export async function updateDocumentUpload(id, updates) {
   const row = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined));
   if (Object.keys(row).length === 0) return await getDocumentUpload(id);
   try {
-    const rows = await sql`UPDATE document_uploads SET ${sql(row)} WHERE id = ${id} RETURNING *`;
-    if (rows && rows[0]) return toCamel(rows[0]);
-  } catch (e) { console.error('[DB] updateDocumentUpload sql:', e.message); }
-  try {
     const updated = await supa.update('document_uploads', { id }, row);
-    if (updated) return toCamel(updated);
-  } catch (e) { /* fall through */ }
+    if (updated) {
+      sql`UPDATE document_uploads SET ${sql(row)} WHERE id = ${id}`.catch(() => {});
+      return toCamel(updated);
+    }
+  } catch (e) { console.error('[DB] updateDocumentUpload rest:', e.message); }
   const existing = inMemoryDocuments.get(id);
   if (existing) { const merged = { ...existing, ...updates }; inMemoryDocuments.set(id, merged); return merged; }
   try {
@@ -806,18 +743,13 @@ export async function createSession(email, token) {
   inMemorySessions.set(token, sess);
 
   try {
-    const rows = await sql`
-      INSERT INTO sessions (user_email, token)
-      VALUES (${email.toLowerCase()}, ${token})
-      RETURNING *
-    `;
-    if (rows && rows[0]) return rows[0];
-  } catch (e) {
-    console.error('[DB] createSession sql:', e.message);
-  }
-  try {
+    // REST is authoritative for sessions (auth-critical): they must live in the
+    // same database as the `users` rows they are validated against.
     const res = await supa.insert('sessions', { user_email: email.toLowerCase(), token });
-    if (res) return res;
+    if (res) {
+      sql`INSERT INTO sessions (user_email, token) VALUES (${email.toLowerCase()}, ${token})`.catch(() => {});
+      return res;
+    }
   } catch (e) {
     console.error('[DB] createSession supa:', e.message);
   }
@@ -827,18 +759,8 @@ export async function createSession(email, token) {
 export async function getSessionByToken(token) {
   if (!token) return null;
   try {
-    const rows = await sql`
-      SELECT * FROM sessions
-      WHERE token = ${token} AND expires_at > NOW()
-      LIMIT 1
-    `;
-    if (rows && rows[0]) return rows[0];
-  } catch (e) {
-    console.error('[DB] getSession sql:', e.message);
-  }
-  try {
     const rows = await supa.select('sessions', { token }, { limit: 1 });
-    if (rows && rows[0]) {
+    if (Array.isArray(rows) && rows[0]) {
       const sess = rows[0];
       if (!sess.expires_at || new Date(sess.expires_at) > new Date()) {
         return sess;
@@ -858,62 +780,60 @@ export async function getSessionByToken(token) {
 
 export async function deleteSession(token) {
   inMemorySessions.delete(token);
-  try {
-    await sql`DELETE FROM sessions WHERE token = ${token}`;
-  } catch (e) {
-    console.error('[DB] deleteSession:', e.message);
-  }
+  // REST is authoritative (logout must invalidate the session that auth reads).
   try {
     await supa.remove('sessions', { token });
-  } catch {}
+  } catch (e) {
+    console.error('[DB] deleteSession rest:', e.message);
+  }
+  sql`DELETE FROM sessions WHERE token = ${token}`.catch(() => {});
 }
 
 export async function deleteUserSessions(email) {
+  const key = email.toLowerCase();
   try {
-    await sql`DELETE FROM sessions WHERE user_email = ${email.toLowerCase()}`;
+    await supa.remove('sessions', { user_email: key });
   } catch (e) {
-    console.error('[DB] deleteUserSessions:', e.message);
+    console.error('[DB] deleteUserSessions rest:', e.message);
   }
+  sql`DELETE FROM sessions WHERE user_email = ${key}`.catch(() => {});
 }
 
 // ─── Password Resets ──────────────────────────────────────
+// Auth-critical: these live in the same source of truth as `users` (Supabase
+// REST). Previously sql-only, which pointed at a different database than the one
+// holding the user rows — reset tokens could never be validated against them.
 
 export async function createPasswordReset(email, token) {
+  const key = email.toLowerCase();
   try {
-    const key = email.toLowerCase();
-    await sql`UPDATE password_resets SET used = true WHERE user_email = ${key} AND used = false`;
-    const rows = await sql`
-      INSERT INTO password_resets (user_email, token)
-      VALUES (${key}, ${token})
-      RETURNING *
-    `;
-    return rows[0];
+    // Invalidate any outstanding tokens, then issue the new one.
+    await supa.update('password_resets', { user_email: key, used: false }, { used: true });
+    const inserted = await supa.insert('password_resets', { user_email: key, token });
+    sql`UPDATE password_resets SET used = true WHERE user_email = ${key} AND used = false`.catch(() => {});
+    return inserted || null;
   } catch (e) {
-    console.error('[DB] createPasswordReset:', e.message);
+    console.error('[DB] createPasswordReset rest:', e.message);
     return null;
   }
 }
 
 export async function getPasswordReset(token) {
-  try {
-    const rows = await sql`
-      SELECT * FROM password_resets
-      WHERE token = ${token} AND used = false AND expires_at > NOW()
-      LIMIT 1
-    `;
-    return rows[0] || null;
-  } catch (e) {
-    console.error('[DB] getPasswordReset:', e.message);
-    return null;
-  }
+  const rows = await supa.select('password_resets', {
+    token,
+    used: false,
+    expires_at: { op: 'gt', value: new Date().toISOString() },
+  }, { limit: 1 });
+  return (Array.isArray(rows) && rows[0]) || null;
 }
 
 export async function markPasswordResetUsed(token) {
   try {
-    await sql`UPDATE password_resets SET used = true WHERE token = ${token}`;
+    await supa.update('password_resets', { token }, { used: true });
   } catch (e) {
-    console.error('[DB] markPasswordResetUsed:', e.message);
+    console.error('[DB] markPasswordResetUsed rest:', e.message);
   }
+  sql`UPDATE password_resets SET used = true WHERE token = ${token}`.catch(() => {});
 }
 
 // ─── Inbound Emails ──────────────────────────────────────────
@@ -1153,14 +1073,16 @@ export async function markPendingImportTokenUsed(id) {
 // ─── Extraction Usage ────────────────────────────────────────
 
 export async function logExtractionUsage(data) {
+  const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
+  let created = null;
   try {
-    const row = Object.fromEntries(Object.entries(toSnake(data)).filter(([, v]) => v !== undefined));
-    const rows = await sql`INSERT INTO extraction_usage ${sql(row)} RETURNING *`;
-    return rows[0] ? toCamel(rows[0]) : null;
+    const inserted = await supa.insert('extraction_usage', row);
+    if (inserted) created = toCamel(inserted);
   } catch (e) {
-    console.error('[DB] logExtractionUsage:', e.message);
-    return null;
+    console.error('[DB] logExtractionUsage rest:', e.message);
   }
+  sql`INSERT INTO extraction_usage ${sql(row)}`.catch(() => {});
+  return created;
 }
 
 // ─── Hotel Mappings & Provider Usage Caps ──────────────────────
@@ -1173,15 +1095,11 @@ export async function getHotelMappingByKey(normalizedHotelKey) {
   if (inMemoryHotelMappings.has(normalizedHotelKey)) {
     return inMemoryHotelMappings.get(normalizedHotelKey);
   }
-  try {
-    const rows = await sql`SELECT * FROM hotel_mappings WHERE normalized_hotel_key = ${normalizedHotelKey} LIMIT 1`;
-    if (rows && rows[0]) {
-      const rec = toCamel(rows[0]);
-      inMemoryHotelMappings.set(normalizedHotelKey, rec);
-      return rec;
-    }
-  } catch (e) {
-    console.error('[DB] getHotelMappingByKey:', e.message);
+  const rows = await supa.select('hotel_mappings', { normalized_hotel_key: normalizedHotelKey }, { limit: 1 });
+  if (Array.isArray(rows) && rows[0]) {
+    const rec = toCamel(rows[0]);
+    inMemoryHotelMappings.set(normalizedHotelKey, rec);
+    return rec;
   }
   return null;
 }
@@ -1204,36 +1122,45 @@ export async function upsertHotelMapping(data) {
 
   inMemoryHotelMappings.set(key, record);
 
+  // Upsert against the source of truth (Supabase REST): update if the key exists,
+  // otherwise insert. The REST helper has no native upsert.
+  const row = {
+    normalized_hotel_key: key,
+    nuitee_hotel_id: data.nuiteeHotelId || null,
+    google_place_id: data.googlePlaceId || null,
+    source: data.source || 'nuitee',
+    match_score: data.matchScore || 0,
+    status: data.status || 'VERIFIED',
+    hotel_data: data.hotelData || {},
+    image_data: data.imageData || [],
+    verified_at: data.verifiedAt || new Date().toISOString(),
+  };
   try {
-    const row = {
-      normalized_hotel_key: key,
-      nuitee_hotel_id: data.nuiteeHotelId || null,
-      google_place_id: data.googlePlaceId || null,
-      source: data.source || 'nuitee',
-      match_score: data.matchScore || 0,
-      status: data.status || 'VERIFIED',
-      hotel_data: sql.json(data.hotelData || {}),
-      image_data: sql.json(data.imageData || []),
-      verified_at: data.verifiedAt || new Date().toISOString(),
-    };
-    await sql`
-      INSERT INTO hotel_mappings ${sql(row)}
-      ON CONFLICT (normalized_hotel_key) DO UPDATE SET
-        nuitee_hotel_id = EXCLUDED.nuitee_hotel_id,
-        google_place_id = EXCLUDED.google_place_id,
-        source = EXCLUDED.source,
-        match_score = EXCLUDED.match_score,
-        status = EXCLUDED.status,
-        hotel_data = EXCLUDED.hotel_data,
-        image_data = EXCLUDED.image_data,
-        verified_at = EXCLUDED.verified_at
-    `;
+    const existing = await supa.select('hotel_mappings', { normalized_hotel_key: key }, { limit: 1 });
+    if (Array.isArray(existing) && existing.length > 0) {
+      await supa.update('hotel_mappings', { normalized_hotel_key: key }, row);
+    } else {
+      await supa.insert('hotel_mappings', row);
+    }
   } catch (e) {
-    console.error('[DB] upsertHotelMapping error:', e.message);
+    console.error('[DB] upsertHotelMapping rest:', e.message);
   }
   return record;
 }
 
+/**
+ * Atomically reserve one paid provider call against the daily cap.
+ *
+ * NOTE (scale): this deliberately still uses the direct `sql` client. Its
+ * INSERT ... ON CONFLICT ... WHERE external_calls < cap is a single atomic
+ * statement — the only thing that makes the cost cap safe under concurrency.
+ * A Supabase REST select-then-update would introduce a race where two instances
+ * both read under the cap and both increment, overspending the budget.
+ * The in-memory fallback below is per-instance and therefore NOT safe across
+ * multiple Railway replicas.
+ * TODO: move this to a Supabase RPC (postgres function) so the atomic guarantee
+ * lives in the same database as the rest of the source of truth.
+ */
 export async function checkAndConsumeProviderCap(provider, operation, dailyCap = 10, monthlyCap = 100) {
   const today = new Date().toISOString().slice(0, 10);
   const currentMonth = today.slice(0, 7);
