@@ -296,8 +296,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                 );
               }
 
+              const anyTaxData = displayResults.some(r => r.hasTaxData && r.totalBeforeTax);
               return (
                 <div className="results-list">
+                  {anyTaxData && (
+                    <p className="results-tax-note">{t('detail.taxNote')}</p>
+                  )}
                   {displayResults.map((result, i) => (
                     <div
                       className={`result-row ${result.hasDrop ? 'has-savings' : ''} ${i === 0 && result.hasDrop ? 'best' : ''}`}
@@ -323,8 +327,13 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                         </div>
                         <div className="result-total">
                           {fmt(result.totalPrice, result.currency)}
-                          <span className="result-total-label"> {t('common.total')}</span>
+                          <span className="result-total-label"> {t('common.total')} · {t('detail.withTax')}</span>
                         </div>
+                        {result.hasTaxData && result.totalBeforeTax ? (
+                          <div className="result-total-beforetax">
+                            {fmt(result.totalBeforeTax, result.currency)} <span className="result-total-label">{t('detail.beforeTax')}</span>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="result-action">
                         {result.hasDrop ? (

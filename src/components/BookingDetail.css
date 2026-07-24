@@ -451,6 +451,23 @@
   color: var(--tl-text-muted);
 }
 
+.result-total-beforetax {
+  font-size: 13px;
+  color: var(--tl-text-muted);
+  margin-top: 2px;
+}
+
+.results-tax-note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--tl-text-muted);
+  background: var(--tl-bg-subtle, #f6f6f4);
+  border: 1px solid var(--tl-border, #ececec);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 14px;
+}
+
 .result-action {
   display: flex;
   flex-direction: column;

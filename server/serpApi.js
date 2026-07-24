@@ -143,6 +143,36 @@ export async function searchGoogleHotels({
  * Parse SerpApi Google Hotels results into our standard format
  * Separates exact hotel matches from alternative options
  */
+/**
+ * Extract both with-tax and before-tax rates from a SerpApi price/property.
+ * Google Hotels exposes total_rate / rate_per_night, each with extracted_lowest
+ * (WITH taxes & fees) and extracted_before_taxes_fees (WITHOUT).
+ */
+function extractTaxRates(p, stayNights) {
+  const perNight = p.rate_per_night?.extracted_lowest || 0;
+  const total = p.total_rate?.extracted_lowest || (perNight > 0 ? perNight * stayNights : 0);
+  const perNightBeforeTax = p.rate_per_night?.extracted_before_taxes_fees || 0;
+  const totalBeforeTax = p.total_rate?.extracted_before_taxes_fees
+    || (perNightBeforeTax > 0 ? perNightBeforeTax * stayNights : 0);
+  return {
+    perNight,
+    total,
+    perNightBeforeTax,
+    totalBeforeTax,
+    hasTaxData: total > 0 && totalBeforeTax > 0 && totalBeforeTax !== total,
+  };
+}
+
+/**
+ * Pick the vendor rate to compare against, matched to the user's tax basis.
+ * Only when the user's price is explicitly WITHOUT taxes do we use the
+ * before-tax figure; otherwise compare against the with-tax total (default).
+ */
+function comparisonRateFor(booking, tax) {
+  if (booking.taxesIncluded === false && tax.totalBeforeTax > 0) return tax.totalBeforeTax;
+  return tax.total;
+}
+
 export function parseGoogleHotelsResults(data, originalPrice, booking) {
   const results = [];
   const properties = data.properties || [];
@@ -183,10 +213,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       if (seen.has(sourceName)) continue;
       seen.add(sourceName);
 
-      const perNight = p.rate_per_night?.extracted_lowest || 0;
-      // Fall back to per-night × nights when a vendor omits the total rate,
-      // otherwise the vendor would be silently dropped.
-      const totalRate = p.total_rate?.extracted_lowest || (perNight > 0 ? perNight * stayNights : 0);
+      const tax = extractTaxRates(p, stayNights);
+      const perNight = tax.perNight;
+      const totalRate = tax.total;
       const link = p.link || data.link || '';
 
       if (totalRate <= 0) continue;
@@ -208,9 +237,11 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
       const freeCancellation = detectFreeCancellation(p);
 
+      // Compare on the SAME tax basis as the user's price so savings are honest.
+      const comparisonRate = comparisonRateFor(booking, tax);
       // STRICT: savings only when hotel matches AND room type is compatible AND source is trusted
       const validComparison = isMatch && roomTypeMatch && trusted;
-      const savings = validComparison ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
+      const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
       const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
       const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
 
@@ -227,6 +258,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
         confidenceScore,
         pricePerNight: perNight,
         totalPrice: totalRate,
+        pricePerNightBeforeTax: tax.perNightBeforeTax || undefined,
+        totalBeforeTax: tax.totalBeforeTax || undefined,
+        hasTaxData: tax.hasTaxData,
         savings: savings > 0 ? savings : 0,
         savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
         hasDrop: validComparison && savings > 0,
@@ -273,8 +307,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
 
   for (const prop of properties.slice(0, 15)) {
     const name = prop.name || 'Unknown Hotel';
-    const perNight = prop.rate_per_night?.extracted_lowest || 0;
-    const totalRate = prop.total_rate?.extracted_lowest || (perNight > 0 ? perNight * stayNights : 0);
+    const tax = extractTaxRates(prop, stayNights);
+    const perNight = tax.perNight;
+    const totalRate = tax.total;
     const link = prop.link || '';
     const rating = prop.overall_rating || 0;
     const reviews = prop.reviews || 0;
@@ -300,8 +335,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     const freeCancellation = detectFreeCancellation(prop);
 
     // Savings only apply for exact matches with compatible room types
+    const comparisonRate = comparisonRateFor(booking, tax);
     const validComparison = isMatch && roomTypeMatch;
-    const savings = validComparison ? Math.round((originalPrice - totalRate) * 100) / 100 : 0;
+    const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
     const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
     const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
 
@@ -318,6 +354,9 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       confidenceScore,
       pricePerNight: perNight,
       totalPrice: totalRate,
+      pricePerNightBeforeTax: tax.perNightBeforeTax || undefined,
+      totalBeforeTax: tax.totalBeforeTax || undefined,
+      hasTaxData: tax.hasTaxData,
       savings: savings > 0 ? savings : 0,
       savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
       hasDrop: validComparison && savings > 0,
