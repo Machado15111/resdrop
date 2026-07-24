@@ -3,13 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
+import Logo from './Logo';
 import './ResDroppLogin.css';
 
+// Use the shared, pre-sized brand mark. The old markup loaded the 3.9MB source
+// lockup and cropped it with object-fit: cover, which showed a sliver of the
+// wordmark instead of the logo.
 function IcLogo() {
-  return (
-    <img src="/resdrop-logo.png" alt="" width={26} height={26}
-      style={{ display: 'block', objectFit: 'cover', borderRadius: 5, flexShrink: 0 }} />
-  );
+  return <Logo size={26} />;
 }
 
 function IcEye({ visible }) {

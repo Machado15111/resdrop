@@ -21,7 +21,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
   const [showNuiteeModal, setShowNuiteeModal] = useState(false);
-  const [nuiteeHotelId, setNuiteeHotelId] = useState('lp3803c');
+  const [nuiteeHotelId] = useState(null);
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
@@ -102,13 +102,6 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
             <button className="btn-primary" onClick={onNewBooking}>
               <IconPlus size={18} />
               {t('dash.addBooking')}
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => { setNuiteeHotelId(null); setShowNuiteeModal(true); }}
-            >
-              <IconHotel size={18} />
-              Hotel Explorer (Nuitée)
             </button>
             {onViewAnalytics && (
               <button className="btn-secondary" onClick={onViewAnalytics}>
