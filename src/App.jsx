@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
@@ -68,6 +68,21 @@ function PlansPage() {
 function App() {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
+
+  // Warm the code-split route chunks during idle time after first paint, so the
+  // first navigation to each doesn't wait on a network round-trip (no blank flash).
+  useEffect(() => {
+    const warm = () => {
+      import('./components/AlertsPage');
+      import('./components/AnalyticsDashboard');
+      import('./components/AboutPage');
+      import('./components/PrivacyPage');
+      import('./components/TermsPage');
+    };
+    const ric = window.requestIdleCallback;
+    const id = ric ? ric(warm, { timeout: 3000 }) : setTimeout(warm, 1500);
+    return () => (ric && window.cancelIdleCallback ? window.cancelIdleCallback(id) : clearTimeout(id));
+  }, []);
 
   if (loading) return null;
 

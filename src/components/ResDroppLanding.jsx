@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { animate, stagger } from 'animejs';
 import { useI18n } from '../i18n';
+import Logo from './Logo';
 import './ResDroppLanding.css';
 
 /* ── Icons ──────────────────────────────────────────────── */
@@ -31,10 +32,7 @@ function IcChevron({ open }) {
   );
 }
 function IcLogo({ size = 28 }) {
-  return (
-    <img src="/resdrop-logo.png" alt="" width={size} height={size}
-      style={{ display: 'block', objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
-  );
+  return <Logo size={size} />;
 }
 
 function IcMail() { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>; }

@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { IconMenu, IconX, IconPlus, IconLock, IconUser } from './Icons';
+import Logo from './Logo';
 import './Header.css';
 
 function Header() {
@@ -17,8 +18,7 @@ function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to={isAuthenticated ? '/dashboard' : '/'} className="header-logo" onClick={closeMobile}>
-          <img src="/resdrop-logo.png" alt="" width={28} height={28}
-            style={{ display: 'block', objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+          <Logo size={28} />
           <span className="logo-text">ResDrop</span>
         </Link>
 
