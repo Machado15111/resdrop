@@ -114,6 +114,27 @@ async function request(url, { method = 'GET', body, retryable = true } = {}) {
 }
 
 /* ── Static hotel data (free) ─────────────────────────────────── */
+export async function getHotelDetails(hotelIdInput) {
+  const resolvedId = typeof hotelIdInput === 'object' && hotelIdInput !== null
+    ? (hotelIdInput.hotelId || hotelIdInput.id || hotelIdInput.liteapi_id)
+    : hotelIdInput;
+  if (!resolvedId) throw new Error('[Nuitée] hotelId parameter is required');
+  const q = new URLSearchParams({ hotelId: String(resolvedId).trim() });
+  const json = await request(`${DATA_BASE}/data/hotel?${q}`);
+  return json?.data || json;
+}
+
+export async function getCities(countryCode) {
+  const q = countryCode ? `?countryCode=${encodeURIComponent(countryCode)}` : '';
+  const json = await request(`${DATA_BASE}/data/cities${q}`);
+  return json?.data || json?.cities || [];
+}
+
+export async function getCountries() {
+  const json = await request(`${DATA_BASE}/data/countries`);
+  return json?.data || json?.countries || [];
+}
+
 export async function getHotels({ countryCode, cityName, limit = 200, offset = 0 } = {}) {
   const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (countryCode) q.set('countryCode', countryCode);

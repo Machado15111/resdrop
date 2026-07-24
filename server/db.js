@@ -471,9 +471,19 @@ export async function deleteBooking(id) {
   // in Supabase and reappeared on reload.
   let ok = false;
   try {
+    // Child rows must go first. fare_alerts / savings_confirmations are
+    // ON DELETE CASCADE, but document_uploads (v5) and special_fare_cases (v4)
+    // reference bookings(id) with NO cascade — Postgres then REFUSES the delete
+    // with a foreign-key violation, which is why imported bookings could not be
+    // removed. Null out those references instead of deleting the records.
     await supa.remove('fare_alerts', { booking_id: id }).catch(() => {});
     await supa.remove('savings_confirmations', { booking_id: id }).catch(() => {});
+    await supa.update('document_uploads', { booking_id: id }, { booking_id: null }).catch(() => {});
+    await supa.update('special_fare_cases', { booking_id: id }, { booking_id: null }).catch(() => {});
+    await supa.update('booking_imports', { booking_id: id }, { booking_id: null }).catch(() => {});
+
     ok = await supa.remove('bookings', { id });
+    if (!ok) console.error(`[DB] deleteBooking: Supabase refused DELETE for booking ${id} (see REST log above)`);
   } catch (e) { console.error('[DB] deleteBooking rest:', e.message); }
 
   // Best-effort cleanup for installs that DO have a real DATABASE_URL. Never let

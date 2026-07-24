@@ -114,7 +114,7 @@ ${bodyHtml}
   <p style="margin:0 0 8px;font-size:12px;color:${C.textLight};line-height:1.6;">
     <a href="${BASE_URL}" style="color:${C.green600};text-decoration:none;font-weight:600;">resdrop.app</a>
     &nbsp;·&nbsp;
-    <a href="mailto:hello@resdrop.app" style="color:${C.textLight};text-decoration:none;">hello@resdrop.app</a>
+    <a href="mailto:info@resdrop.app" style="color:${C.textLight};text-decoration:none;">info@resdrop.app</a>
   </p>
   <p style="margin:0;font-size:11px;color:#CED4DA;line-height:1.5;">
     &copy; ${new Date().getFullYear()} ResDrop. All rights reserved.

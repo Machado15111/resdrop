@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { LogoMark } from './Icons';
+import Logo from './Logo';
 import { useI18n } from '../i18n';
 import './Footer.css';
 
@@ -11,14 +11,14 @@ function Footer() {
         <div className="footer-grid">
           <div className="footer-brand">
             <div className="footer-logo">
-              <LogoMark size={28} />
+              <Logo size={28} />
               <span className="footer-logo-text">ResDrop</span>
             </div>
             <p className="footer-tagline">
               {t('footer.tagline')}
             </p>
             <p className="footer-contact-line">
-              <a href="mailto:hello@resdrop.app">hello@resdrop.app</a>
+              <a href="mailto:info@resdrop.app">info@resdrop.app</a>
             </p>
           </div>
           <div className="footer-links">
@@ -30,7 +30,7 @@ function Footer() {
           <div className="footer-links">
             <h4>{t('footer.company')}</h4>
             <Link to="/about">{lang === 'pt' ? 'Sobre' : 'About'}</Link>
-            <a href="mailto:hello@resdrop.app">{lang === 'pt' ? 'Contato' : 'Contact'}</a>
+            <a href="mailto:info@resdrop.app">{lang === 'pt' ? 'Contato' : 'Contact'}</a>
           </div>
           <div className="footer-links">
             <h4>{t('footer.legal')}</h4>

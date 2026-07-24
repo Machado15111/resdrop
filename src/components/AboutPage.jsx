@@ -154,7 +154,7 @@ function AboutPage() {
               {pt
                 ? 'Dúvidas sobre o produto, sua conta ou um resultado de monitoramento? Fale conosco em '
                 : 'Questions about the product, your account, or a monitoring result? Reach us at '}
-              <a href="mailto:hello@resdrop.app">hello@resdrop.app</a>.
+              <a href="mailto:info@resdrop.app">info@resdrop.app</a>.
             </p>
             <p className="about-contact-sub">
               {pt ? 'Buscamos responder em até um dia útil.' : 'We aim to respond within one business day.'}

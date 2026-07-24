@@ -126,6 +126,32 @@
   color: var(--color-neutral-400);
   margin-top: 32px;
 }
+/* Trust line under the plans — was completely unstyled (inherited body text,
+   dots jammed against the words). Small, quiet, and evenly spaced. */
+.pricing-trust {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--font-display, inherit);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--color-neutral-500);
+}
+.pricing-trust-dot {
+  color: var(--color-neutral-300);
+  font-size: 11px;
+  user-select: none;
+}
+@media (max-width: 560px) {
+  /* Stack cleanly on phones instead of wrapping mid-phrase around a dot. */
+  .pricing-trust { flex-direction: column; gap: 6px; }
+  .pricing-trust-dot { display: none; }
+}
 @media (max-width: 1024px) {
   .pricing-grid { grid-template-columns: repeat(2, 1fr); }
 }

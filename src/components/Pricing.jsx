@@ -11,15 +11,15 @@ const plans = [
     price: { usd: 0, brl: 0 },
     desc: {
       en: 'Monitor one upcoming reservation at no cost. Full rate monitoring, immediate alerts.',
-      pt: 'Monitore uma reserva por conta propria, sem custo. Monitoramento completo com alertas imediatos.',
+      pt: 'Monitore uma reserva por conta própria, sem custo. Monitoramento completo com alertas imediatos.',
     },
     bookings: { en: '1 active booking', pt: '1 reserva ativa' },
     features: [
-      { en: 'Monitor 1 refundable booking', pt: 'Monitorar 1 reserva reembolsavel', included: true },
+      { en: 'Monitor 1 refundable booking', pt: 'Monitorar 1 reserva reembolsável', included: true },
       { en: 'Hotel direct, Expedia, Booking.com', pt: 'Hotel direto, Expedia, Booking.com', included: true },
-      { en: 'Immediate email alerts', pt: 'Alertas por email imediatos', included: true },
-      { en: 'Price history log', pt: 'Historico de tarifas', included: false },
-      { en: 'Priority alert delivery', pt: 'Entrega prioritaria de alertas', included: false },
+      { en: 'Immediate email alerts', pt: 'Alertas por e-mail imediatos', included: true },
+      { en: 'Price history log', pt: 'Histórico de tarifas', included: false },
+      { en: 'Priority alert delivery', pt: 'Entrega prioritária de alertas', included: false },
       { en: 'Special fare monitoring', pt: 'Monitoramento de tarifas especiais', included: false },
     ],
   },
@@ -30,16 +30,16 @@ const plans = [
     price: { usd: 9, brl: 37 },
     desc: {
       en: 'For travelers with multiple upcoming stays. Monitor all your bookings at once.',
-      pt: 'Para quem viaja com frequencia. Monitore todas as suas reservas ao mesmo tempo.',
+      pt: 'Para quem viaja com frequência. Monitore todas as suas reservas ao mesmo tempo.',
     },
-    bookings: { en: 'Up to 10 active bookings', pt: 'Ate 10 reservas ativas' },
+    bookings: { en: 'Up to 10 active bookings', pt: 'Até 10 reservas ativas' },
     popular: true,
     features: [
-      { en: 'Monitor up to 10 bookings', pt: 'Monitorar ate 10 reservas', included: true },
+      { en: 'Monitor up to 10 bookings', pt: 'Monitorar até 10 reservas', included: true },
       { en: 'Hotel direct, Expedia, Booking.com', pt: 'Hotel direto, Expedia, Booking.com', included: true },
-      { en: 'Immediate email alerts', pt: 'Alertas por email imediatos', included: true },
-      { en: 'Full price history log', pt: 'Historico completo de tarifas', included: true },
-      { en: 'Priority alert delivery', pt: 'Entrega prioritaria de alertas', included: true },
+      { en: 'Immediate email alerts', pt: 'Alertas por e-mail imediatos', included: true },
+      { en: 'Full price history log', pt: 'Histórico completo de tarifas', included: true },
+      { en: 'Priority alert delivery', pt: 'Entrega prioritária de alertas', included: true },
       { en: 'Special fare monitoring', pt: 'Monitoramento de tarifas especiais', included: false },
     ],
   },
@@ -52,13 +52,13 @@ const plans = [
       en: 'For frequent travelers who want full coverage, including special fares from partner sources.',
       pt: 'Para viajantes frequentes que querem cobertura total, incluindo tarifas especiais de fontes parceiras.',
     },
-    bookings: { en: 'Up to 50 active bookings', pt: 'Ate 50 reservas ativas' },
+    bookings: { en: 'Up to 50 active bookings', pt: 'Até 50 reservas ativas' },
     features: [
-      { en: 'Monitor up to 50 bookings', pt: 'Monitorar ate 50 reservas', included: true },
+      { en: 'Monitor up to 50 bookings', pt: 'Monitorar até 50 reservas', included: true },
       { en: 'Hotel direct, Expedia, Booking.com', pt: 'Hotel direto, Expedia, Booking.com', included: true },
-      { en: 'Immediate email alerts', pt: 'Alertas por email imediatos', included: true },
-      { en: 'Full price history + reports', pt: 'Historico completo + relatorios', included: true },
-      { en: 'Priority alert delivery', pt: 'Entrega prioritaria de alertas', included: true },
+      { en: 'Immediate email alerts', pt: 'Alertas por e-mail imediatos', included: true },
+      { en: 'Full price history + reports', pt: 'Histórico completo + relatórios', included: true },
+      { en: 'Priority alert delivery', pt: 'Entrega prioritária de alertas', included: true },
       { en: 'Special fare monitoring', pt: 'Monitoramento de tarifas especiais', included: true },
     ],
   },
@@ -84,7 +84,7 @@ function Pricing() {
           <h2 className="section-title">{t('pricing.title')}</h2>
           <p className="section-subtitle">
             {lang === 'pt'
-              ? 'Todos os planos monitoram o site oficial do hotel, Expedia, Booking.com e fontes suportadas. Sem remarkacao automatica. Sempre sua decisao.'
+              ? 'Todos os planos monitoram o site oficial do hotel, Expedia, Booking.com e fontes suportadas. Sem remarcação automática. Você sempre decide.'
               : 'Every plan monitors the hotel\'s official website, Expedia, Booking.com, and supported sources. No automatic rebooking. Always your decision.'}
           </p>
         </div>
@@ -130,8 +130,8 @@ function Pricing() {
                   onClick={() => navigate('/signup')}
                 >
                   {plan.price.usd === 0
-                    ? (lang === 'pt' ? 'Comecar Gratis' : 'Start Free')
-                    : (lang === 'pt' ? 'Comecar' : 'Get Started')}
+                    ? (lang === 'pt' ? 'Começar Grátis' : 'Start Free')
+                    : (lang === 'pt' ? 'Começar' : 'Get Started')}
                 </button>
               </div>
             );
@@ -139,11 +139,11 @@ function Pricing() {
         </div>
 
         <div className="pricing-trust">
-          <span>{lang === 'pt' ? 'Sem cartao de credito para o plano gratuito' : 'No credit card required for free plan'}</span>
+          <span>{lang === 'pt' ? 'Sem cartão de crédito no plano gratuito' : 'No credit card required for free plan'}</span>
           <span className="pricing-trust-dot">·</span>
           <span>{lang === 'pt' ? 'Cancele quando quiser' : 'Cancel anytime'}</span>
           <span className="pricing-trust-dot">·</span>
-          <span>{lang === 'pt' ? 'Nunca remarcamos sem sua aprovacao' : 'We never rebook without your approval'}</span>
+          <span>{lang === 'pt' ? 'Nunca remarcamos sem sua aprovação' : 'We never rebook without your approval'}</span>
         </div>
       </div>
     </section>

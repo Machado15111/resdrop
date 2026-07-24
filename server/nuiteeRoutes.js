@@ -7,7 +7,7 @@
  */
 import { supabase as sql } from './db.js';
 import { defaultService, monthKey, readConfig, effectiveCap, PER_USER_MONTHLY_CAP } from './priceIndex.js';
-import { nuiteeEnv, nuiteeConfigured, circuitState } from './liteApi.js';
+import { nuiteeEnv, nuiteeConfigured, circuitState, getHotelDetails, getCities, getCountries, getHotels, searchRates } from './liteApi.js';
 
 let _svc;
 function service() { return (_svc ||= defaultService()); }
@@ -26,6 +26,97 @@ const DISCLAIMER = {
 };
 
 export function registerNuiteeRoutes(app, { authMiddleware, adminMiddleware }) {
+  // NOTE: every route below reaches the upstream Nuitée/LiteAPI on each call, so
+  // they are authenticated. Leaving them public would let anyone drain the
+  // provider quota (and the paid cost cap) with a loop of anonymous requests.
+  // Catalog browsing (hotels/cities/countries) is admin-only — it is an internal
+  // data-exploration tool, not a customer feature.
+
+  // ── Nuitée status (diagnostics: exposes circuit-breaker internals) ──
+  app.get('/api/nuitee/status', authMiddleware, adminMiddleware, (req, res) => {
+    res.json({
+      environment: nuiteeEnv(),
+      configured: nuiteeConfigured(),
+      circuit: circuitState(),
+    });
+  });
+
+  // ── Hotel Essential Details (Nuitée / LiteAPI /data/hotel) ──
+  app.get('/api/nuitee/hotel/:hotelId', authMiddleware, async (req, res) => {
+    const { hotelId } = req.params;
+    if (!hotelId) return res.status(400).json({ error: 'hotelId parameter is required' });
+    try {
+      const data = await getHotelDetails(hotelId);
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error(`[nuitee] Error fetching hotel details for ${hotelId}:`, e.message);
+      res.status(e.status || 500).json({ error: e.message || 'Failed to fetch hotel details' });
+    }
+  });
+
+  // ── Live Rates Search (Nuitée / LiteAPI /hotels/rates) ──
+  app.post('/api/nuitee/rates', authMiddleware, async (req, res) => {
+    const { hotelIds, checkin, checkout, occupancies, guestNationality, currency, maxRatesPerHotel } = req.body || {};
+    if ((!Array.isArray(hotelIds) || !hotelIds.length) && !req.body?.hotelId) {
+      return res.status(400).json({ error: 'hotelIds array (or hotelId) is required' });
+    }
+    const ids = hotelIds || [req.body.hotelId];
+    if (!checkin || !checkout) {
+      return res.status(400).json({ error: 'checkin and checkout dates are required' });
+    }
+    try {
+      const data = await searchRates({
+        hotelIds: ids,
+        checkin,
+        checkout,
+        occupancies: occupancies || [{ adults: 2 }],
+        guestNationality: guestNationality || 'US',
+        currency: currency || 'USD',
+        maxRatesPerHotel: maxRatesPerHotel || 5,
+      });
+      res.json({ success: true, data });
+    } catch (e) {
+      console.error('[nuitee] Error searching rates:', e.message);
+      res.status(e.status || 500).json({ error: e.message || 'Failed to search hotel rates' });
+    }
+  });
+
+  // ── Hotel Catalog Search (Nuitée / LiteAPI /data/hotels) ──
+  app.get('/api/nuitee/hotels', authMiddleware, adminMiddleware, async (req, res) => {
+    const { countryCode, cityName, limit, offset } = req.query;
+    try {
+      const hotelsList = await getHotels({
+        countryCode,
+        cityName,
+        limit: limit ? parseInt(limit, 10) : 100,
+        offset: offset ? parseInt(offset, 10) : 0,
+      });
+      res.json({ success: true, count: hotelsList.length, hotels: hotelsList });
+    } catch (e) {
+      console.error('[nuitee] Error fetching hotels:', e.message);
+      res.status(e.status || 500).json({ error: e.message || 'Failed to fetch hotels' });
+    }
+  });
+
+  // ── Cities List ──
+  app.get('/api/nuitee/cities', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const cities = await getCities(req.query.countryCode);
+      res.json({ success: true, cities });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || 'Failed to fetch cities' });
+    }
+  });
+
+  // ── Countries List ──
+  app.get('/api/nuitee/countries', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const countries = await getCountries();
+      res.json({ success: true, countries });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || 'Failed to fetch countries' });
+    }
+  });
   // ── Paid "Price Trends" — entitlement + quota + cost cap enforced server-side ──
   app.post('/api/price-trends', authMiddleware, async (req, res) => {
     const { hotelIds, checkin, checkout, currency } = req.body || {};
