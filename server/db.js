@@ -1125,6 +1125,27 @@ export async function logExtractionUsage(data) {
 const inMemoryHotelMappings = new Map();
 const inMemoryProviderUsage = new Map();
 
+// hotel_mappings columns aren't in the generic toCamel map (hotel_data is a
+// JSONB blob, not a scalar column), so shape the record EXPLICITLY. Relying on
+// toCamel left `hotelData`/`matchScore` undefined, which made every cached hotel
+// lookup return empty data — images/star/coords silently vanished on any second
+// read even though the row in Supabase was correct.
+function shapeHotelMapping(row) {
+  if (!row) return null;
+  return {
+    normalizedHotelKey: row.normalized_hotel_key,
+    nuiteeHotelId: row.nuitee_hotel_id ?? row.hotel_data?.nuiteeHotelId ?? null,
+    googlePlaceId: row.google_place_id ?? null,
+    source: row.source,
+    matchScore: row.match_score,
+    status: row.status,
+    hotelData: row.hotel_data || null,
+    imageData: row.image_data || [],
+    verifiedAt: row.verified_at,
+    approvedBy: row.approved_by ?? null,
+  };
+}
+
 export async function getHotelMappingByKey(normalizedHotelKey) {
   if (!normalizedHotelKey) return null;
   if (inMemoryHotelMappings.has(normalizedHotelKey)) {
@@ -1132,7 +1153,7 @@ export async function getHotelMappingByKey(normalizedHotelKey) {
   }
   const rows = await supa.select('hotel_mappings', { normalized_hotel_key: normalizedHotelKey }, { limit: 1 });
   if (Array.isArray(rows) && rows[0]) {
-    const rec = toCamel(rows[0]);
+    const rec = shapeHotelMapping(rows[0]);
     inMemoryHotelMappings.set(normalizedHotelKey, rec);
     return rec;
   }
