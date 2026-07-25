@@ -10,6 +10,13 @@ import './BookingDetail.css';
 // Hotel images are URL strings; tolerate legacy {url}/{urlHd} objects too.
 const imgUrl = (img) => (typeof img === 'string' ? img : (img?.urlHd || img?.url || ''));
 
+// Nuitée descriptions arrive as HTML — render as plain text, capped for the card.
+const stripHtml = (s) => {
+  if (!s) return '';
+  const text = String(s).replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+  return text.length > 320 ? text.slice(0, 317).trimEnd() + '…' : text;
+};
+
 function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onConfirmSavings, onDismissSavings }) {
   const { t, lang } = useI18n();
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
@@ -480,19 +487,33 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
           </div>
         )}
 
-          {/* Hotel Reference Section (Task 9) */}
-          <div className="detail-card hotel-reference-card">
-            <h3 className="detail-card-title">{lang === 'pt' ? 'Informações do Hotel' : 'Hotel Information'}</h3>
-            <div className="hotel-ref-body">
-              <div className="hotel-ref-media">
-                {booking.hotelData?.images && booking.hotelData.images.length > 0 ? (
-                  <div className="hotel-gallery">
-                    {/* Defensive: images are URL strings, but tolerate {url} objects too. */}
-                    <img src={imgUrl(booking.hotelData.images[0])} alt={booking.hotelName} className="hotel-main-img" loading="lazy" />
-                    {booking.hotelData.images.slice(1, 4).length > 0 && (
-                      <div className="hotel-thumb-grid">
-                        {booking.hotelData.images.slice(1, 4).map((img, idx) => (
-                          <img key={idx} src={imgUrl(img)} alt={`${booking.hotelName} ${idx + 2}`} className="hotel-thumb-img" loading="lazy" />
+          {/* Hotel Reference Section — gallery + info + location */}
+          {(() => {
+            const hd = booking.hotelData || {};
+            const images = Array.isArray(hd.images) ? hd.images.map(imgUrl).filter(Boolean) : [];
+            const thumbs = images.slice(1, 5);
+            const extra = images.length - 5; // images not shown (last thumb carries the count)
+            const amenities = Array.isArray(hd.amenities) ? hd.amenities.filter(Boolean).slice(0, 6) : [];
+            const star = Math.round(hd.star || 0);
+            const desc = stripHtml(hd.description);
+            const coords = hd.coords;
+            const openGallery = () => hd.nuiteeHotelId && setShowNuiteeModal(true);
+            return (
+              <div className="detail-card hotel-reference-card">
+                <h3 className="detail-card-title">{lang === 'pt' ? 'Informações do Hotel' : 'Hotel Information'}</h3>
+
+                {images.length > 0 ? (
+                  <div className="hotel-gallery" onClick={openGallery} role={hd.nuiteeHotelId ? 'button' : undefined}>
+                    <img src={images[0]} alt={booking.hotelName} className="hg-hero" loading="lazy" />
+                    {thumbs.length > 0 && (
+                      <div className="hg-thumbs">
+                        {thumbs.map((img, idx) => (
+                          <div className="hg-thumb" key={idx}>
+                            <img src={img} alt={`${booking.hotelName} ${idx + 2}`} loading="lazy" />
+                            {idx === thumbs.length - 1 && extra > 0 && (
+                              <span className="hg-more">+{extra} {lang === 'pt' ? 'fotos' : 'photos'}</span>
+                            )}
+                          </div>
                         ))}
                       </div>
                     )}
@@ -503,33 +524,44 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                     <span>{booking.hotelName}</span>
                   </div>
                 )}
-              </div>
 
-              <div className="hotel-ref-details">
-                <div className="hotel-ref-row">
-                  <strong>{booking.hotelName}</strong>
-                  {booking.hotelData?.star && <span className="hotel-stars">{'★'.repeat(Math.round(booking.hotelData.star))}</span>}
-                </div>
-                {booking.hotelData?.address && (
-                  <p className="hotel-ref-address">📍 {booking.hotelData.address}, {booking.destination}</p>
-                )}
-                {booking.hotelData?.coords && (
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${booking.hotelData.coords.lat},${booking.hotelData.coords.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hotel-maps-link"
-                  >
-                    🗺️ {lang === 'pt' ? 'Ver no Google Maps' : 'View on Google Maps'}
-                  </a>
-                )}
-                <div className="hotel-meta-grid">
-                  <div><strong>{lang === 'pt' ? 'Check-in' : 'Check-in'}:</strong> {formatDate(booking.checkinDate)}</div>
-                  <div><strong>{lang === 'pt' ? 'Check-out' : 'Check-out'}:</strong> {formatDate(booking.checkoutDate)}</div>
-                  <div><strong>{lang === 'pt' ? 'Quarto' : 'Room'}:</strong> {booking.roomType}</div>
-                  <div><strong>{lang === 'pt' ? 'Refeição' : 'Meal Plan'}:</strong> {booking.mealPlan || (lang === 'pt' ? 'Conforme confirmação' : 'As confirmed')}</div>
-                  <div><strong>{lang === 'pt' ? 'Confirmação' : 'Confirmation'}:</strong> {booking.confirmationNumber || '—'}</div>
-                  <div><strong>{lang === 'pt' ? 'Canal' : 'Source'}:</strong> {booking.bookingSource || 'Direct'}</div>
+                <div className="hotel-ref-cols">
+                  <div className="hotel-ref-main">
+                    <div className="hotel-badges">
+                      {star >= 5 && <span className="hotel-badge-lux">{lang === 'pt' ? 'Luxo' : 'Luxury'}</span>}
+                      {star > 0 && <span className="hotel-stars">{'★'.repeat(star)}</span>}
+                    </div>
+                    <div className="hotel-name-lg">{booking.hotelName}</div>
+                    {desc && <p className="hotel-desc">{desc}</p>}
+                    {amenities.length > 0 && (
+                      <>
+                        <div className="hotel-amen-title">{lang === 'pt' ? 'Comodidades' : 'Amenities'}</div>
+                        <div className="hotel-amenities">
+                          {amenities.map((a, i) => <span className="hotel-amen" key={i}>{a}</span>)}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <aside className="hotel-ref-area">
+                    <div className="hotel-area-title">{lang === 'pt' ? 'Explore a região' : 'Explore the area'}</div>
+                    {coords ? (
+                      <a
+                        className="hotel-area-card"
+                        href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`}
+                        target="_blank" rel="noopener noreferrer"
+                      >
+                        <span className="hac-pin">📍</span>
+                        <span className="hac-text">
+                          {hd.address && <b>{hd.address}</b>}
+                          <span>{booking.destination}</span>
+                        </span>
+                        <span className="hac-go">{lang === 'pt' ? 'Ver no mapa ›' : 'View on map ›'}</span>
+                      </a>
+                    ) : (
+                      hd.address && <p className="hotel-ref-address">📍 {hd.address}, {booking.destination}</p>
+                    )}
+                  </aside>
                 </div>
 
                 <div className="hotel-ref-disclaimer">
@@ -538,8 +570,8 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                     : 'Hotel information and images are shown for reference. The valid booking conditions are those stated in the original confirmation.'}
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Price Trends (paid feature; server enforces entitlement + cost cap) */}
         <div style={{ marginTop: 20 }}>
