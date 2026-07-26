@@ -52,9 +52,17 @@ export default function PriceTrends({ hotelIds = [], checkin, checkout, currency
       )}
 
       {isPaid && state.status === 'idle' && (
-        <button className="pt-btn" onClick={load} disabled={!hotelIds.length}>
-          {pt ? 'Ver tendência' : 'View trends'}
-        </button>
+        hotelIds.length ? (
+          <button className="pt-btn" onClick={load}>
+            {pt ? 'Ver tendência' : 'View trends'}
+          </button>
+        ) : (
+          <div className="pt-notice">
+            {pt
+              ? 'Indisponível para este hotel (sem correspondência no catálogo).'
+              : 'Unavailable for this hotel (no catalogue match).'}
+          </div>
+        )
       )}
 
       {state.status === 'loading' && <div className="pt-muted">{pt ? 'Carregando…' : 'Loading…'}</div>}
@@ -73,7 +81,11 @@ export default function PriceTrends({ hotelIds = [], checkin, checkout, currency
         </div>
       )}
 
-      {['disabled', 'user_quota', 'global_quota', 'error'].includes(state.status) && (
+      {state.status === 'disabled' && (
+        <div className="pt-notice">{pt ? 'Recurso pago desativado.' : 'Paid feature disabled.'}</div>
+      )}
+
+      {['user_quota', 'global_quota', 'error'].includes(state.status) && (
         <div className="pt-notice">{state.message || disclaimer}</div>
       )}
 

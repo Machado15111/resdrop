@@ -140,6 +140,39 @@ export async function searchGoogleHotels({
 }
 
 /**
+ * Extract hotel imagery + metadata from a FORMAT A (property detail) SerpApi
+ * response. Google Hotels' detail page carries photos, star class, address,
+ * coordinates, description and amenities for the EXACT hotel — data the price
+ * parser otherwise discards. We salvage it so ANY hotel Google finds can show a
+ * gallery, even one that isn't in Nuitée's (small) catalogue.
+ *
+ * Image URLs are returned as plain strings. Returns null when nothing usable was
+ * found (no photos, no location) so callers can cleanly skip persistence.
+ */
+export function extractHotelInfoFromDetail(data) {
+  if (!data) return null;
+  const images = (data.images || [])
+    .map(i => i && (i.original_image || i.thumbnail))
+    .filter(Boolean)
+    .slice(0, 12);
+  const coords = data.gps_coordinates
+    ? { lat: data.gps_coordinates.latitude, lng: data.gps_coordinates.longitude }
+    : null;
+  const info = {
+    source: 'google',
+    images,
+    star: data.extracted_hotel_class || data.hotel_class || null,
+    address: data.address || null,
+    coords,
+    description: data.description || null,
+    amenities: (data.amenities || []).slice(0, 30),
+  };
+  // Only worth keeping if we actually salvaged imagery or a location.
+  if (!info.images.length && !info.coords && !info.address) return null;
+  return info;
+}
+
+/**
  * Parse SerpApi Google Hotels results into our standard format
  * Separates exact hotel matches from alternative options
  */
@@ -290,6 +323,11 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     const exactCount = finalResults.filter(r => r.isExactMatch).length;
     const filteredCount = results.length - finalResults.length;
     console.log(`[SerpApi] Detail page: ${finalResults.length} trusted vendor prices (${filteredCount} untrusted filtered), ${exactCount} exact matches`);
+    // Salvage hotel imagery/metadata from the detail page and attach it to the
+    // returned array. Arrays are objects, so this leaves existing array-shaped
+    // callers (length/iteration/filter) untouched; searchRealPrices threads it up.
+    const hotelInfo = extractHotelInfoFromDetail(data);
+    if (hotelInfo) finalResults.hotelInfo = hotelInfo;
     return finalResults;
   }
 
@@ -741,6 +779,10 @@ export async function searchRealPrices(booking, options = {}) {
     // Hotels.com, official hotel site) for the EXACT hotel — the multi-source
     // comparison. A plain list only yields one price per property (usually just
     // Booking.com) and pollutes results with unrelated hotels.
+    // Hotel imagery/metadata salvaged from a FORMAT A detail page (Task 1). Kept
+    // separate so we can attach it to the final array even when the detail page
+    // had no bookable rates (empty results but real photos).
+    let hotelInfo = null;
     const properties = searchData.properties || [];
     if (properties.length > 0) {
       const withToken = properties.filter(p => p.property_token);
@@ -767,9 +809,10 @@ export async function searchRealPrices(booking, options = {}) {
             propertyToken: target.property_token,
           });
           const detailResults = parseGoogleHotelsResults(detailData, effectiveOriginal, booking);
+          if (detailResults.hotelInfo) hotelInfo = detailResults.hotelInfo;
           if (detailResults.length > 0) {
             console.log(`[SerpApi] Detail page for "${target.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
-            return detailResults;
+            return detailResults; // already carries .hotelInfo when present
           }
         } catch (detailErr) {
           console.error(`[SerpApi] Detail-page fetch failed, using list results: ${detailErr.message}`);
@@ -780,6 +823,8 @@ export async function searchRealPrices(booking, options = {}) {
     // Fallback — parse whatever the first response gave us (detail page when the
     // search resolved directly to one hotel, or the list otherwise).
     const results = parseGoogleHotelsResults(searchData, effectiveOriginal, booking);
+    // Preserve imagery from the detail page even when it had no bookable rates.
+    if (!results.hotelInfo && hotelInfo) results.hotelInfo = hotelInfo;
     const bestMatch = results.find(r => r.isExactMatch);
     console.log(`[SerpApi] Parsed ${results.length} results | Best match: ${bestMatch ? `R$${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'}`);
     return results;

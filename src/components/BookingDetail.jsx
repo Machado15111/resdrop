@@ -211,13 +211,18 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
               <p className="detail-dest">{booking.destination}</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
                 <span className={`badge ${st.cls}`}>{st.label}</span>
-                <button
-                  className="btn btn-secondary btn-xs"
-                  onClick={() => setShowNuiteeModal(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 12, padding: '3px 10px' }}
-                >
-                  <IconHotel size={13} /> Nuitée Details & Rates
-                </button>
+                {/* Only offer the Nuitée explorer for a real catalogue match.
+                    Without a nuiteeHotelId the modal would fall back to a demo
+                    hotel — never show that on a real booking. */}
+                {booking.nuiteeHotelId && (
+                  <button
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => setShowNuiteeModal(true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 12, padding: '3px 10px' }}
+                  >
+                    <IconHotel size={13} /> Nuitée Details & Rates
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -607,9 +612,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
         />
       )}
 
-      {showNuiteeModal && (
+      {showNuiteeModal && booking.nuiteeHotelId && (
         <HotelDetailsModal
-          hotelId={booking.nuiteeHotelId || booking.hotelId || null}
+          hotelId={booking.nuiteeHotelId}
           onClose={() => setShowNuiteeModal(false)}
         />
       )}

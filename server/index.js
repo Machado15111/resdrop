@@ -49,7 +49,8 @@ import {
   searchRealPrices,
 } from './serpApi.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
-import { matchHotelWithNuitee } from './enrichment.js';
+import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
+import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
 import { getCachedAuth, setCachedAuth } from './authCache.js';
 import { nuiteeConfigured, nuiteeEnv } from './liteApi.js';
 import savingsRoutes from './routes/savings.js';
@@ -106,17 +107,102 @@ function filterBookingResults(booking) {
  * the reservation itself. Bookings that can't be confidently matched simply come
  * back without hotelData (correct — we don't show a guessed hotel's photos).
  */
-async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
-  if (!booking || !booking.hotelName || !nuiteeConfigured()) return null;
+function bookingHotelIdentity(booking) {
   const [city, country] = String(booking.destination || '').split(',').map(s => s.trim());
-  const match = await matchHotelWithNuitee({
+  return {
     hotelName: booking.hotelName,
     city: booking.city || city || '',
     country: booking.country || country || '',
     destination: booking.destination,
     currency: booking.currency,
-  }, { cacheOnly });
-  return match?.hotel ? match : null;
+  };
+}
+
+async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
+  if (!booking || !booking.hotelName) return null;
+  const identity = bookingHotelIdentity(booking);
+
+  // 1) Nuitée first — the authoritative match. It keeps nuiteeHotelId, which
+  //    Price Trends needs, so a real catalogue hit always wins.
+  if (nuiteeConfigured()) {
+    try {
+      const match = await matchHotelWithNuitee(identity, { cacheOnly });
+      if (match?.hotel) return match;
+    } catch (e) {
+      console.error('[resolveBookingHotel] nuitee:', e.message);
+    }
+  }
+
+  // 2) Fallback — SerpApi (Google Hotels) imagery cached in hotel_mappings by
+  //    persistSerpHotelData. Serves photos/coords for ANY hotel Google finds,
+  //    even one absent from Nuitée's catalogue. No nuiteeHotelId, so Price
+  //    Trends stays correctly gated. A cheap keyed read — safe in cacheOnly.
+  try {
+    const fallback = await db.getHotelMappingByKey(hotelKeyFor(identity));
+    const hotel = serpFallbackHotel(fallback);
+    if (hotel) {
+      return {
+        hotel,
+        matchScore: fallback.matchScore || 0,
+        matchSource: 'serpapi',
+        status: 'SERP_FALLBACK',
+      };
+    }
+  } catch (e) {
+    console.error('[resolveBookingHotel] serp fallback:', e.message);
+  }
+
+  return null;
+}
+
+/**
+ * Persist SerpApi-salvaged hotel imagery (Task 1) into hotel_mappings — the
+ * source-of-truth store for hotel enrichment (the bookings table has no
+ * hotel_data column; Supabase REST is authoritative). Keyed by the same
+ * canonical hotelKey the Nuitée matcher uses, so resolveBookingHotel can serve
+ * it as a fallback.
+ *
+ * ONLY fills a gap: never overwrites a VERIFIED mapping (Nuitée/Google Places),
+ * which carry nuiteeHotelId and better data. Fire-and-forget; never blocks the
+ * booking response on imagery.
+ */
+async function persistSerpHotelData(booking, hotelInfo) {
+  if (!booking || !booking.hotelName || !hotelInfo) return;
+  if (!Array.isArray(hotelInfo.images) || hotelInfo.images.length === 0) return;
+  const identity = bookingHotelIdentity(booking);
+  const key = hotelKeyFor(identity);
+  try {
+    const existing = await db.getHotelMappingByKey(key);
+    if (existing && existing.status === 'VERIFIED') return; // authoritative data already present
+    const hotelData = {
+      nuiteeHotelId: null,
+      googlePlaceId: null,
+      name: booking.hotelName,
+      address: hotelInfo.address || null,
+      city: identity.city || null,
+      country: identity.country || null,
+      coords: hotelInfo.coords || null,
+      star: hotelInfo.star || null,
+      description: hotelInfo.description || null,
+      amenities: Array.isArray(hotelInfo.amenities) ? hotelInfo.amenities : [],
+      images: hotelInfo.images.filter(i => typeof i === 'string' && i),
+      source: 'google',
+      matchSource: 'serpapi',
+      verifiedAt: new Date().toISOString(),
+      enrichmentStatus: 'SERP_FALLBACK',
+    };
+    await db.upsertHotelMapping({
+      normalizedHotelKey: key,
+      nuiteeHotelId: null,
+      source: 'serpapi',
+      matchScore: 0,
+      status: 'SERP_FALLBACK',
+      hotelData,
+    });
+    console.log(`[SerpHotelData] Cached ${hotelData.images.length} image(s) for "${booking.hotelName}" (no Nuitée match)`);
+  } catch (e) {
+    console.error('[persistSerpHotelData]', e.message);
+  }
 }
 
 /**
@@ -295,6 +381,11 @@ async function searchPrices(booking, options = {}) {
   if (isSerpApiConfigured()) {
     try {
       const serpResults = await searchRealPrices(booking, { currency: options.currency || 'BRL' });
+      // Salvage hotel imagery from the detail page for hotels not in Nuitée's
+      // catalogue. Fire-and-forget so it never slows the price check.
+      if (serpResults.hotelInfo) {
+        persistSerpHotelData(booking, serpResults.hotelInfo).catch(() => {});
+      }
       if (serpResults.length > 0) {
         // Add affiliate links to real results
         for (const r of serpResults) {
@@ -391,6 +482,14 @@ async function applyBestResult(booking, results) {
   booking.lastChecked = new Date().toISOString();
   booking.latestResults = results;
   booking.checkCount = (booking.checkCount || 0) + 1;
+
+  // Task 4: record ONE market data-point per check (cheapest EXACT-hotel total +
+  // its source) so the price chart isn't empty even when no comparable savings
+  // are claimed. This is history only — it does NOT feed the strict savings/alert
+  // logic below, which is unchanged. Pushed at the end so it never duplicates the
+  // entry the savings path records when a comparable match exists.
+  const marketPoint = marketDataPoint(results, booking.lastChecked);
+  const historyLenBefore = Array.isArray(booking.priceHistory) ? booking.priceHistory.length : 0;
 
   // STRICT filtering: require exact hotel match + trusted source + room type compatible
   const comparableMatches = results.filter(r =>
@@ -552,6 +651,18 @@ async function applyBestResult(booking, results) {
       message: '🔍 Prices checked — no comparable rates found for your room type',
       savings: 0,
     });
+  }
+
+  // Task 4: ensure exactly ONE history point per check. If the strict savings
+  // path already recorded one above, keep it; otherwise fall back to the market
+  // point so the chart isn't empty. Then bound history to the most recent 60.
+  const historyLenAfter = Array.isArray(booking.priceHistory) ? booking.priceHistory.length : 0;
+  if (historyLenAfter === historyLenBefore && marketPoint) {
+    if (!booking.priceHistory) booking.priceHistory = [];
+    booking.priceHistory.push(marketPoint);
+  }
+  if (Array.isArray(booking.priceHistory) && booking.priceHistory.length > MAX_PRICE_HISTORY) {
+    booking.priceHistory = booking.priceHistory.slice(-MAX_PRICE_HISTORY);
   }
 
   // Persist to Supabase

@@ -44,6 +44,33 @@ export function resolveCountryCode(extractedBooking = {}) {
 }
 
 /**
+ * Canonical cache key for a hotel in `hotel_mappings`, shared by every
+ * enrichment source. The Nuitée matcher AND the SerpApi imagery fallback MUST
+ * key on this identical string so a booking's photos are found regardless of
+ * which source produced them.
+ */
+export function hotelKeyFor(extractedBooking = {}) {
+  return normalizeForMatch(
+    `${extractedBooking.hotelName || ''}_${extractedBooking.city || ''}_${extractedBooking.country || ''}`
+  );
+}
+
+/**
+ * Given a hotel_mappings record, return a usable SerpApi-sourced hotel object
+ * (imagery fallback) or null. Used by resolveBookingHotel when Nuitée has no
+ * confident catalogue match, so ANY hotel Google Hotels found still shows photos.
+ * Requires at least one image so we never surface an empty gallery.
+ */
+export function serpFallbackHotel(mapping) {
+  if (!mapping || !mapping.hotelData) return null;
+  const isSerp = mapping.source === 'serpapi' || mapping.status === 'SERP_FALLBACK';
+  if (!isSerp) return null;
+  const imgs = mapping.hotelData.images;
+  if (!Array.isArray(imgs) || imgs.length === 0) return null;
+  return mapping.hotelData;
+}
+
+/**
  * Computes deterministic match score (0.0 to 1.0) between extracted hotel & catalog property.
  */
 export function calculateMatchScore(extracted, candidate) {
@@ -103,7 +130,7 @@ export async function matchHotelWithNuitee(extractedBooking, { cacheOnly = false
     return { hotel: null, matchScore: 0, status: 'NEEDS_REVIEW' };
   }
 
-  const hotelKey = normalizeForMatch(`${extractedBooking.hotelName}_${extractedBooking.city || ''}_${extractedBooking.country || ''}`);
+  const hotelKey = hotelKeyFor(extractedBooking);
 
   // 1. Permanent Cache Lookup
   try {
