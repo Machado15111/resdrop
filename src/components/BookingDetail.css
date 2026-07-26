@@ -889,3 +889,5 @@
   .hg-thumbs { grid-template-columns: 1fr 1fr 1fr 1fr; grid-template-rows: 1fr; height: 76px; }
   .hotel-ref-cols { grid-template-columns: 1fr; gap: 20px; }
 }
+
+.detail-empty-note { color: var(--tl-text-light, #8a857e); font-size: 13.5px; line-height: 1.55; margin: 4px 0 0; }

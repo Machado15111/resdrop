@@ -139,7 +139,7 @@ export async function matchHotelWithNuitee(extractedBooking, { cacheOnly = false
       // Nuitée requires a country; without one we can't query — leave for review.
       return { hotel: null, matchScore: 0, status: 'NEEDS_REVIEW', reason: 'country unknown' };
     }
-    const candidates = await getHotels({ cityName: city, countryCode, limit: 50 });
+    const candidates = await getHotels({ cityName: city, countryCode, limit: 200 });
 
     let bestMatch = null;
     let maxScore = 0;
