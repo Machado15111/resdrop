@@ -667,6 +667,11 @@
   .detail-header {
     flex-direction: column;
   }
+  /* When the header stacks, left-align the status block instead of leaving it
+     awkwardly right-aligned under the hotel name. */
+  .detail-status-area { width: 100%; }
+  .detail-savings-highlight,
+  .detail-monitoring-active { align-items: flex-start; }
   .rebook-banner {
     flex-direction: column;
     text-align: center;
@@ -885,9 +890,31 @@
 }
 
 @media (max-width: 760px) {
+  /* Gallery: stack hero over a single row of thumbnails, with an explicit hero
+     height so the image doesn't collapse when the grid height goes auto. */
   .hotel-gallery { grid-template-columns: 1fr; height: auto; }
-  .hg-thumbs { grid-template-columns: 1fr 1fr 1fr 1fr; grid-template-rows: 1fr; height: 76px; }
+  .hg-hero { height: 220px; }
+  .hg-thumbs { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; height: 72px; }
   .hotel-ref-cols { grid-template-columns: 1fr; gap: 20px; }
+  .detail-card { padding: 20px; }
+  .detail-hotel-name { font-size: 26px; }
+  .hotel-name-lg { font-size: 20px; }
+}
+
+/* ── Small phones (iPhone SE / typical portrait) ─────────────────────── */
+@media (max-width: 480px) {
+  .detail-card { padding: 16px; }
+  .detail-hotel-info { gap: 14px; }
+  .detail-icon-wrap { width: 46px; height: 46px; }
+  .detail-hotel-name { font-size: 22px; }
+  .detail-dest { font-size: 14px; }
+  .savings-amount { font-size: 28px; }
+  .hg-hero { height: 180px; }
+  .hg-thumbs { height: 60px; gap: 6px; }
+  .hotel-area-card { padding: 14px; }
+  .confirm-savings-banner { padding: 24px 20px; }
+  .confirm-savings-banner .rebook-content h3 { font-size: 22px; }
+  .confirmed-banner { padding: 20px; font-size: 16px; }
 }
 
 .detail-empty-note { color: var(--tl-text-light, #8a857e); font-size: 13.5px; line-height: 1.55; margin: 4px 0 0; }

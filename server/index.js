@@ -133,64 +133,90 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
     }
   }
 
-  // 2) Fallback — SerpApi (Google Hotels) imagery cached in hotel_mappings by
-  //    persistSerpHotelData. Serves photos/coords for ANY hotel Google finds,
-  //    even one absent from Nuitée's catalogue. No nuiteeHotelId, so Price
-  //    Trends stays correctly gated. A cheap keyed read — safe in cacheOnly.
+  // 2) Cached SerpApi (Google Hotels) imagery from hotel_mappings. Serves
+  //    photos/coords for ANY hotel Google finds, even one absent from Nuitée's
+  //    catalogue. No nuiteeHotelId, so Price Trends stays correctly gated. A
+  //    cheap keyed read — safe in cacheOnly.
   try {
     const fallback = await db.getHotelMappingByKey(hotelKeyFor(identity));
     const hotel = serpFallbackHotel(fallback);
     if (hotel) {
-      return {
-        hotel,
-        matchScore: fallback.matchScore || 0,
-        matchSource: 'serpapi',
-        status: 'SERP_FALLBACK',
-      };
+      return { hotel, matchScore: fallback.matchScore || 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
     }
   } catch (e) {
     console.error('[resolveBookingHotel] serp fallback:', e.message);
+  }
+
+  // 3) On-demand SerpApi fetch (full mode only). The progressive /hotel endpoint
+  //    isn't latency-critical, so for a hotel we've never checked we fetch Google
+  //    Hotels imagery now and cache it — existing bookings then show a gallery on
+  //    first view without waiting for a (manual-only) price check. Runs once per
+  //    hotel: the result is cached in hotel_mappings, so step 2 serves it after.
+  //    Skipped in cacheOnly so the main booking response never blocks on imagery.
+  if (!cacheOnly && isSerpApiConfigured()) {
+    try {
+      const serpResults = await searchRealPrices(booking, { currency: booking.currency || 'USD' });
+      const hotelData = await persistSerpHotelData(booking, serpResults.hotelInfo);
+      if (hotelData && Array.isArray(hotelData.images) && hotelData.images.length > 0) {
+        return { hotel: hotelData, matchScore: 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
+      }
+    } catch (e) {
+      console.error('[resolveBookingHotel] serp on-demand:', e.message);
+    }
   }
 
   return null;
 }
 
 /**
- * Persist SerpApi-salvaged hotel imagery (Task 1) into hotel_mappings — the
+ * Build the hotelData blob served to the booking detail view from SerpApi's
+ * salvaged detail-page info. Shaped to match the Nuitée hotelData the frontend
+ * already renders (images as plain URL strings), minus nuiteeHotelId.
+ */
+function buildSerpHotelData(identity, booking, hotelInfo) {
+  return {
+    nuiteeHotelId: null,
+    googlePlaceId: null,
+    name: booking.hotelName,
+    address: hotelInfo.address || null,
+    city: identity.city || null,
+    country: identity.country || null,
+    coords: hotelInfo.coords || null,
+    star: hotelInfo.star || null,
+    description: hotelInfo.description || null,
+    amenities: Array.isArray(hotelInfo.amenities) ? hotelInfo.amenities : [],
+    images: (hotelInfo.images || []).filter(i => typeof i === 'string' && i),
+    source: 'google',
+    matchSource: 'serpapi',
+    verifiedAt: new Date().toISOString(),
+    enrichmentStatus: 'SERP_FALLBACK',
+  };
+}
+
+/**
+ * Persist SerpApi-salvaged hotel imagery into hotel_mappings — the
  * source-of-truth store for hotel enrichment (the bookings table has no
  * hotel_data column; Supabase REST is authoritative). Keyed by the same
- * canonical hotelKey the Nuitée matcher uses, so resolveBookingHotel can serve
- * it as a fallback.
+ * canonical hotelKey the Nuitée matcher uses, so resolveBookingHotel serves it
+ * as a fallback.
  *
  * ONLY fills a gap: never overwrites a VERIFIED mapping (Nuitée/Google Places),
- * which carry nuiteeHotelId and better data. Fire-and-forget; never blocks the
- * booking response on imagery.
+ * which carry nuiteeHotelId and better data. Returns the built hotelData (so the
+ * on-demand path can serve it even if the DB write fails), or null when there's
+ * no usable imagery.
  */
 async function persistSerpHotelData(booking, hotelInfo) {
-  if (!booking || !booking.hotelName || !hotelInfo) return;
-  if (!Array.isArray(hotelInfo.images) || hotelInfo.images.length === 0) return;
+  if (!booking || !booking.hotelName || !hotelInfo) return null;
+  if (!Array.isArray(hotelInfo.images) || hotelInfo.images.length === 0) return null;
   const identity = bookingHotelIdentity(booking);
   const key = hotelKeyFor(identity);
+  let existing = null;
   try {
-    const existing = await db.getHotelMappingByKey(key);
-    if (existing && existing.status === 'VERIFIED') return; // authoritative data already present
-    const hotelData = {
-      nuiteeHotelId: null,
-      googlePlaceId: null,
-      name: booking.hotelName,
-      address: hotelInfo.address || null,
-      city: identity.city || null,
-      country: identity.country || null,
-      coords: hotelInfo.coords || null,
-      star: hotelInfo.star || null,
-      description: hotelInfo.description || null,
-      amenities: Array.isArray(hotelInfo.amenities) ? hotelInfo.amenities : [],
-      images: hotelInfo.images.filter(i => typeof i === 'string' && i),
-      source: 'google',
-      matchSource: 'serpapi',
-      verifiedAt: new Date().toISOString(),
-      enrichmentStatus: 'SERP_FALLBACK',
-    };
+    existing = await db.getHotelMappingByKey(key);
+  } catch { /* treat as cache miss */ }
+  if (existing && existing.status === 'VERIFIED') return existing.hotelData || null; // authoritative wins
+  const hotelData = buildSerpHotelData(identity, booking, hotelInfo);
+  try {
     await db.upsertHotelMapping({
       normalizedHotelKey: key,
       nuiteeHotelId: null,
@@ -203,6 +229,7 @@ async function persistSerpHotelData(booking, hotelInfo) {
   } catch (e) {
     console.error('[persistSerpHotelData]', e.message);
   }
+  return hotelData; // serve imagery even if the DB write failed
 }
 
 /**

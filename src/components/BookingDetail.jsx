@@ -187,7 +187,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
           </aside>
         </div>
         <div className="hotel-ref-disclaimer">
-          ℹ️ {lang === 'pt'
+          {lang === 'pt'
             ? 'As informações e imagens do hotel são exibidas como referência. As condições válidas da reserva são as informadas na confirmação original.'
             : 'Hotel information and images are shown for reference. The valid booking conditions are those stated in the original confirmation.'}
         </div>
@@ -211,18 +211,6 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
               <p className="detail-dest">{booking.destination}</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
                 <span className={`badge ${st.cls}`}>{st.label}</span>
-                {/* Only offer the Nuitée explorer for a real catalogue match.
-                    Without a nuiteeHotelId the modal would fall back to a demo
-                    hotel — never show that on a real booking. */}
-                {booking.nuiteeHotelId && (
-                  <button
-                    className="btn btn-secondary btn-xs"
-                    onClick={() => setShowNuiteeModal(true)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, borderRadius: 12, padding: '3px 10px' }}
-                  >
-                    <IconHotel size={13} /> Nuitée Details & Rates
-                  </button>
-                )}
               </div>
             </div>
           </div>
