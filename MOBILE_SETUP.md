@@ -39,9 +39,38 @@ For true native push inside the wrapped app, add `@capacitor/push-notifications`
 and register APNs (iOS) / FCM (Android). The Web Push path above already covers
 installed-PWA users on Android and iOS 16.4+.
 
-## 4. App store checklist
-- App icons/splash: generate from `public/logo-mark.png` (512×512) with
-  `@capacitor/assets` (`npx capacitor-assets generate`).
+## 4. App icons & splash (already generated)
+A clean, brand-accurate source set is committed in **`assets/`** (extracted from
+the high-res logo, transparent background, no artifacts):
+
+- `assets/icon-only.png` (1024) — iOS/legacy icon
+- `assets/icon-foreground.png` + `assets/icon-background.png` — Android adaptive
+- `assets/splash.png` + `assets/splash-dark.png` (2732) — launch screens
+
+After `npx cap add ios/android`, generate every platform size with one command:
+
+```bash
+npx @capacitor/assets generate --assetPath assets
+```
+
+The PWA icons in `public/` (`icon-192/512`, `icon-maskable-512`, `apple-touch-icon`)
+were regenerated from the same clean source and ship with the web deploy.
+
+## 5. Native push (APNs / FCM), when you wrap
+The installed-PWA Web Push path (docs/PUSH_SETUP.md) already covers Android and
+iOS 16.4+. For push inside the wrapped native app:
+
+```bash
+npm install @capacitor/push-notifications
+npx cap sync
+```
+
+Then register on the device and POST the token to the backend. You'll need an
+**FCM** project (Android) and an **APNs key** (iOS) uploaded to Firebase, plus a
+sender in the backend (e.g. `firebase-admin`). This is additive — the current
+web-push endpoints and `sendPushToUser` stay as-is for PWA users.
+
+## 6. App store checklist
 - Privacy policy URL: https://resdrop.app/privacy (already live).
 - Apple: a paid Apple Developer account; Android: a Play Console account.
 - Screenshots: capture the phone layout (booking detail, dashboard, alerts).
