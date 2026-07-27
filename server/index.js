@@ -50,6 +50,7 @@ import {
   fetchCategorizedHotelPhotos,
 } from './serpApi.js';
 import { filterOutPeopleImages } from './imageFilter.js';
+import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -648,6 +649,14 @@ async function applyBestResult(booking, results) {
         // Fetch user for currency/lang context
         db.getUser(booking.email).then(u => {
           sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking, u || {}).catch(() => {});
+        }).catch(() => {});
+
+        // Fire-and-forget Web Push (no-op unless VAPID is configured).
+        sendPushToUser(booking.email, {
+          title: `📉 ${booking.hotelName}`,
+          body: `A lower rate appeared via ${bestMatch.source} — save ${booking.currency || ''}${diff}.`,
+          url: `/bookings/${booking.id}`,
+          tag: `drop-${booking.id}`,
         }).catch(() => {});
       } else if (diff === 0) {
         alertType = 'price_same';
@@ -1433,7 +1442,27 @@ app.get('/api/config', (req, res) => {
     // Security: Don't expose affiliate IDs or internal config to public
     sandboxMode: process.env.BOOKING_USE_SANDBOX === 'true',
     resendConfigured: isEmailConfigured(),
+    // Web Push: whether it's enabled + the non-secret public key to subscribe with.
+    pushEnabled: pushConfigured(),
+    vapidPublicKey: getVapidPublicKey(),
   });
+});
+
+// ─── Web Push subscriptions ─────────────────────────────────
+app.post('/api/push/subscribe', authMiddleware, async (req, res) => {
+  const { endpoint, keys } = req.body || {};
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return res.status(400).json({ error: 'Invalid subscription' });
+  }
+  const saved = await db.savePushSubscription({ email: req.userEmail, endpoint, p256dh: keys.p256dh, auth: keys.auth });
+  if (!saved) return res.status(500).json({ error: 'Could not save subscription' });
+  res.json({ success: true });
+});
+
+app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (endpoint) await db.deletePushSubscription(endpoint);
+  res.json({ success: true });
 });
 
 // ─── HOTEL SEARCH ───────────────────────────────────────────

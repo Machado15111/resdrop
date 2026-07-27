@@ -99,6 +99,19 @@ try {
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_email ON bookings(email)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)`;
 
+  // ─── Web Push subscriptions ───────────────────────────────
+  await sql`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      endpoint    TEXT PRIMARY KEY,
+      email       TEXT NOT NULL,
+      p256dh      TEXT NOT NULL,
+      auth        TEXT NOT NULL,
+      created_at  TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_push_email ON push_subscriptions(email)`;
+  console.log('✓ push_subscriptions table');
+
   // ─── Sessions table ───────────────────────────────────────
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (

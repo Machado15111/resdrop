@@ -588,6 +588,50 @@ export async function getAlertsByEmail(email) {
   return Array.isArray(rows) ? rows.map(toCamel) : [];
 }
 
+// ─── Push Subscriptions (Web Push) ───────────────────────────
+// Columns are all lowercase single words, so no camel/snake mapping is needed.
+// Supabase REST is authoritative (the table must exist there — see
+// docs/PUSH_SETUP.md); the sql client is best-effort mirror only.
+
+export async function savePushSubscription(sub) {
+  if (!sub || !sub.email || !sub.endpoint || !sub.p256dh || !sub.auth) return null;
+  const row = {
+    email: sub.email.toLowerCase(),
+    endpoint: sub.endpoint,
+    p256dh: sub.p256dh,
+    auth: sub.auth,
+  };
+  try {
+    const existing = await supa.select('push_subscriptions', { endpoint: sub.endpoint }, { limit: 1 });
+    if (Array.isArray(existing) && existing.length > 0) {
+      await supa.update('push_subscriptions', { endpoint: sub.endpoint }, row);
+    } else {
+      await supa.insert('push_subscriptions', row);
+    }
+  } catch (e) {
+    console.error('[DB] savePushSubscription rest:', e.message);
+    return null;
+  }
+  sql`INSERT INTO push_subscriptions ${sql(row)} ON CONFLICT (endpoint) DO UPDATE SET email = EXCLUDED.email, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`.catch(() => {});
+  return row;
+}
+
+export async function getPushSubscriptions(email) {
+  if (!email) return [];
+  const rows = await supa.select('push_subscriptions', { email: email.toLowerCase() });
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function deletePushSubscription(endpoint) {
+  if (!endpoint) return;
+  try {
+    await supa.remove('push_subscriptions', { endpoint });
+  } catch (e) {
+    console.error('[DB] deletePushSubscription rest:', e.message);
+  }
+  sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`.catch(() => {});
+}
+
 // ─── Savings Confirmations ───────────────────────────────────
 
 export async function createSavingsConfirmation(confirmation) {

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
 import { IconUser, IconArrowLeft, IconCheck, IconCrown, IconStar, IconZap, IconPlus, IconTrash } from './Icons';
+import PushToggle from './PushToggle';
 import './Account.css';
 
 const PLANS = [
@@ -294,6 +295,9 @@ function Account() {
             </div>
           )}
         </div>
+
+        {/* Notifications (renders only when Web Push is available + configured) */}
+        <PushToggle />
 
         {/* Plan Usage */}
         <div className="account-section">
