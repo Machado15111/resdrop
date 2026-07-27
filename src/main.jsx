@@ -17,3 +17,10 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// Register the PWA service worker (offline shell + push). Best-effort.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

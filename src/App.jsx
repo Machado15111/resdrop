@@ -21,6 +21,7 @@ import ResetPassword from './components/ResetPassword';
 import ResDroppLanding from './components/ResDroppLanding';
 import ResDroppLogin from './components/ResDroppLogin';
 import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
+import MobileTabBar from './components/MobileTabBar';
 
 // Heavy / rarely-first-loaded routes are code-split so they don't bloat the
 // initial bundle (admin dashboards, analytics, content pages, landing previews).
@@ -94,8 +95,14 @@ function App() {
     ? 'page-transition'
     : 'page-fade';
 
+  // Native-style bottom tab bar on the primary authenticated app screens (phones
+  // only; hidden on desktop by CSS). Kept off landing/login/onboarding/admin.
+  const TAB_ROUTES = ['/dashboard', '/submit', '/alerts', '/account', '/analytics'];
+  const showTabBar = isAuthenticated &&
+    (TAB_ROUTES.includes(location.pathname) || location.pathname.startsWith('/bookings/'));
+
   return (
-    <div className="app">
+    <div className={`app ${showTabBar ? 'app--has-tabbar' : ''}`}>
       {/* The key is only applied to marketing routes, where remounting replays the
           curtain reveal. In-app navigation omits it so React reconciles instead of
           tearing down and rebuilding the whole tree (and replaying an animation)
@@ -169,6 +176,7 @@ function App() {
         </Routes>
         </Suspense>
       </div>
+      {showTabBar && <MobileTabBar />}
     </div>
   );
 }
