@@ -2907,8 +2907,19 @@ app.use('/api', documentRoutes(authMiddleware));
 // ─── Mount inbound email webhook (public) + address endpoint (auth) ─
 app.use('/api', inboundEmailRoutes(authMiddleware));
 
-// ─── Scheduler paused — searches only via manual "Atualizar" button ─
-console.log('[Scheduler] Paused — price checks run manually via "Atualizar"');
+// ─── Automated price monitoring (cost-capped) ─────────────────
+// Loads bookings fresh from the DB each cycle and searches in each booking's own
+// currency. Bounded by MONITOR_DAILY_BUDGET + per-booking cadence so it monitors
+// 24/7 without blowing the SerpApi quota. Set MONITOR_ENABLED=false to pause.
+if (process.env.MONITOR_ENABLED !== 'false') {
+  startScheduler(
+    () => db.getAllBookings(),
+    (booking) => searchPrices(booking, { currency: booking.currency || 'BRL' }),
+    applyBestResult
+  );
+} else {
+  console.log('[Monitor] Disabled (MONITOR_ENABLED=false) — price checks run manually only');
+}
 
 // ─── Serve frontend build in production ─────────────────────
 // Nuitée / Price Trends routes (registered before the SPA fallback)
@@ -2939,7 +2950,7 @@ app.listen(PORT, async () => {
   console.log(`   Expedia: ${isExpediaConfigured() ? '✓ configured' : '✗ not configured (set EXPEDIA_AWIN_ADVERTISER_ID)'}`);
   console.log(`   Booking.com (Demand): ${isBookingApiConfigured() ? '✓ configured' : '✗ not set (using simulation)'}`);
   console.log(`   Booking.com (Awin Brazil): advertiser ${process.env.BOOKING_AWIN_ADVERTISER_ID_BRAZIL || 'not set'}`);
-  console.log(`   Scheduler: PAUSED (manual only)`);
+  console.log(`   Monitoring: ${process.env.MONITOR_ENABLED === 'false' ? 'DISABLED (manual only)' : `ON (every ${process.env.MONITOR_INTERVAL_MINUTES || 120}min, ≤${process.env.MONITOR_DAILY_BUDGET || 100}/day)`}`);
   console.log(`   Users: ${userCount} | Bookings: ${bookingCount}`);
   console.log(`   Sandbox: ${process.env.BOOKING_USE_SANDBOX === 'true' ? 'ON' : 'OFF'}\n`);
 });
