@@ -51,6 +51,7 @@ import {
 } from './serpApi.js';
 import { filterOutPeopleImages } from './imageFilter.js';
 import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
+import { stripeConfigured, createCheckoutSession, createPortalSession, constructWebhookEvent, planActionFromEvent } from './stripe.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -306,7 +307,12 @@ app.use(cors({
 }));
 
 // ─── Security: Body size limit ──────────────────────────────
-app.use(express.json({ limit: '1mb' }));
+// Stash the raw body so the Stripe webhook can verify its signature (Stripe
+// needs the exact bytes, not the re-serialized JSON).
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => { req.rawBody = buf; },
+}));
 
 // ─── Security: Basic security headers ───────────────────────
 app.use((req, res, next) => {
@@ -1445,7 +1451,63 @@ app.get('/api/config', (req, res) => {
     // Web Push: whether it's enabled + the non-secret public key to subscribe with.
     pushEnabled: pushConfigured(),
     vapidPublicKey: getVapidPublicKey(),
+    // Whether real Stripe checkout is wired (else the UI falls back to a flag flip).
+    stripeEnabled: stripeConfigured(),
   });
+});
+
+// ─── Billing (Stripe subscriptions) ─────────────────────────
+app.post('/api/billing/checkout', authMiddleware, async (req, res) => {
+  if (!stripeConfigured()) return res.status(503).json({ error: 'Billing not enabled' });
+  try {
+    const { plan, lang } = req.body || {};
+    const origin = process.env.PUBLIC_ORIGIN || req.headers.origin || 'https://resdrop.app';
+    const url = await createCheckoutSession({
+      email: req.userEmail,
+      plan,
+      lang: lang || 'en',
+      origin,
+    });
+    res.json({ url });
+  } catch (err) {
+    console.error('[Billing] checkout:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/billing/portal', authMiddleware, async (req, res) => {
+  if (!stripeConfigured()) return res.status(503).json({ error: 'Billing not enabled' });
+  try {
+    const origin = process.env.PUBLIC_ORIGIN || req.headers.origin || 'https://resdrop.app';
+    const url = await createPortalSession({ email: req.userEmail, origin });
+    res.json({ url });
+  } catch (err) {
+    console.error('[Billing] portal:', err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Stripe webhook (public — verified by signature, not auth). Uses the raw body.
+app.post('/api/stripe/webhook', async (req, res) => {
+  if (!stripeConfigured()) return res.status(503).end();
+  let event;
+  try {
+    event = constructWebhookEvent(req.rawBody, req.headers['stripe-signature']);
+  } catch (err) {
+    console.error('[Stripe] webhook signature failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  try {
+    const action = planActionFromEvent(event);
+    if (action?.email && action.plan) {
+      await db.updateUser(action.email, { plan: action.plan });
+      console.log(`[Stripe] ${event.type} → ${action.email} plan=${action.plan}`);
+    }
+  } catch (err) {
+    console.error('[Stripe] webhook handling error:', err.message);
+    // Still 200 so Stripe doesn't retry a non-signature error forever.
+  }
+  res.json({ received: true });
 });
 
 // ─── Web Push subscriptions ─────────────────────────────────

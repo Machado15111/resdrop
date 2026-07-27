@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
@@ -55,6 +55,26 @@ function Account() {
   const [loyaltyPrograms, setLoyaltyPrograms] = useState(
     user?.loyaltyPrograms || []
   );
+  const [stripeEnabled, setStripeEnabled] = useState(false);
+  // Banner after returning from Stripe Checkout — read once from the URL.
+  const [billingMsg, setBillingMsg] = useState(() => {
+    const b = new URLSearchParams(window.location.search).get('billing');
+    if (b === 'success') return lang === 'pt' ? 'Pagamento recebido! Seu plano será atualizado em instantes.' : 'Payment received! Your plan will update shortly.';
+    if (b === 'cancelled') return lang === 'pt' ? 'Checkout cancelado — nenhuma cobrança foi feita.' : 'Checkout cancelled — you were not charged.';
+    return '';
+  });
+
+  // Is real Stripe checkout wired? (else plan change falls back to a flag flip)
+  useEffect(() => {
+    fetch(`${API}/config`).then(r => r.json()).then(c => setStripeEnabled(!!c.stripeEnabled)).catch(() => {});
+  }, []);
+
+  // Strip the ?billing param from the URL after we've read it.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('billing')) {
+      window.history.replaceState({}, '', '/account');
+    }
+  }, []);
 
   // Synchronize form when user object is loaded or updated
   useEffect(() => {
@@ -71,6 +91,30 @@ function Account() {
 
   const handleChangePlan = async (planId) => {
     if (!user || planId === user.plan) return;
+
+    // With Stripe wired, paid plans go through Checkout and downgrades through
+    // the billing portal (so a real subscription is created/cancelled).
+    if (stripeEnabled) {
+      try {
+        if (planId === 'free') {
+          const res = await authFetch(`${API}/billing/portal`, { method: 'POST', body: JSON.stringify({}) });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.url) { window.location.assign(data.url); return; }
+          setBillingMsg(data.error || (lang === 'pt' ? 'Não foi possível abrir o portal.' : 'Could not open the billing portal.'));
+          return;
+        }
+        const res = await authFetch(`${API}/billing/checkout`, { method: 'POST', body: JSON.stringify({ plan: planId, lang }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.url) { window.location.assign(data.url); return; }
+        setBillingMsg(data.error || (lang === 'pt' ? 'Não foi possível iniciar o checkout.' : 'Could not start checkout.'));
+      } catch (err) {
+        console.error('Checkout error:', err);
+        setBillingMsg(lang === 'pt' ? 'Erro ao processar pagamento.' : 'Payment error.');
+      }
+      return;
+    }
+
+    // Fallback when billing isn't configured: flip the plan flag directly.
     try {
       const res = await authFetch(`${API}/users/${user.email}/plan`, {
         method: 'PUT',
@@ -325,6 +369,21 @@ function Account() {
         {/* Change Plan */}
         <div className="account-section">
           <h2>{t('account.changePlan')}</h2>
+          {billingMsg && <p className="save-message">{billingMsg}</p>}
+          {stripeEnabled && user.plan && user.plan !== 'free' && (
+            <button
+              className="account-link"
+              style={{ marginBottom: 12 }}
+              onClick={async () => {
+                const res = await authFetch(`${API}/billing/portal`, { method: 'POST', body: JSON.stringify({}) });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.url) window.location.assign(data.url);
+                else setBillingMsg(data.error || 'Could not open the billing portal.');
+              }}
+            >
+              {lang === 'pt' ? 'Gerenciar assinatura' : 'Manage subscription'}
+            </button>
+          )}
           <div className="account-plans-grid">
             {PLANS.map(plan => (
               <div
