@@ -117,8 +117,8 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const hotelSection = (() => {
     const hd = booking.hotelData || {};
     const images = Array.isArray(hd.images) ? hd.images.map(imgUrl).filter(Boolean) : [];
-    const thumbs = images.slice(1, 5);
-    const extra = images.length - 5;
+    const gallery = images.slice(0, 3);
+    const extra = images.length - gallery.length;
     const amenities = Array.isArray(hd.amenities) ? hd.amenities.filter(Boolean).slice(0, 6) : [];
     const star = Math.round(hd.star || 0);
     const desc = stripHtml(hd.description);
@@ -127,21 +127,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
     return (
       <div className="detail-card hotel-reference-card">
         <h3 className="detail-card-title">{lang === 'pt' ? 'Informações do Hotel' : 'Hotel Information'}</h3>
-        {images.length > 0 ? (
+        {gallery.length > 0 ? (
           <div className="hotel-gallery" onClick={openGallery} role={hd.nuiteeHotelId ? 'button' : undefined}>
-            <img src={images[0]} alt={booking.hotelName} className="hg-hero" loading="lazy" />
-            {thumbs.length > 0 && (
-              <div className="hg-thumbs">
-                {thumbs.map((img, idx) => (
-                  <div className="hg-thumb" key={idx}>
-                    <img src={img} alt={`${booking.hotelName} ${idx + 2}`} loading="lazy" />
-                    {idx === thumbs.length - 1 && extra > 0 && (
-                      <span className="hg-more">+{extra} {lang === 'pt' ? 'fotos' : 'photos'}</span>
-                    )}
-                  </div>
-                ))}
+            {gallery.map((img, idx) => (
+              <div className="hg-cell" key={idx}>
+                <img src={img} alt={`${booking.hotelName} ${idx + 1}`} loading="lazy" />
+                {idx === gallery.length - 1 && extra > 0 && (
+                  <span className="hg-more">+{extra} {lang === 'pt' ? 'fotos' : 'photos'}</span>
+                )}
               </div>
-            )}
+            ))}
           </div>
         ) : (
           <div className="hotel-img-placeholder">

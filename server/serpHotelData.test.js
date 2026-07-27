@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractHotelInfoFromDetail, parseGoogleHotelsResults } from './serpApi.js';
+import { extractHotelInfoFromDetail, parseGoogleHotelsResults, fetchCategorizedHotelPhotos } from './serpApi.js';
 import { serpFallbackHotel, hotelKeyFor } from './enrichment.js';
 import { marketDataPoint } from './priceHistory.js';
 
@@ -72,6 +72,47 @@ test('parseGoogleHotelsResults: attaches .hotelInfo on a FORMAT A detail page', 
   assert.equal(res.hotelInfo.source, 'google');
   assert.deepEqual(res.hotelInfo.images, ['https://img/orig1.jpg']);
   assert.equal(res.hotelInfo.star, 5);
+});
+
+test('fetchCategorizedHotelPhotos: excludes guest/general/dining, round-robins property categories', async () => {
+  const origFetch = global.fetch;
+  const origKey = process.env.SERPAPI_KEY;
+  process.env.SERPAPI_KEY = 'test-key';
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      sections: [
+        { title: 'At a glance', photos: [{ photo_url: 'GENERAL1', source: 'Owner Submitted' }, { photo_url: 'CHILD', source: 'Google user' }] },
+        { title: 'Exterior', photos: [{ photo_url: 'EXT1', source: 'Owner Submitted' }, { photo_url: 'EXT2', source: 'Owner Submitted' }] },
+        { title: 'Interior', photos: [{ photo_url: 'INT1', source: 'Owner Submitted' }] },
+        { title: 'Food & Drink', photos: [{ photo_url: 'FOOD1', source: 'Owner Submitted' }] },
+        { title: 'Bedroom', photos: [{ photo_url: 'BED1', source: 'Guest' }, { photo_url: 'BED2', source: 'Owner Submitted' }] },
+      ],
+    }),
+  });
+  try {
+    const out = await fetchCategorizedHotelPhotos('https://serpapi.com/x', { limit: 10 });
+    assert.ok(!out.includes('GENERAL1') && !out.includes('CHILD'), 'excludes the "At a glance" general set');
+    assert.ok(!out.includes('FOOD1'), 'excludes Food & Drink (diners)');
+    assert.ok(!out.includes('BED1'), 'excludes a guest-sourced photo');
+    assert.ok(out.includes('EXT1') && out.includes('INT1') && out.includes('BED2'), 'includes property photos');
+    assert.equal(out[0], 'EXT1', 'exterior ranks first (hero)');
+    assert.equal(out[1], 'INT1', 'round-robins to the next category, not more exterior');
+  } finally {
+    global.fetch = origFetch;
+    if (origKey === undefined) delete process.env.SERPAPI_KEY; else process.env.SERPAPI_KEY = origKey;
+  }
+});
+
+test('fetchCategorizedHotelPhotos: empty without a key or a link', async () => {
+  const origKey = process.env.SERPAPI_KEY;
+  delete process.env.SERPAPI_KEY;
+  try {
+    assert.deepEqual(await fetchCategorizedHotelPhotos('https://x'), []);
+  } finally {
+    if (origKey !== undefined) process.env.SERPAPI_KEY = origKey;
+  }
+  assert.deepEqual(await fetchCategorizedHotelPhotos(''), []);
 });
 
 test('parseGoogleHotelsResults: no .hotelInfo on a FORMAT B search list', () => {

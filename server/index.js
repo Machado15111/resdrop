@@ -47,7 +47,9 @@ import { hotels } from './hotels.js';
 import {
   isSerpApiConfigured,
   searchRealPrices,
+  fetchCategorizedHotelPhotos,
 } from './serpApi.js';
+import { filterOutPeopleImages } from './imageFilter.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -135,23 +137,30 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
 
   // 2) Cached SerpApi (Google Hotels) imagery from hotel_mappings. Serves
   //    photos/coords for ANY hotel Google finds, even one absent from Nuitée's
-  //    catalogue. No nuiteeHotelId, so Price Trends stays correctly gated. A
-  //    cheap keyed read — safe in cacheOnly.
+  //    catalogue. No nuiteeHotelId, so Price Trends stays correctly gated. Only
+  //    serve a cache built by the CURRENT imagery pipeline; an older-version
+  //    cache (e.g. built before people-filtering) is refreshed on-demand below.
+  let stale = null;
   try {
     const fallback = await db.getHotelMappingByKey(hotelKeyFor(identity));
     const hotel = serpFallbackHotel(fallback);
     if (hotel) {
-      return { hotel, matchScore: fallback.matchScore || 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
+      const result = { hotel, matchScore: fallback.matchScore || 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
+      if ((hotel.enrichVersion || 0) >= SERP_ENRICH_VERSION) return result;
+      // Outdated: in full mode, refresh below and use this only as last resort.
+      // In cacheOnly, treat as a miss so the fast path doesn't serve stale imagery
+      // (the frontend then calls /hotel, which refreshes it).
+      if (!cacheOnly) stale = result;
     }
   } catch (e) {
     console.error('[resolveBookingHotel] serp fallback:', e.message);
   }
 
   // 3) On-demand SerpApi fetch (full mode only). The progressive /hotel endpoint
-  //    isn't latency-critical, so for a hotel we've never checked we fetch Google
-  //    Hotels imagery now and cache it — existing bookings then show a gallery on
-  //    first view without waiting for a (manual-only) price check. Runs once per
-  //    hotel: the result is cached in hotel_mappings, so step 2 serves it after.
+  //    isn't latency-critical, so for a hotel we've never checked (or whose cache
+  //    is outdated) we fetch Google Hotels imagery now and cache it — existing
+  //    bookings then show a clean gallery on first view without waiting for a
+  //    (manual-only) price check. Runs once per hotel; step 2 serves it after.
   //    Skipped in cacheOnly so the main booking response never blocks on imagery.
   if (!cacheOnly && isSerpApiConfigured()) {
     try {
@@ -165,15 +174,22 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
     }
   }
 
+  // Outdated cache beats a blank gallery if the refresh produced nothing.
+  if (stale) return stale;
   return null;
 }
+
+// Version of the SerpApi imagery pipeline. Bump when image sourcing changes so
+// stale cached galleries (e.g. ones built before people-filtering) are refreshed
+// on next view instead of served forever.
+const SERP_ENRICH_VERSION = 2;
 
 /**
  * Build the hotelData blob served to the booking detail view from SerpApi's
  * salvaged detail-page info. Shaped to match the Nuitée hotelData the frontend
  * already renders (images as plain URL strings), minus nuiteeHotelId.
  */
-function buildSerpHotelData(identity, booking, hotelInfo) {
+function buildSerpHotelData(identity, booking, hotelInfo, images) {
   return {
     nuiteeHotelId: null,
     googlePlaceId: null,
@@ -185,12 +201,36 @@ function buildSerpHotelData(identity, booking, hotelInfo) {
     star: hotelInfo.star || null,
     description: hotelInfo.description || null,
     amenities: Array.isArray(hotelInfo.amenities) ? hotelInfo.amenities : [],
-    images: (hotelInfo.images || []).filter(i => typeof i === 'string' && i),
+    images: (images || hotelInfo.images || []).filter(i => typeof i === 'string' && i),
     source: 'google',
     matchSource: 'serpapi',
+    enrichVersion: SERP_ENRICH_VERSION,
     verifiedAt: new Date().toISOString(),
     enrichmentStatus: 'SERP_FALLBACK',
   };
+}
+
+/**
+ * Choose a clean, people-free image set for the gallery: prefer Google Hotels'
+ * property-categorized photos (Exterior/Interior/Bedroom/…) over the flat set
+ * that mixes in guest snapshots, then optionally run a vision pass (only if an
+ * OpenAI key is configured; otherwise a no-op). Best-effort throughout — always
+ * returns SOME imagery.
+ */
+async function cleanSerpImages(hotelInfo) {
+  let images = Array.isArray(hotelInfo.images) ? hotelInfo.images : [];
+  try {
+    if (hotelInfo.photosLink) {
+      const categorized = await fetchCategorizedHotelPhotos(hotelInfo.photosLink, { limit: 12 });
+      if (categorized.length >= 3) images = categorized;
+    }
+  } catch (e) {
+    console.error('[cleanSerpImages] categorized fetch:', e.message);
+  }
+  try {
+    images = await filterOutPeopleImages(images);
+  } catch { /* best-effort */ }
+  return images;
 }
 
 /**
@@ -215,7 +255,8 @@ async function persistSerpHotelData(booking, hotelInfo) {
     existing = await db.getHotelMappingByKey(key);
   } catch { /* treat as cache miss */ }
   if (existing && existing.status === 'VERIFIED') return existing.hotelData || null; // authoritative wins
-  const hotelData = buildSerpHotelData(identity, booking, hotelInfo);
+  const images = await cleanSerpImages(hotelInfo);
+  const hotelData = buildSerpHotelData(identity, booking, hotelInfo, images);
   try {
     await db.upsertHotelMapping({
       normalizedHotelKey: key,

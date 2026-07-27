@@ -161,6 +161,9 @@ export function extractHotelInfoFromDetail(data) {
   const info = {
     source: 'google',
     images,
+    // Link to the categorized photos endpoint (Exterior/Interior/Bedroom/…),
+    // used to build a clean property gallery that excludes guest snapshots.
+    photosLink: data.serpapi_google_hotels_photos_link || null,
     star: data.extracted_hotel_class || data.hotel_class || null,
     address: data.address || null,
     coords,
@@ -170,6 +173,73 @@ export function extractHotelInfoFromDetail(data) {
   // Only worth keeping if we actually salvaged imagery or a location.
   if (!info.images.length && !info.coords && !info.address) return null;
   return info;
+}
+
+// Google Hotels photo categories that tend to feature people (guest snapshots,
+// diners) rather than the property itself. "At a glance" is the general mixed
+// set where guest photos surface; food/dining shots often show people.
+const PHOTO_CATEGORY_EXCLUDE = /glance|food|drink|dining|restaurant|\bbar\b|guest|people/i;
+// Preferred order for a clean gallery — a strong exterior hero first, then
+// interiors and rooms.
+const PHOTO_CATEGORY_ORDER = ['exterior', 'interior', 'lobby', 'view', 'pool', 'spa', 'bedroom', 'room', 'suite', 'bathroom', 'amenit'];
+
+/**
+ * Build a clean, property-focused photo set from Google Hotels' CATEGORIZED
+ * photos endpoint (separate from the flat `images` array, which mixes in guest
+ * snapshots). Pulls round-robin across property categories — skipping the
+ * people-prone ones and any explicit guest-sourced photo — so the gallery shows
+ * the hotel, not its guests. Best-effort: returns [] on any failure so the
+ * caller falls back to `images`.
+ */
+export async function fetchCategorizedHotelPhotos(photosLink, { limit = 12 } = {}) {
+  if (!photosLink) return [];
+  const apiKey = env('SERPAPI_KEY');
+  if (!apiKey) return [];
+  let url = photosLink;
+  if (!/[?&]api_key=/.test(url)) url += (url.includes('?') ? '&' : '?') + `api_key=${apiKey}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const sections = (Array.isArray(data.sections) ? data.sections : [])
+      .filter(s => !PHOTO_CATEGORY_EXCLUDE.test(s.title || ''));
+
+    const rank = (s) => {
+      const t = (s.title || '').toLowerCase();
+      const i = PHOTO_CATEGORY_ORDER.findIndex(k => t.includes(k));
+      return i === -1 ? 999 : i;
+    };
+    sections.sort((a, b) => rank(a) - rank(b));
+
+    // Round-robin across categories for visual variety (exterior, interior, room…).
+    const pools = sections.map(s =>
+      (Array.isArray(s.photos) ? s.photos : []).filter(p => !/guest/i.test(p.source || ''))
+    );
+    const seen = new Set();
+    const out = [];
+    let added = true;
+    while (added && out.length < limit) {
+      added = false;
+      for (const pool of pools) {
+        const p = pool.shift();
+        if (!p) continue;
+        added = true;
+        const u = p.photo_url || p.image || p.thumbnail_url;
+        if (!u || seen.has(u)) continue;
+        seen.add(u);
+        out.push(u);
+        if (out.length >= limit) break;
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
