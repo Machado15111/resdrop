@@ -2,10 +2,24 @@ import { useState } from 'react';
 import { useI18n } from '../i18n';
 import { IconArrowLeft, IconHotel, IconRefresh } from './Icons';
 import SavingsConfirmationModal from './SavingsConfirmationModal';
-import HotelDetailsModal from './HotelDetailsModal';
+import PhotoLightbox from './PhotoLightbox';
 import PriceTrends from './PriceTrends';
 import { formatCurrency } from '../currency';
 import './BookingDetail.css';
+
+// "2h ago" / "3d ago" style relative time for the monitoring stats.
+function relativeTime(dateStr, pt) {
+  if (!dateStr) return pt ? '—' : '—';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  if (!Number.isFinite(diff) || diff < 0) return pt ? 'agora' : 'just now';
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return pt ? 'agora' : 'just now';
+  if (m < 60) return pt ? `há ${m} min` : `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return pt ? `há ${h} h` : `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return pt ? `há ${d} d` : `${d}d ago`;
+}
 
 // Hotel images are URL strings; tolerate legacy {url}/{urlHd} objects too.
 const imgUrl = (img) => (typeof img === 'string' ? img : (img?.urlHd || img?.url || ''));
@@ -30,7 +44,8 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [showNuiteeModal, setShowNuiteeModal] = useState(false);
+  // Index of the photo the full-screen lightbox opens at (null = closed).
+  const [lightboxIdx, setLightboxIdx] = useState(null);
   // The stored originalPrice is the value as entered; rateType says whether that
   // value is per-night or the stay total. Derive both representations correctly.
   const isPerNight = booking.rateType === 'per_night';
@@ -112,6 +127,17 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const hasUnconfirmedSavings = (booking.status === 'lower_fare_found' || booking.status === 'savings_found') &&
     (booking.potentialSavings > 0 || booking.totalSavings > 0);
 
+  // One-tap rebook (item 5): the cheapest exact-hotel result that carries a
+  // bookable/affiliate link — the direct path to actually capture the saving.
+  const rebook = (() => {
+    const results = Array.isArray(booking.latestResults) ? booking.latestResults : [];
+    const withLink = results.filter(r => (r.affiliateLink || r.link) && r.totalPrice > 0);
+    if (!withLink.length) return null;
+    const exact = withLink.filter(r => r.isExactMatch);
+    const pick = (exact.length ? exact : withLink).sort((a, b) => a.totalPrice - b.totalPrice)[0];
+    return pick ? { url: pick.affiliateLink || pick.link, source: pick.source, price: pick.totalPrice } : null;
+  })();
+
   // Hotel gallery/info section — defined here so it can render at the TOP of the
   // page (right under the header) instead of at the bottom.
   const hotelSection = (() => {
@@ -121,21 +147,27 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
     const extra = images.length - gallery.length;
     const amenities = Array.isArray(hd.amenities) ? hd.amenities.filter(Boolean).slice(0, 6) : [];
     const star = Math.round(hd.star || 0);
+    const rating = Number(hd.rating) || 0;
+    const reviews = Number(hd.reviews) || 0;
     const desc = stripHtml(hd.description);
     const coords = hd.coords;
-    const openGallery = () => hd.nuiteeHotelId && setShowNuiteeModal(true);
+    // A small bounding box around the point for the OpenStreetMap embed (free,
+    // keyless, official — no Google Maps API key needed).
+    const mapSrc = coords
+      ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.012}%2C${coords.lat - 0.008}%2C${coords.lng + 0.012}%2C${coords.lat + 0.008}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
+      : null;
     return (
       <div className="detail-card hotel-reference-card">
         <h3 className="detail-card-title">{lang === 'pt' ? 'Informações do Hotel' : 'Hotel Information'}</h3>
         {gallery.length > 0 ? (
-          <div className="hotel-gallery" onClick={openGallery} role={hd.nuiteeHotelId ? 'button' : undefined}>
+          <div className="hotel-gallery">
             {gallery.map((img, idx) => (
-              <div className="hg-cell" key={idx}>
+              <button className="hg-cell" key={idx} onClick={() => setLightboxIdx(idx)} aria-label={`${lang === 'pt' ? 'Foto' : 'Photo'} ${idx + 1}`}>
                 <img src={img} alt={`${booking.hotelName} ${idx + 1}`} loading="lazy" />
                 {idx === gallery.length - 1 && extra > 0 && (
                   <span className="hg-more">+{extra} {lang === 'pt' ? 'fotos' : 'photos'}</span>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -149,6 +181,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             <div className="hotel-badges">
               {star >= 5 && <span className="hotel-badge-lux">{lang === 'pt' ? 'Luxo' : 'Luxury'}</span>}
               {star > 0 && <span className="hotel-stars">{'★'.repeat(star)}</span>}
+              {rating > 0 && (
+                <span className="hotel-rating">
+                  <b>{rating.toFixed(1)}</b>
+                  {reviews > 0 && (
+                    <span className="hotel-rating-count">
+                      {reviews.toLocaleString(locale)} {lang === 'pt' ? 'avaliações' : 'reviews'}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
             <div className="hotel-name-lg">{booking.hotelName}</div>
             {desc && <p className="hotel-desc">{desc}</p>}
@@ -163,19 +205,26 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
           </div>
           <aside className="hotel-ref-area">
             <div className="hotel-area-title">{lang === 'pt' ? 'Explore a região' : 'Explore the area'}</div>
-            {coords ? (
-              <a
-                className="hotel-area-card"
-                href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`}
-                target="_blank" rel="noopener noreferrer"
-              >
-                <span className="hac-pin">📍</span>
-                <span className="hac-text">
-                  {hd.address && <b>{hd.address}</b>}
-                  <span>{booking.destination}</span>
-                </span>
-                <span className="hac-go">{lang === 'pt' ? 'Ver no mapa ›' : 'View on map ›'}</span>
-              </a>
+            {mapSrc ? (
+              <div className="hotel-map">
+                <iframe
+                  className="hotel-map-frame"
+                  title={lang === 'pt' ? 'Mapa do hotel' : 'Hotel map'}
+                  src={mapSrc}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                <div className="hotel-map-foot">
+                  {hd.address && <span className="hotel-map-addr">{hd.address}</span>}
+                  <a
+                    className="hotel-map-link"
+                    href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`}
+                    target="_blank" rel="noopener noreferrer"
+                  >
+                    {lang === 'pt' ? 'Abrir no mapa ›' : 'Open in maps ›'}
+                  </a>
+                </div>
+              </div>
             ) : (
               hd.address && <p className="hotel-ref-address">📍 {hd.address}, {booking.destination}</p>
             )}
@@ -186,6 +235,62 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             ? 'As informações e imagens do hotel são exibidas como referência. As condições válidas da reserva são as informadas na confirmação original.'
             : 'Hotel information and images are shown for reference. The valid booking conditions are those stated in the original confirmation.'}
         </div>
+      </div>
+    );
+  })();
+
+  // ── Monitoring & market snapshot (items 4, 6, 8) ──────────────────────
+  // Honest, data-backed signals: how often we've checked, the lowest price we've
+  // seen for these dates, savings so far, and when a drop last happened.
+  const monitorSection = (() => {
+    const ph = Array.isArray(booking.priceHistory) ? booking.priceHistory.filter(p => p && p.price > 0) : [];
+    const lowest = ph.length ? Math.min(...ph.map(p => p.price)) : null;
+    const latest = ph.length ? ph[ph.length - 1].price : null;
+    const first = ph.length ? ph[0].price : null;
+    const saved = booking.status === 'confirmed_savings' ? (booking.totalSavings || 0) : 0;
+    const potential = booking.potentialSavings || booking.totalSavings || 0;
+    const lastDrop = [...(booking.alerts || [])].reverse().find(a => a?.type === 'price_drop');
+    // Verdict vs. the price the user is holding.
+    let verdict = null;
+    if (lowest != null) {
+      const base = totalPrice;
+      if (lowest < base * 0.985) {
+        const pct = Math.round(((base - lowest) / base) * 100);
+        verdict = { cls: 'down', text: lang === 'pt'
+          ? `Já vimos ${fmt(lowest)} para suas datas — ${pct}% abaixo do que você pagou. Continuamos de olho.`
+          : `We've seen ${fmt(lowest)} for your dates — ${pct}% below what you paid. We're still watching.` };
+      } else if (first != null && latest != null && latest > first * 1.02) {
+        verdict = { cls: 'up', text: lang === 'pt'
+          ? 'Os preços para suas datas estão subindo — bom ter reservado quando reservou.'
+          : 'Prices for your dates are trending up — good that you booked when you did.' };
+      } else {
+        verdict = { cls: 'flat', text: lang === 'pt'
+          ? 'Os preços estão estáveis. Avisamos assim que caírem.'
+          : 'Prices are holding steady. We\'ll alert you the moment they drop.' };
+      }
+    }
+    const stats = [
+      { label: lang === 'pt' ? 'Verificações' : 'Checks', value: `${booking.checkCount || 0}×` },
+      { label: lang === 'pt' ? 'Última' : 'Last checked', value: relativeTime(booking.lastChecked, lang === 'pt') },
+      { label: lang === 'pt' ? 'Menor visto' : 'Lowest seen', value: lowest != null ? fmt(lowest) : '—' },
+      { label: saved > 0 ? (lang === 'pt' ? 'Economizado' : 'Saved') : (lang === 'pt' ? 'Economia potencial' : 'Potential'), value: (saved || potential) > 0 ? fmt(saved || potential) : '—', accent: true },
+    ];
+    return (
+      <div className="detail-card monitor-card">
+        <div className="monitor-grid">
+          {stats.map((s, i) => (
+            <div className="monitor-stat" key={i}>
+              <span className="ms-label">{s.label}</span>
+              <span className={`ms-value ${s.accent ? 'accent' : ''}`}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+        {verdict && <div className={`monitor-verdict ${verdict.cls}`}>{verdict.text}</div>}
+        {lastDrop && (
+          <div className="monitor-lastdrop">
+            {lang === 'pt' ? 'Última queda' : 'Last price drop'}: {relativeTime(lastDrop.date, lang === 'pt')}
+          </div>
+        )}
       </div>
     );
   })();
@@ -237,6 +342,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
 
         {/* Hotel gallery/info — shown at the top of the page */}
         {hotelSection}
+
+        {/* Monitoring & market snapshot */}
+        {monitorSection}
 
         <div className="detail-grid">
           {/* Booking info card */}
@@ -555,9 +663,21 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                 <strong>{booking.confirmationNumber}</strong>.
               </p>
             </div>
-            <button className="btn btn-accent btn-lg" onClick={() => setShowConfirmModal(true)}>
-              {t('savings.confirmBtn')}
-            </button>
+            <div className="rebook-actions">
+              {rebook && (
+                <a
+                  className="btn btn-lg btn-rebook"
+                  href={rebook.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {lang === 'pt' ? `Reservar em ${rebook.source}` : `Rebook on ${rebook.source}`} — {fmt(rebook.price)}
+                </a>
+              )}
+              <button className="btn btn-accent btn-lg" onClick={() => setShowConfirmModal(true)}>
+                {t('savings.confirmBtn')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -595,10 +715,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
         />
       )}
 
-      {showNuiteeModal && booking.nuiteeHotelId && (
-        <HotelDetailsModal
-          hotelId={booking.nuiteeHotelId}
-          onClose={() => setShowNuiteeModal(false)}
+      {lightboxIdx !== null && (
+        <PhotoLightbox
+          images={(booking.hotelData?.images || []).map(imgUrl).filter(Boolean)}
+          startIndex={lightboxIdx}
+          alt={booking.hotelName}
+          onClose={() => setLightboxIdx(null)}
         />
       )}
     </div>

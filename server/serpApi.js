@@ -165,6 +165,8 @@ export function extractHotelInfoFromDetail(data) {
     // used to build a clean property gallery that excludes guest snapshots.
     photosLink: data.serpapi_google_hotels_photos_link || null,
     star: data.extracted_hotel_class || data.hotel_class || null,
+    rating: data.overall_rating || null,        // guest rating (e.g. 4.7)
+    reviews: data.reviews || null,              // review count
     address: data.address || null,
     coords,
     description: data.description || null,

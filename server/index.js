@@ -182,7 +182,7 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
 // Version of the SerpApi imagery pipeline. Bump when image sourcing changes so
 // stale cached galleries (e.g. ones built before people-filtering) are refreshed
 // on next view instead of served forever.
-const SERP_ENRICH_VERSION = 2;
+const SERP_ENRICH_VERSION = 3;
 
 /**
  * Build the hotelData blob served to the booking detail view from SerpApi's
@@ -199,6 +199,8 @@ function buildSerpHotelData(identity, booking, hotelInfo, images) {
     country: identity.country || null,
     coords: hotelInfo.coords || null,
     star: hotelInfo.star || null,
+    rating: hotelInfo.rating || null,
+    reviews: hotelInfo.reviews || null,
     description: hotelInfo.description || null,
     amenities: Array.isArray(hotelInfo.amenities) ? hotelInfo.amenities : [],
     images: (images || hotelInfo.images || []).filter(i => typeof i === 'string' && i),
