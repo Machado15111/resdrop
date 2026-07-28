@@ -5,9 +5,11 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // Lint only the React app. The server has its own suite (cd server && node
+  // --test), and dist/subprojects/worktrees are build output or unrelated code.
+  globalIgnores(['dist', 'server', 'public', 'agents', 'docs', 'voyu', 'DROV', 'Coffeetip', 'marketing', '.claude']),
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['src/**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
