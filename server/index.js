@@ -622,10 +622,15 @@ async function applyBestResult(booking, results) {
       if (!booking.alerts) booking.alerts = [];
 
       let alertType, alertMessage;
+      // Only a NEW or improved drop is actionable. Without this guard, a booking
+      // sitting at a persistently lower rate would email + push the user on
+      // EVERY daily monitoring cycle (alert-fatigue spam) now that monitoring
+      // runs 24/7. Computed before bestPrice is updated below.
+      const isNewDrop = diff > 0 && (!booking.bestPrice || currentPrice < booking.bestPrice);
 
       if (diff > 0) {
         // PRICE DROP — comparable product confirmed, set as potential savings
-        if (!booking.bestPrice || currentPrice < booking.bestPrice) {
+        if (isNewDrop) {
           booking.bestPrice = currentPrice;
           booking.bestSource = bestMatch.source;
           booking.potentialSavings = diff;
@@ -643,27 +648,31 @@ async function applyBestResult(booking, results) {
         }
         alertType = 'price_drop';
         alertMessage = `📉 Price drop: R$${currentPrice} via ${bestMatch.source} — savings R$${diff}`;
-        booking.alerts.push({
-          id: generateId(),
-          date: new Date().toISOString(),
-          type: alertType,
-          message: alertMessage,
-          savings: diff,
-        });
+        // Record the alert + notify only on a new/improved drop, never on a daily
+        // re-check of the same rate.
+        if (isNewDrop) {
+          booking.alerts.push({
+            id: generateId(),
+            date: new Date().toISOString(),
+            type: alertType,
+            message: alertMessage,
+            savings: diff,
+          });
 
-        // Fire-and-forget price drop email
-        // Fetch user for currency/lang context
-        db.getUser(booking.email).then(u => {
-          sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking, u || {}).catch(() => {});
-        }).catch(() => {});
+          // Fire-and-forget price drop email
+          // Fetch user for currency/lang context
+          db.getUser(booking.email).then(u => {
+            sendPriceDropAlert(booking.email, booking.guestName || 'Traveler', booking, u || {}).catch(() => {});
+          }).catch(() => {});
 
-        // Fire-and-forget Web Push (no-op unless VAPID is configured).
-        sendPushToUser(booking.email, {
-          title: `📉 ${booking.hotelName}`,
-          body: `A lower rate appeared via ${bestMatch.source} — save ${booking.currency || ''}${diff}.`,
-          url: `/bookings/${booking.id}`,
-          tag: `drop-${booking.id}`,
-        }).catch(() => {});
+          // Fire-and-forget Web Push (no-op unless VAPID is configured).
+          sendPushToUser(booking.email, {
+            title: `📉 ${booking.hotelName}`,
+            body: `A lower rate appeared via ${bestMatch.source} — save ${booking.currency || ''}${diff}.`,
+            url: `/bookings/${booking.id}`,
+            tag: `drop-${booking.id}`,
+          }).catch(() => {});
+        }
       } else if (diff === 0) {
         alertType = 'price_same';
         alertMessage = `➡️ Price stable: R$${currentPrice} via ${bestMatch.source}`;
@@ -686,18 +695,22 @@ async function applyBestResult(booking, results) {
         });
       }
 
-      // Write to fare_alerts table
-      try {
-        await db.createFareAlert({
-          bookingId: booking.id,
-          type: alertType,
-          message: alertMessage,
-          savings: diff > 0 ? diff : 0,
-          currentPrice,
-          source: bestMatch.source,
-        });
-      } catch (err) {
-        console.error('[applyBestResult] Failed to create fare alert:', err.message);
+      // Write to fare_alerts table (feeds the user's Alerts page). For a price
+      // drop, only on a new/improved one so the list isn't filled with daily
+      // repeats; price_same/price_increase keep their existing behavior.
+      if (alertType !== 'price_drop' || isNewDrop) {
+        try {
+          await db.createFareAlert({
+            bookingId: booking.id,
+            type: alertType,
+            message: alertMessage,
+            savings: diff > 0 ? diff : 0,
+            currentPrice,
+            source: bestMatch.source,
+          });
+        } catch (err) {
+          console.error('[applyBestResult] Failed to create fare alert:', err.message);
+        }
       }
 
       // Log to activity_log
