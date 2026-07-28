@@ -2,6 +2,26 @@
 
 **Before using any agent:** Read `CEREBRO.md` to load full product context.
 
+## Registered Claude Code subagents
+
+Each agent below is now a real, invokable Claude Code subagent in
+`.claude/agents/` (they auto-load their playbook here + `CEREBRO.md`). Invoke by
+name in Claude Code, or the model picks one from its description:
+
+| # | Playbook file | Subagent name |
+|---|---|---|
+| 01 | 01-special-fares-operator.md | `resdrop-special-fares` |
+| 02 | 02-smart-alert-composer.md | `resdrop-alert-composer` |
+| 03 | 03-booking-intake-agent.md | `resdrop-booking-intake` |
+| 04 | 04-customer-success-agent.md | `resdrop-customer-success` |
+| 05 | 05-user-support-agent.md | `resdrop-support` |
+| 06 | 06-retention-growth-agent.md | `resdrop-retention-growth` |
+| 07 | 07-admin-intelligence-agent.md | `resdrop-admin-intel` |
+
+(DROV brand agents — `drov-*` — live in the same `.claude/agents/` folder and
+are unrelated to ResDrop.) The copy-paste prompt method below still works for a
+fresh chat outside Claude Code.
+
 ---
 
 ## Quick Reference

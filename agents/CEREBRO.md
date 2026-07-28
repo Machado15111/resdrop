@@ -34,11 +34,12 @@ If copy, a support response, or an email sounds like any of the above, it is wro
 ## 3. How the Product Works (Technical Truth)
 
 ### Monitoring Cycle
-- The scheduler runs **3 times per day** (06:00, 14:00, 22:00 UTC by default)
-- It checks all bookings with status `monitoring` or `lower_fare_found`
+- The scheduler runs automatically on a **cost-capped interval** (multiple times a day), bounded by a daily search budget — not fixed 3x/day slots
+- Each booking is re-checked at most once per ~24h; bookings are prioritised by soonest check-in
+- It checks bookings with status `monitoring`, `savings_found`, or `lower_fare_found`, and skips stays that have already ended
 - For each booking, it queries SerpApi Google Hotels (primary) or Booking.com Demand API (fallback)
 - Results are filtered by: exact hotel match, equivalent room category, same or better cancellation terms, refundable rate only
-- If a better equivalent is found: alert is created, email is sent, booking status updates to `lower_fare_found`
+- If a better equivalent is found: alert is created, email + Web Push are sent, booking status updates to `lower_fare_found`
 
 ### Sources Monitored
 1. **Hotel direct website** — official booking channel, member rates, direct-only pricing
@@ -216,7 +217,7 @@ ResDrop sounds like a well-informed advisor who communicates clearly and without
 2. We only monitor **refundable** reservations
 3. We compare only **equivalent** options — same hotel, same room, same or better terms
 4. We check: **hotel direct**, **Expedia**, **Booking.com**, and **supported partner sources**
-5. Monitoring runs **3 times per day** — not in real-time
+5. Monitoring runs automatically **multiple times a day** (cost-capped interval, not real-time)
 6. We **never rebook** without user approval
 7. The user must **initiate any rebooking** — ResDrop only alerts
 8. Special fares are a **premium feature** for eligible subscribers
