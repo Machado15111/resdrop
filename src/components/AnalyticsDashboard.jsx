@@ -8,7 +8,7 @@ function AnalyticsDashboard() {
   const { authFetch } = useAuth();
   const { lang } = useI18n();
   const pt = lang === 'pt';
-  const [bookings, setBookings] = useState([]);
+  const [, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalBookings: 0,

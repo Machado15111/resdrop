@@ -375,7 +375,7 @@ export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) 
                           {room.bedTypes?.length > 0 && (
                             <div className="nuitee-room-beds">
                               <strong>Beds:</strong>{' '}
-                              {room.bedTypes.map((b, bi) => `${b.quantity}x ${b.bedType}`).join(', ')}
+                              {room.bedTypes.map((b) => `${b.quantity}x ${b.bedType}`).join(', ')}
                             </div>
                           )}
 

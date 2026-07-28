@@ -65,7 +65,7 @@ function AlertsPage() {
           if (type === 'price_increase') return `📈 Price went up: R$${price} via ${source} (+R$${diff})`;
         }
       }
-    } catch {}
+    } catch { /* keep the default message */ }
     return message;
   };
 

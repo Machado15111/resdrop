@@ -58,7 +58,7 @@ function AdminDashboard() {
 
   if (!adminData) return null;
 
-  const { stats, scheduler, users, bookings, revenue, affiliates, system } = adminData;
+  const { stats, scheduler, users, revenue, affiliates, system } = adminData;
 
   const tabs = ['overview', 'bookings', 'users', 'revenue', 'monitoring', 'activity', 'affiliates', 'system'];
   const tabIcons = {
@@ -132,7 +132,7 @@ function AdminDashboard() {
 
 // ─── OVERVIEW TAB (Task 11 Redesign) ─────────────────────
 function OverviewTab({ data }) {
-  const { inboundStats, recentImports = [], stats, scheduler, users } = data;
+  const { inboundStats, recentImports = [], stats } = data;
 
   const ib = inboundStats || {
     emailsToday: 0,
@@ -804,7 +804,7 @@ function BookingsTab({ authFetch }) {
 }
 
 // ─── USERS TAB ─────────────────────────────────────────────
-function UsersTab({ users, stats, authFetch }) {
+function UsersTab({ users, authFetch }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
   const [expandedUser, setExpandedUser] = useState(null);
@@ -1411,7 +1411,7 @@ function AffiliatesTab({ affiliates, config }) {
 }
 
 // ─── SYSTEM TAB ────────────────────────────────────────────
-function SystemTab({ system, config, authFetch }) {
+function SystemTab({ system, config }) {
   const [emailStatus, setEmailStatus] = useState(null);
 
   useEffect(() => {

@@ -64,7 +64,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
   const [documentId, setDocumentId] = useState(null);
   const [confidenceScores, setConfidenceScores] = useState({});
   const [duplicateWarning, setDuplicateWarning] = useState(null);
-  const [sourceType, setSourceType] = useState(null); // 'file', 'paste', 'manual'
+  const [, setSourceType] = useState(null); // 'file', 'paste', 'manual'
   const [showOptional, setShowOptional] = useState(false);
 
   const [form, setForm] = useState({
@@ -379,7 +379,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         delete submitData.roomTypeCustom;
       }
       await onSubmit(submitData);
-    } catch (err) {
+    } catch {
       setError(lang === 'pt' ? 'Erro de conexão' : 'Connection error');
     } finally {
       submittingRef.current = false;

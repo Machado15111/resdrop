@@ -1,0 +1,47 @@
+name: CI
+
+# Gate every push to main and every PR: catch lint/build/test regressions
+# before they reach resdrop.app (which deploys on push).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend — lint + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  server:
+    name: Server — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    # Dummy sandbox values so config-dependent tests run; no real secrets. Tests
+    # use a mock DB when DATABASE_URL is unset and tolerate API failures.
+    env:
+      NODE_ENV: test
+      NUITEE_ENV: sandbox
+      NUITEE_API_KEY_SANDBOX: ci-test-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      # Per-test timeout so a slow/hung network-bound test fails fast instead of
+      # hanging the pipeline. CI has fast network; the dummy Nuitée key 401s
+      # quickly and those tests assert on the graceful-failure path.
+      - run: node --test --test-timeout=30000

@@ -7,10 +7,12 @@ test('PT resolves BRL, EN resolves USD', () => {
   assert.equal(resolveBillingCurrency('en'), 'USD');
 });
 
-test('planPrice keeps the same amounts per language', () => {
-  assert.deepEqual(planPrice('viajante', 'pt'), { planId: 'viajante', currency: 'BRL', amount: 25 });
-  assert.deepEqual(planPrice('viajante', 'en'), { planId: 'viajante', currency: 'USD', amount: 25 });
-  assert.equal(planPrice('premium', 'en').amount, PLAN_AMOUNTS.premium);
+test('planPrice returns the localized amount per language', () => {
+  assert.deepEqual(planPrice('viajante', 'pt'), { planId: 'viajante', currency: 'BRL', amount: 37 });
+  assert.deepEqual(planPrice('viajante', 'en'), { planId: 'viajante', currency: 'USD', amount: 9 });
+  assert.deepEqual(planPrice('premium', 'pt'), { planId: 'premium', currency: 'BRL', amount: 125 });
+  assert.deepEqual(planPrice('premium', 'en'), { planId: 'premium', currency: 'USD', amount: 36 });
+  assert.equal(planPrice('premium', 'en').amount, PLAN_AMOUNTS.premium.USD);
 });
 
 test('PT never USD, EN never BRL', () => {
