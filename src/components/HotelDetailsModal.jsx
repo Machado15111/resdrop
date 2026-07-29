@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { API } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { IconHotel, IconSearch, IconClock, IconAlertCircle, IconCheck, IconExternalLink, IconSparkles } from './Icons';
+import { sanitizeHtml } from '../sanitize';
 import './HotelDetailsModal.css';
 
 export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) {
@@ -293,7 +294,7 @@ export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) 
                       <h3 className="nuitee-section-title">About the Property</h3>
                       <div
                         className="nuitee-html-description"
-                        dangerouslySetInnerHTML={{ __html: hotelData.hotelDescription }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(hotelData.hotelDescription) }}
                       />
                     </div>
                   )}
@@ -444,7 +445,7 @@ export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) 
                       <h3 className="nuitee-section-title">⚠️ Important Guest Information</h3>
                       <div
                         className="nuitee-important-info"
-                        dangerouslySetInnerHTML={{ __html: hotelData.hotelImportantInformation }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(hotelData.hotelImportantInformation) }}
                       />
                     </div>
                   )}

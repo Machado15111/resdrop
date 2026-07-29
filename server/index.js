@@ -336,6 +336,24 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  // Content-Security-Policy (defense-in-depth). Permissive enough for the SPA
+  // (external hashed bundles, Google Fonts, hotel-image CDNs over https, the
+  // OpenStreetMap map embed) while locking down object/base/form and framing.
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' https:",
+    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'self' 'unsafe-inline'",
+    "connect-src 'self' https:",
+    "frame-src https://www.openstreetmap.org",
+    "worker-src 'self'",
+  ].join('; '));
   next();
 });
 
@@ -375,6 +393,7 @@ const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`);  
 const resetSubmitLimit = rateLimit(15 * 60 * 1000, 10, req => `resetSubmit:${req.ip}`); // 10 reset attempts per 15 min
 const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`);  // 10 bookings per min
 const parseRateLimit = rateLimit(15 * 60 * 1000, 30, req => `parse:${req.userEmail}`); // 30 parses per 15 min
+const publicRateLimit = rateLimit(60 * 1000, 60, req => `public:${req.ip}`);           // 60/min per IP (unauth public endpoints)
 
 // ─── Status Log ──────────────────────────────────────────────
 const API_MODE = isSerpApiConfigured() ? 'LIVE (SerpApi)' : isBookingApiConfigured() ? 'LIVE (Booking)' : 'SIMULATION';
@@ -1557,7 +1576,7 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
 });
 
 // ─── HOTEL SEARCH ───────────────────────────────────────────
-app.get('/api/hotels/search', (req, res) => {
+app.get('/api/hotels/search', publicRateLimit, (req, res) => {
   const q = (req.query.q || '').toLowerCase().trim();
   if (!q || q.length < 2) return res.json([]);
   const results = hotels
@@ -1815,7 +1834,7 @@ app.get('/api/awin/status', authMiddleware, adminMiddleware, async (req, res) =>
   }
 });
 
-app.get('/api/awin/promotions', async (req, res) => {
+app.get('/api/awin/promotions', publicRateLimit, async (req, res) => {
   if (!isAwinConfigured()) {
     return res.status(400).json({ error: 'Awin not configured' });
   }
@@ -1828,7 +1847,7 @@ app.get('/api/awin/promotions', async (req, res) => {
   }
 });
 
-app.post('/api/awin/link', (req, res) => {
+app.post('/api/awin/link', publicRateLimit, (req, res) => {
   const { destination, checkinDate, checkoutDate, adults, rooms } = req.body;
   if (!isAwinConfigured()) {
     return res.status(400).json({ error: 'Awin not configured' });
@@ -1861,7 +1880,7 @@ app.get('/api/awin/transactions', authMiddleware, adminMiddleware, async (req, r
 
 // ─── EXPEDIA ROUTES ──────────────────────────────────────────
 
-app.get('/api/expedia/status', (req, res) => {
+app.get('/api/expedia/status', publicRateLimit, (req, res) => {
   res.json({
     configured: isExpediaConfigured(),
     programme: getExpediaProgrammeInfo(),
@@ -1869,7 +1888,7 @@ app.get('/api/expedia/status', (req, res) => {
   });
 });
 
-app.post('/api/expedia/link', (req, res) => {
+app.post('/api/expedia/link', publicRateLimit, (req, res) => {
   const { destination, checkinDate, checkoutDate, adults, rooms, currency } = req.body;
   const link = buildExpediaSearchLink({
     destination,
@@ -1883,7 +1902,7 @@ app.post('/api/expedia/link', (req, res) => {
   res.json({ affiliateLink: link });
 });
 
-app.post('/api/expedia/commission', (req, res) => {
+app.post('/api/expedia/commission', publicRateLimit, (req, res) => {
   const { amount, type } = req.body;
   const commission = calculateExpediaCommission(amount || 0, type || 'lodging');
   res.json(commission);

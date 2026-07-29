@@ -214,16 +214,11 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                 />
-                <div className="hotel-map-foot">
-                  {hd.address && <span className="hotel-map-addr">{hd.address}</span>}
-                  <a
-                    className="hotel-map-link"
-                    href={`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`}
-                    target="_blank" rel="noopener noreferrer"
-                  >
-                    {lang === 'pt' ? 'Abrir no mapa ›' : 'Open in maps ›'}
-                  </a>
-                </div>
+                {hd.address && (
+                  <div className="hotel-map-foot">
+                    <span className="hotel-map-addr">{hd.address}</span>
+                  </div>
+                )}
               </div>
             ) : (
               hd.address && <p className="hotel-ref-address">📍 {hd.address}, {booking.destination}</p>
