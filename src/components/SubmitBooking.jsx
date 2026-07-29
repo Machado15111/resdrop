@@ -76,7 +76,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     roomTypeCustom: '',
     originalPrice: '',
     currency: 'BRL',
-    taxesIncluded: false,
+    taxesIncluded: true,
     rateType: 'total',
     preferences: [],
     guestName: '',
@@ -980,22 +980,35 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
                   </div>
                 </div>
 
-                {/* Taxes included */}
-                <label className="taxes-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={form.taxesIncluded}
-                    onChange={(e) => setForm(prev => ({ ...prev, taxesIncluded: e.target.checked }))}
-                  />
-                  <span>{t('submit.taxesIncluded')}</span>
-                </label>
+                {/* Taxes included — explicit yes/no */}
+                <div className="form-group form-group-taxes">
+                  <label className="form-label">
+                    {lang === 'pt' ? 'Impostos incluídos no valor?' : 'Are taxes included in the price?'}
+                  </label>
+                  <div className="rate-type-toggle">
+                    <button
+                      type="button"
+                      className={`rate-pill ${form.taxesIncluded ? 'active' : ''}`}
+                      onClick={() => setForm(prev => ({ ...prev, taxesIncluded: true }))}
+                    >
+                      {lang === 'pt' ? 'Sim' : 'Yes'}
+                    </button>
+                    <button
+                      type="button"
+                      className={`rate-pill ${!form.taxesIncluded ? 'active' : ''}`}
+                      onClick={() => setForm(prev => ({ ...prev, taxesIncluded: false }))}
+                    >
+                      {lang === 'pt' ? 'Não' : 'No'}
+                    </button>
+                  </div>
+                </div>
 
                 {/* PNR / Confirmation Number */}
                 <div className="form-group pnr-field-main">
                   <label className="form-label">
-                    {t('submit.confirmationCode') || (lang === 'pt' ? 'Código de Confirmação (PNR)' : 'Confirmation Code (PNR)')}
+                    {lang === 'pt' ? 'Código de confirmação' : 'Confirmation code'}
                     <span className="field-hint">
-                      {lang === 'pt' ? 'Opcional, mas muito recomendado para o hotel.' : 'Optional, but highly recommended.'}
+                      {lang === 'pt' ? 'Opcional — ajuda a identificar sua reserva com precisão.' : 'Optional — helps us match your reservation precisely.'}
                     </span>
                   </label>
                   <input

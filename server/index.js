@@ -166,7 +166,22 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
   //    Skipped in cacheOnly so the main booking response never blocks on imagery.
   if (!cacheOnly && isSerpApiConfigured()) {
     try {
-      const serpResults = await searchRealPrices(booking, { currency: booking.currency || 'USD' });
+      // Hotel photos are date-independent, but Google Hotels returns nothing for
+      // a stay far in the future (rates aren't published yet). Search a NEAR-TERM
+      // window purely to fetch imagery, then cache it under the booking's
+      // (date-independent) hotel key so it shows regardless of the stay dates.
+      // Google Hotels is flaky per date for some queries (returns a detail page
+      // with photos on some near-term dates, "no results" on others), so try a
+      // few windows and stop as soon as we get imagery.
+      const soon = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+      let serpResults = [];
+      for (const off of [30, 60, 90]) {
+        serpResults = await searchRealPrices(
+          { ...booking, checkinDate: soon(off), checkoutDate: soon(off + 3) },
+          { currency: booking.currency || 'USD' }
+        );
+        if (serpResults.hotelInfo?.images?.length) break;
+      }
       const hotelData = await persistSerpHotelData(booking, serpResults.hotelInfo);
       if (hotelData && Array.isArray(hotelData.images) && hotelData.images.length > 0) {
         return { hotel: hotelData, matchScore: 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
