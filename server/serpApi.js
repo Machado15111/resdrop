@@ -826,6 +826,37 @@ function detectSource(prop, link) {
 /**
  * Full search: query SerpApi and return parsed results
  */
+// Google Hotels is inconsistent about which query phrasing resolves a given
+// hotel: the SAME property can return rich results for one wording and "no
+// results" for another (verified: "Hotel Fasano São Paulo" → 22 rate rows,
+// "Fasano São Paulo" → no results). There is no single phrasing that works for
+// every hotel, so we try a few sensible variations and take the first that
+// yields prices, keeping any imagery found along the way. Ordered cheapest-hit
+// first; deduped so we never spend a call on an identical query twice.
+function buildQueryVariants(hotelName, destination) {
+  const variants = [];
+  const seen = new Set();
+  const push = (name, dest) => {
+    name = (name || '').trim();
+    dest = (dest || '').trim();
+    if (!name) return;
+    const key = (dest ? `${name} ${dest}` : name).toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    variants.push({ hotelName: name, destination: dest });
+  };
+  push(hotelName, destination);                 // 1. exactly as the user entered it
+  const city = (destination || '').split(',')[0].trim(); // "São Paulo, Brasil" → "São Paulo"
+  if (city) push(hotelName, city);              // 2. drop the country, keep the city
+  push(hotelName, '');                          // 3. hotel name alone (city sometimes hurts)
+  // 4. prefix "Hotel" when the name lacks a property-type word — Google often
+  // only resolves the branded form ("Hotel Fasano" vs "Fasano").
+  if (!/\b(hotel|hotels|resort|pousada|inn|palace|suites?|hostel|lodge|residence|villa|casa)\b/i.test(hotelName || '')) {
+    push(`Hotel ${hotelName}`, city || destination);
+  }
+  return variants;
+}
+
 export async function searchRealPrices(booking, options = {}) {
   const currency = options.currency || 'BRL';
   // Normalize the user's price to a stay TOTAL so per-vendor savings compare
@@ -837,15 +868,25 @@ export async function searchRealPrices(booking, options = {}) {
   const effectiveOriginal = booking.rateType === 'per_night'
     ? (parseFloat(booking.originalPrice) || 0) * stayNights
     : (parseFloat(booking.originalPrice) || 0);
-  try {
-    // Step 1 — text search to locate the property.
-    const searchData = await searchGoogleHotels({
-      hotelName: booking.hotelName,
-      destination: booking.destination,
-      checkinDate: booking.checkinDate,
-      checkoutDate: booking.checkoutDate,
-      currency,
-    });
+
+  // Run one query phrasing end-to-end (locate property → detail page → parse).
+  // Returns a results array (possibly empty), with `.hotelInfo` attached when
+  // imagery/metadata was salvaged. Own "no results" errors are swallowed so the
+  // caller can fall through to the next variant.
+  const attemptSearch = async (hotelName, destination) => {
+    let searchData;
+    try {
+      // Step 1 — text search to locate the property.
+      searchData = await searchGoogleHotels({
+        hotelName, destination,
+        checkinDate: booking.checkinDate,
+        checkoutDate: booking.checkoutDate,
+        currency,
+      });
+    } catch (err) {
+      console.error(`[SerpApi] Query "${destination ? `${hotelName} ${destination}` : hotelName}" failed: ${err.message}`);
+      return [];
+    }
 
     // Step 2 — if the search returned a LIST of properties, find the one that
     // actually matches the booked hotel and fetch its detail page by
@@ -853,9 +894,6 @@ export async function searchRealPrices(booking, options = {}) {
     // Hotels.com, official hotel site) for the EXACT hotel — the multi-source
     // comparison. A plain list only yields one price per property (usually just
     // Booking.com) and pollutes results with unrelated hotels.
-    // Hotel imagery/metadata salvaged from a FORMAT A detail page (Task 1). Kept
-    // separate so we can attach it to the final array even when the detail page
-    // had no bookable rates (empty results but real photos).
     let hotelInfo = null;
     const properties = searchData.properties || [];
     if (properties.length > 0) {
@@ -865,7 +903,7 @@ export async function searchRealPrices(booking, options = {}) {
       // intended hotel). Fetching its detail page is safe: the parser tags each
       // result with isExactMatch via the detail page's own name, and the UI only
       // ever shows exact-hotel quotes — a wrong guess yields an empty panel, not
-      // a wrong rate. This maximizes the chance of reaching the multi-vendor page.
+      // a wrong rate. Match against the ORIGINAL booked name, not the variant.
       const nameMatched = withToken.find(p => isHotelNameMatch(p.name, booking.hotelName));
       const target = nameMatched || withToken[0] || null;
 
@@ -875,8 +913,7 @@ export async function searchRealPrices(booking, options = {}) {
         }
         try {
           const detailData = await searchGoogleHotels({
-            hotelName: booking.hotelName,
-            destination: booking.destination,
+            hotelName, destination,
             checkinDate: booking.checkinDate,
             checkoutDate: booking.checkoutDate,
             currency,
@@ -897,13 +934,31 @@ export async function searchRealPrices(booking, options = {}) {
     // Fallback — parse whatever the first response gave us (detail page when the
     // search resolved directly to one hotel, or the list otherwise).
     const results = parseGoogleHotelsResults(searchData, effectiveOriginal, booking);
-    // Preserve imagery from the detail page even when it had no bookable rates.
     if (!results.hotelInfo && hotelInfo) results.hotelInfo = hotelInfo;
-    const bestMatch = results.find(r => r.isExactMatch);
-    console.log(`[SerpApi] Parsed ${results.length} results | Best match: ${bestMatch ? `R$${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'}`);
     return results;
-  } catch (err) {
-    console.error(`[SerpApi] Search failed: ${err.message}`);
-    return [];
+  };
+
+  // Try each phrasing until one returns prices. Stop early on the first hit so a
+  // hotel that resolves immediately costs no extra API calls; only genuinely
+  // hard-to-find hotels pay for the fallbacks. Carry the best imagery forward so
+  // even a price-less result still shows a gallery.
+  const variants = buildQueryVariants(booking.hotelName, booking.destination);
+  let bestImagery = null;
+  for (const v of variants) {
+    const results = await attemptSearch(v.hotelName, v.destination);
+    if (results.length > 0) {
+      if (!results.hotelInfo && bestImagery) results.hotelInfo = bestImagery;
+      const bestMatch = results.find(r => r.isExactMatch);
+      console.log(`[SerpApi] "${v.destination ? `${v.hotelName} ${v.destination}` : v.hotelName}" → ${results.length} results | Best: ${bestMatch ? `${bestMatch.totalPrice} (${bestMatch.hotelName})` : 'none'}`);
+      return results;
+    }
+    if (results.hotelInfo && !bestImagery) bestImagery = results.hotelInfo;
   }
+
+  // No phrasing produced prices. Return an empty array that still carries any
+  // imagery we found, so the booking page can render a gallery without rates.
+  console.log(`[SerpApi] No prices for "${booking.hotelName}" after ${variants.length} query variant(s)${bestImagery ? ' (imagery salvaged)' : ''}`);
+  const empty = [];
+  if (bestImagery) empty.hotelInfo = bestImagery;
+  return empty;
 }
