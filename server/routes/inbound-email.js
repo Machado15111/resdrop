@@ -396,6 +396,10 @@ export async function processInboundEmailPayload({
   subject = typeof subject === 'string' ? subject : '';
   textContent = typeof textContent === 'string' ? textContent : '';
   attachments = Array.isArray(attachments) ? attachments : [];
+  // Cap attachment count so a single email can't fan out into unbounded parser
+  // work (cost/DoS guard on the extraction pipeline).
+  const MAX_ATTACHMENTS = parseInt(process.env.INBOUND_MAX_ATTACHMENTS, 10) || 10;
+  if (attachments.length > MAX_ATTACHMENTS) attachments = attachments.slice(0, MAX_ATTACHMENTS);
   if (!senderEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(senderEmail)) {
     return buildFailedResult({ source: 'inbound_email', message: 'Missing or invalid sender email' });
   }
@@ -732,16 +736,23 @@ export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
    */
   router.post('/inbound/cloudflare-email', rawParser, async (req, res) => {
     try {
-      // Secret authentication
+      // Secret authentication — FAIL CLOSED. Without a configured secret the
+      // endpoint is an unauthenticated booking-injection vector (spoof From ->
+      // write into any account), so refuse rather than process. Constant-time
+      // compare to avoid a timing oracle.
       const expectedSecret = process.env.INBOUND_WEBHOOK_SECRET;
       const providedSecret = req.headers['x-inbound-secret'];
-
-      if (expectedSecret) {
-        if (!providedSecret || providedSecret !== expectedSecret) {
+      if (!expectedSecret) {
+        console.error('[Cloudflare Inbound] Refusing: INBOUND_WEBHOOK_SECRET not configured');
+        return res.status(503).json({ error: 'Inbound email processing is not configured' });
+      }
+      {
+        const expBuf = Buffer.from(String(expectedSecret));
+        const gotBuf = Buffer.from(String(providedSecret || ''));
+        const ok = expBuf.length === gotBuf.length && crypto.timingSafeEqual(expBuf, gotBuf);
+        if (!ok) {
           return res.status(401).json({ error: 'Unauthorized: invalid or missing X-Inbound-Secret header' });
         }
-      } else {
-        console.warn('[Cloudflare Inbound] INBOUND_WEBHOOK_SECRET environment variable is not configured');
       }
 
       // Parse payload body
@@ -821,17 +832,20 @@ export default function inboundEmailRoutes(authMiddleware, dbClient = db) {
       // Secret authentication — header only (never accept secrets via query
       // string; they leak into access logs). Constant-time compare to avoid
       // timing oracles. Mirrors /inbound/cloudflare-email above.
+      // FAIL CLOSED — see /inbound/cloudflare-email above.
       const expectedSecret = process.env.INBOUND_WEBHOOK_SECRET;
       const providedSecret = req.headers['x-inbound-secret'];
-      if (expectedSecret) {
+      if (!expectedSecret) {
+        console.error('[Inbound Webhook] Refusing: INBOUND_WEBHOOK_SECRET not configured');
+        return res.status(503).json({ error: 'Inbound email processing is not configured' });
+      }
+      {
         const expBuf = Buffer.from(String(expectedSecret));
         const gotBuf = Buffer.from(String(providedSecret || ''));
         const ok = expBuf.length === gotBuf.length && crypto.timingSafeEqual(expBuf, gotBuf);
         if (!ok) {
           return res.status(401).json({ error: 'Unauthorized: invalid or missing X-Inbound-Secret header' });
         }
-      } else {
-        console.warn('[Inbound Webhook] INBOUND_WEBHOOK_SECRET environment variable is not configured');
       }
 
       const { from, sender, subject, text, html, attachments, messageId, rawEmail } = req.body;
