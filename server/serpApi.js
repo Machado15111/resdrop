@@ -105,10 +105,12 @@ export async function searchGoogleHotels({
     check_out_date: checkoutDate,
     adults: adults.toString(),
     currency,
-    gl: 'br',
-    hl: 'pt-br',
     api_key: apiKey,
   });
+  // NOTE: do NOT hardcode gl/hl (country/language). The Brazilian locale
+  // (gl=br,hl=pt-br) makes Google Hotels return "no results" for many valid
+  // queries/dates (verified: Copacabana Palace returned 0 with gl=br, 19 vendor
+  // prices without). Currency (above) is what drives pricing, not gl/hl.
 
   // Google Hotels ALWAYS requires `q` (SerpApi 400s without it, even when a
   // property_token is supplied). Adding property_token on top narrows the same
