@@ -207,18 +207,19 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             <div className="hotel-area-title">{lang === 'pt' ? 'Explore a região' : 'Explore the area'}</div>
             {mapSrc ? (
               <div className="hotel-map">
-                <iframe
-                  className="hotel-map-frame"
-                  title={lang === 'pt' ? 'Mapa do hotel' : 'Hotel map'}
-                  src={mapSrc}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-                {hd.address && (
-                  <div className="hotel-map-foot">
-                    <span className="hotel-map-addr">{hd.address}</span>
-                  </div>
-                )}
+                <div className="hotel-map-clip">
+                  <iframe
+                    className="hotel-map-frame"
+                    title={lang === 'pt' ? 'Mapa do hotel' : 'Hotel map'}
+                    src={mapSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
+                <div className="hotel-map-foot">
+                  {hd.address && <span className="hotel-map-addr">{hd.address}</span>}
+                  <span className="hotel-map-credit">© OpenStreetMap</span>
+                </div>
               </div>
             ) : (
               hd.address && <p className="hotel-ref-address">📍 {hd.address}, {booking.destination}</p>

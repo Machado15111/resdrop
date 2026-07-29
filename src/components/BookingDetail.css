@@ -900,14 +900,16 @@
 
 /* Map preview (OpenStreetMap embed) */
 .hotel-map { border: 1px solid var(--tl-border, #E8E3DA); border-radius: 12px; overflow: hidden; }
-.hotel-map-frame { width: 100%; height: 180px; border: 0; display: block; }
+/* Clip the iframe so OpenStreetMap's own bottom attribution/controls bar is
+   hidden; the required credit is shown minimally in the footer below. */
+.hotel-map-clip { height: 180px; overflow: hidden; }
+.hotel-map-frame { width: 100%; height: 240px; border: 0; display: block; }
 .hotel-map-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 12px; background: var(--tl-bg-surface, #fff);
+  padding: 8px 12px; background: var(--tl-bg-surface, #fff);
 }
 .hotel-map-addr { color: var(--tl-text-muted, #5b5852); font-size: 12.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hotel-map-link { color: var(--tl-bg-dark, #2D6A4F); font-weight: 700; font-size: 13px; white-space: nowrap; text-decoration: none; }
-.hotel-map-link:hover { text-decoration: underline; }
+.hotel-map-credit { color: var(--tl-text-light, #8a857e); font-size: 10px; white-space: nowrap; flex-shrink: 0; }
 
 /* Monitoring & market snapshot card */
 .monitor-card { margin-top: 20px; }
