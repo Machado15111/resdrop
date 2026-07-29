@@ -7,7 +7,7 @@
  * gets charged; the client never sends an amount. See docs/STRIPE_SETUP.md.
  */
 import Stripe from 'stripe';
-import { resolveBillingCurrency } from './billing.js';
+import { isSupportedCurrency, normalizeInterval } from './billing.js';
 
 const SECRET = process.env.STRIPE_SECRET_KEY || '';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -23,18 +23,21 @@ export function stripeConfigured() {
   return !!stripe;
 }
 
-/** plan + currency -> Stripe recurring Price id (from env), e.g. STRIPE_PRICE_PREMIUM_BRL */
-export function priceIdFor(plan, currency) {
-  const key = `STRIPE_PRICE_${String(plan).toUpperCase()}_${String(currency).toUpperCase()}`;
+/** plan + currency + interval -> Stripe recurring Price id (from env),
+ *  e.g. STRIPE_PRICE_PREMIUM_BRL_YEAR */
+export function priceIdFor(plan, currency, interval = 'month') {
+  const iv = normalizeInterval(interval) === 'year' ? 'YEAR' : 'MONTH';
+  const key = `STRIPE_PRICE_${String(plan).toUpperCase()}_${String(currency).toUpperCase()}_${iv}`;
   return process.env[key] || null;
 }
 
-export async function createCheckoutSession({ email, plan, lang, origin }) {
+export async function createCheckoutSession({ email, plan, currency, interval = 'month', origin }) {
   if (!stripe) throw new Error('Stripe not configured');
   if (!PAID_PLANS.includes(plan)) throw new Error('Not a paid plan');
-  const currency = resolveBillingCurrency(lang);
-  const price = priceIdFor(plan, currency);
-  if (!price) throw new Error(`No Stripe price configured for ${plan}/${currency}`);
+  if (!isSupportedCurrency(currency)) throw new Error(`Unsupported currency: ${currency}`);
+  const iv = normalizeInterval(interval);
+  const price = priceIdFor(plan, currency, iv);
+  if (!price) throw new Error(`No Stripe price configured for ${plan}/${currency}/${iv}`);
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
@@ -44,8 +47,8 @@ export async function createCheckoutSession({ email, plan, lang, origin }) {
     allow_promotion_codes: true,
     // Email carried through so the webhook can map back to the account without a
     // stored customer id (avoids a Supabase schema change).
-    metadata: { email, plan },
-    subscription_data: { metadata: { email, plan } },
+    metadata: { email, plan, interval: iv },
+    subscription_data: { metadata: { email, plan, interval: iv } },
     success_url: `${origin}/account?billing=success`,
     cancel_url: `${origin}/account?billing=cancelled`,
   });

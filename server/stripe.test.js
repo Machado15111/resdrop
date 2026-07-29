@@ -32,10 +32,13 @@ test('planActionFromEvent: unknown / malformed events -> null', () => {
   assert.equal(planActionFromEvent({}), null);
 });
 
-test('priceIdFor: resolves env var by plan+currency (case-insensitive)', () => {
-  process.env.STRIPE_PRICE_PREMIUM_BRL = 'price_abc';
-  assert.equal(priceIdFor('premium', 'BRL'), 'price_abc');
-  assert.equal(priceIdFor('premium', 'brl'), 'price_abc');
-  delete process.env.STRIPE_PRICE_PREMIUM_BRL;
-  assert.equal(priceIdFor('viajante', 'USD'), null);
+test('priceIdFor: resolves env var by plan+currency+interval (defaults to month)', () => {
+  process.env.STRIPE_PRICE_PREMIUM_BRL_MONTH = 'price_m';
+  process.env.STRIPE_PRICE_PREMIUM_BRL_YEAR = 'price_y';
+  assert.equal(priceIdFor('premium', 'BRL'), 'price_m');          // defaults to month
+  assert.equal(priceIdFor('premium', 'brl', 'month'), 'price_m'); // case-insensitive
+  assert.equal(priceIdFor('premium', 'BRL', 'year'), 'price_y');
+  delete process.env.STRIPE_PRICE_PREMIUM_BRL_MONTH;
+  delete process.env.STRIPE_PRICE_PREMIUM_BRL_YEAR;
+  assert.equal(priceIdFor('viajante', 'USD', 'month'), null);
 });

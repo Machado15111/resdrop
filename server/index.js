@@ -1473,12 +1473,13 @@ app.get('/api/config', (req, res) => {
 app.post('/api/billing/checkout', authMiddleware, async (req, res) => {
   if (!stripeConfigured()) return res.status(503).json({ error: 'Billing not enabled' });
   try {
-    const { plan, lang } = req.body || {};
+    const { plan, currency, interval } = req.body || {};
     const origin = process.env.PUBLIC_ORIGIN || req.headers.origin || 'https://resdrop.app';
     const url = await createCheckoutSession({
       email: req.userEmail,
       plan,
-      lang: lang || 'en',
+      currency: currency || 'USD',
+      interval: interval || 'month',
       origin,
     });
     res.json({ url });

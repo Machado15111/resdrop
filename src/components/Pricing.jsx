@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import { IconCheck, IconX } from './Icons';
+import { planAmount, yearlySavings, CURRENCY_SYMBOL, SUPPORTED_CURRENCIES, defaultCurrency } from '../pricing';
 import './Pricing.css';
+
+// Marketing plan id -> shared pricing id.
+const PRICING_ID = { free: 'free', traveler: 'viajante', premium: 'premium' };
 
 const plans = [
   {
@@ -67,14 +72,8 @@ const plans = [
 function Pricing() {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
-  const isBrl = lang === 'pt';
-
-  const formatPrice = (plan) => {
-    if (plan.price.usd === 0) return null;
-    return isBrl
-      ? { symbol: 'R$', amount: plan.price.brl }
-      : { symbol: '$', amount: plan.price.usd };
-  };
+  const [currency, setCurrency] = useState(() => defaultCurrency(lang));
+  const [interval, setInterval] = useState('month');
 
   return (
     <section className="section pricing-section" id="pricing">
@@ -89,9 +88,27 @@ function Pricing() {
           </p>
         </div>
 
+        <div className="billing-controls billing-controls--center">
+          <div className="billing-interval">
+            <button className={interval === 'month' ? 'active' : ''} onClick={() => setInterval('month')}>
+              {lang === 'pt' ? 'Mensal' : 'Monthly'}
+            </button>
+            <button className={interval === 'year' ? 'active' : ''} onClick={() => setInterval('year')}>
+              {lang === 'pt' ? 'Anual' : 'Yearly'}
+              <span className="billing-save-tag">{lang === 'pt' ? '2 meses grátis' : '2 months free'}</span>
+            </button>
+          </div>
+          <select className="billing-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={lang === 'pt' ? 'Moeda' : 'Currency'}>
+            {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
         <div className="pricing-grid">
           {plans.map((plan) => {
-            const priceData = formatPrice(plan);
+            const pid = PRICING_ID[plan.id];
+            const amount = planAmount(pid, currency, interval);
+            const save = interval === 'year' && pid !== 'free' ? yearlySavings(pid, currency) : null;
+            const period = interval === 'year' ? (lang === 'pt' ? '/ano' : '/yr') : (lang === 'pt' ? '/mês' : '/mo');
             return (
               <div className={`pricing-card ${plan.popular ? 'pricing-popular' : ''}`} key={plan.id}>
                 {plan.popular && (
@@ -104,16 +121,17 @@ function Pricing() {
                   <p className="pricing-desc">{plan.desc[lang === 'pt' ? 'pt' : 'en']}</p>
                 </div>
                 <div className="pricing-price">
-                  {!priceData ? (
+                  {amount === 0 ? (
                     <span className="pricing-amount pricing-free">{t('pricing.free')}</span>
                   ) : (
                     <>
-                      <span className="pricing-currency">{priceData.symbol}</span>
-                      <span className="pricing-amount">{priceData.amount}</span>
-                      <span className="pricing-period">{t('pricing.month')}</span>
+                      <span className="pricing-currency">{CURRENCY_SYMBOL[currency]}</span>
+                      <span className="pricing-amount">{amount}</span>
+                      <span className="pricing-period">{period}</span>
                     </>
                   )}
                 </div>
+                {save && <div className="pricing-save">{lang === 'pt' ? `Economize ${save.percent}%` : `Save ${save.percent}%`}</div>}
                 <div className="pricing-limit">
                   {plan.bookings[lang === 'pt' ? 'pt' : 'en']}
                 </div>
@@ -129,7 +147,7 @@ function Pricing() {
                   className={`btn ${plan.popular ? 'btn-accent' : 'btn-outline'} pricing-cta`}
                   onClick={() => navigate('/signup')}
                 >
-                  {plan.price.usd === 0
+                  {amount === 0
                     ? (lang === 'pt' ? 'Começar Grátis' : 'Start Free')
                     : (lang === 'pt' ? 'Começar' : 'Get Started')}
                 </button>

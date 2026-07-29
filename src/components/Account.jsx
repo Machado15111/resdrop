@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import { API } from '../api';
 import { IconUser, IconArrowLeft, IconCheck, IconCrown, IconStar, IconZap, IconPlus, IconTrash } from './Icons';
 import PushToggle from './PushToggle';
+import { planAmount, yearlySavings, CURRENCY_SYMBOL, SUPPORTED_CURRENCIES, defaultCurrency } from '../pricing';
 import './Account.css';
 
 const PLANS = [
@@ -56,6 +57,8 @@ function Account() {
     user?.loyaltyPrograms || []
   );
   const [stripeEnabled, setStripeEnabled] = useState(false);
+  const [billingCurrency, setBillingCurrency] = useState(() => defaultCurrency(lang));
+  const [billingInterval, setBillingInterval] = useState('month');
   // Banner after returning from Stripe Checkout — read once from the URL.
   const [billingMsg, setBillingMsg] = useState(() => {
     const b = new URLSearchParams(window.location.search).get('billing');
@@ -103,7 +106,7 @@ function Account() {
           setBillingMsg(data.error || (lang === 'pt' ? 'Não foi possível abrir o portal.' : 'Could not open the billing portal.'));
           return;
         }
-        const res = await authFetch(`${API}/billing/checkout`, { method: 'POST', body: JSON.stringify({ plan: planId, lang }) });
+        const res = await authFetch(`${API}/billing/checkout`, { method: 'POST', body: JSON.stringify({ plan: planId, currency: billingCurrency, interval: billingInterval }) });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.url) { window.location.assign(data.url); return; }
         setBillingMsg(data.error || (lang === 'pt' ? 'Não foi possível iniciar o checkout.' : 'Could not start checkout.'));
@@ -384,8 +387,37 @@ function Account() {
               {lang === 'pt' ? 'Gerenciar assinatura' : 'Manage subscription'}
             </button>
           )}
+          {/* Billing period + currency selectors */}
+          <div className="billing-controls">
+            <div className="billing-interval">
+              <button
+                className={billingInterval === 'month' ? 'active' : ''}
+                onClick={() => setBillingInterval('month')}
+              >{lang === 'pt' ? 'Mensal' : 'Monthly'}</button>
+              <button
+                className={billingInterval === 'year' ? 'active' : ''}
+                onClick={() => setBillingInterval('year')}
+              >
+                {lang === 'pt' ? 'Anual' : 'Yearly'}
+                <span className="billing-save-tag">{lang === 'pt' ? '2 meses grátis' : '2 months free'}</span>
+              </button>
+            </div>
+            <select
+              className="billing-currency"
+              value={billingCurrency}
+              onChange={(e) => setBillingCurrency(e.target.value)}
+              aria-label={lang === 'pt' ? 'Moeda' : 'Currency'}
+            >
+              {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
           <div className="account-plans-grid">
-            {PLANS.map(plan => (
+            {PLANS.map(plan => {
+              const amount = planAmount(plan.id, billingCurrency, billingInterval);
+              const save = billingInterval === 'year' && plan.id !== 'free' ? yearlySavings(plan.id, billingCurrency) : null;
+              const period = billingInterval === 'year' ? (lang === 'pt' ? '/ano' : '/yr') : (lang === 'pt' ? '/mês' : '/mo');
+              return (
               <div
                 key={plan.id}
                 className={`account-plan-card ${user.plan === plan.id ? 'current' : ''}`}
@@ -395,16 +427,17 @@ function Account() {
                   <span className="apc-name">{PLAN_NAMES[plan.id]}</span>
                 </div>
                 <div className="apc-price">
-                  {plan.price.usd === 0 ? (
+                  {amount === 0 ? (
                     <span className="apc-amount">{t('pricing.free')}</span>
                   ) : (
                     <>
-                      <span className="apc-currency">{lang === 'pt' ? 'R$' : '$'}</span>
-                      <span className="apc-amount">{lang === 'pt' ? plan.price.brl : plan.price.usd}</span>
-                      <span className="apc-period">{t('pricing.month')}</span>
+                      <span className="apc-currency">{CURRENCY_SYMBOL[billingCurrency]}</span>
+                      <span className="apc-amount">{amount}</span>
+                      <span className="apc-period">{period}</span>
                     </>
                   )}
                 </div>
+                {save && <p className="apc-save">{lang === 'pt' ? `Economize ${save.percent}%` : `Save ${save.percent}%`}</p>}
                 <p className="apc-bookings">{plan.bookings} {t('pricing.bookings')}</p>
                 {user.plan === plan.id ? (
                   <button className="btn-outline" disabled>
@@ -417,7 +450,8 @@ function Account() {
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
