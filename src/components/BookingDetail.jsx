@@ -5,7 +5,7 @@ import SavingsConfirmationModal from './SavingsConfirmationModal';
 import PhotoLightbox from './PhotoLightbox';
 import PriceTrends from './PriceTrends';
 import { formatCurrency } from '../currency';
-import { parseDateOnly, nightsBetween, formatStayDate } from '../dates';
+import { nightsBetween, formatStayDate, formatInstantDate, formatInstantTime } from '../dates';
 import './BookingDetail.css';
 
 // "2h ago" / "3d ago" style relative time for the monitoring stats.
@@ -24,6 +24,43 @@ function relativeTime(dateStr, pt) {
 
 // Hotel images are URL strings; tolerate legacy {url}/{urlHd} objects too.
 const imgUrl = (img) => (typeof img === 'string' ? img : (img?.urlHd || img?.url || ''));
+
+// Room types offered by the edit dropdown. Module-scope so the editor can also
+// ASK whether a stored value is one of them — a booking imported from a
+// confirmation carries the hotel's own wording ("Deluxe Room, Balcony (or
+// Terrace)"), which is not in this list. A <select> given an unknown value
+// silently displays its FIRST option, so opening the editor showed "Standard
+// Room" and saving overwrote the real room — losing the field that decides
+// whether a rate is comparable at all.
+const ROOM_TYPES = [
+  { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
+  { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
+  { value: 'Classic Room', pt: 'Quarto Clássico', en: 'Classic Room' },
+  { value: 'Classic King', pt: 'Clássico King', en: 'Classic King' },
+  { value: 'Classic Twin', pt: 'Clássico Twin', en: 'Classic Twin' },
+  { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
+  { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
+  { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
+  { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
+  { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
+  { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
+  { value: 'Family Room', pt: 'Quarto Família', en: 'Family Room' },
+  { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
+  { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
+  { value: 'Junior Suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
+  { value: 'Suite', pt: 'Suíte', en: 'Suite' },
+  { value: 'Executive Suite', pt: 'Suíte Executiva', en: 'Executive Suite' },
+  { value: 'One Bedroom Suite', pt: 'Suíte Um Quarto', en: 'One Bedroom Suite' },
+  { value: 'Two Bedroom Suite', pt: 'Suíte Dois Quartos', en: 'Two Bedroom Suite' },
+  { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
+  { value: 'Accessible Room', pt: 'Quarto Acessível', en: 'Accessible Room' },
+  { value: 'Other', pt: 'Outro', en: 'Other' },
+];
+
+// Currencies a reservation can be held in. Rates are quoted in whichever one
+// the booking carries, so this must be editable — a booking saved in the wrong
+// currency otherwise had no way back.
+const CURRENCIES = ['USD', 'BRL', 'EUR', 'GBP'];
 
 // Nuitée descriptions arrive as HTML — render as plain text, capped for the card.
 const stripHtml = (s) => {
@@ -59,30 +96,33 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const isSuccess = bookingState?.state === 'success';
   const isError = bookingState?.state === 'error';
 
-  // Handles both stay dates (date-only → local, never shifts) and real
-  // timestamps (full ISO → normal parsing). See src/dates.js.
+  // Stay dates are calendar days (never shift); everything else is a real
+  // moment shown in the viewer's zone. See src/dates.js.
   const formatDate = (dateStr) => formatStayDate(dateStr, locale);
-
-  const formatTime = (dateStr) => {
-    const d = parseDateOnly(dateStr);
-    return d
-      ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-      : '—';
-  };
+  const formatMoment = (dateStr) => formatInstantDate(dateStr, locale);
+  const formatTime = (dateStr) => formatInstantTime(dateStr, locale);
 
   const startEditing = () => {
+    const knownRoomType = ROOM_TYPES.some(rt => rt.value === booking.roomType);
     setEditForm({
       hotelName: booking.hotelName,
       destination: booking.destination,
       checkinDate: booking.checkinDate,
       checkoutDate: booking.checkoutDate,
-      roomType: booking.roomType,
+      // A room the dropdown doesn't list (the hotel's own wording, e.g. "Deluxe
+      // Room, Balcony (or Terrace)") must survive editing: park it under
+      // "Other" with the original text kept, instead of letting the select fall
+      // back to its first option and silently rewrite the room on save.
+      roomType: knownRoomType ? booking.roomType : 'Other',
+      roomTypeCustom: knownRoomType
+        ? (booking.roomTypeCustom || '')
+        : (booking.roomTypeCustom || booking.roomType || ''),
       originalPrice: booking.originalPrice,
+      currency: booking.currency || 'USD',
       confirmationNumber: booking.confirmationNumber,
       guestName: booking.guestName || '',
       notes: booking.notes || '',
       rateType: booking.rateType || 'total',
-      roomTypeCustom: booking.roomTypeCustom || '',
     });
     setEditing(true);
   };
@@ -323,7 +363,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                 </span>
                 {booking.lastChecked && (
                   <span className="detail-last-check">
-                    {t('detail.lastChecked')} {formatDate(booking.lastChecked)} {formatTime(booking.lastChecked)}
+                    {t('detail.lastChecked')} {formatMoment(booking.lastChecked)} {formatTime(booking.lastChecked)}
                   </span>
                 )}
               </div>
@@ -368,30 +408,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   <div className="info-row">
                     <span className="info-label">{t('detail.room')}</span>
                     <select className="edit-input" value={editForm.roomType} onChange={e => handleEditChange('roomType', e.target.value)}>
-                      {[
-                        { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
-                        { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
-                        { value: 'Classic Room', pt: 'Quarto Cl\u00e1ssico', en: 'Classic Room' },
-                        { value: 'Classic King', pt: 'Cl\u00e1ssico King', en: 'Classic King' },
-                        { value: 'Classic Twin', pt: 'Cl\u00e1ssico Twin', en: 'Classic Twin' },
-                        { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
-                        { value: 'Grand Deluxe Room', pt: 'Quarto Grand Deluxe', en: 'Grand Deluxe Room' },
-                        { value: 'Luxury Room', pt: 'Quarto Luxo', en: 'Luxury Room' },
-                        { value: 'Premier Room', pt: 'Quarto Premier', en: 'Premier Room' },
-                        { value: 'Prestige Room', pt: 'Quarto Prestige', en: 'Prestige Room' },
-                        { value: 'Studio Room', pt: 'Quarto Studio', en: 'Studio Room' },
-                        { value: 'Family Room', pt: 'Quarto Fam\u00edlia', en: 'Family Room' },
-                        { value: 'Twin Room', pt: 'Quarto Twin', en: 'Twin Room' },
-                        { value: 'King Room', pt: 'Quarto King', en: 'King Room' },
-                        { value: 'Junior Suite', pt: 'Su\u00edte J\u00fanior', en: 'Junior Suite' },
-                        { value: 'Suite', pt: 'Su\u00edte', en: 'Suite' },
-                        { value: 'Executive Suite', pt: 'Su\u00edte Executiva', en: 'Executive Suite' },
-                        { value: 'One Bedroom Suite', pt: 'Su\u00edte Um Quarto', en: 'One Bedroom Suite' },
-                        { value: 'Two Bedroom Suite', pt: 'Su\u00edte Dois Quartos', en: 'Two Bedroom Suite' },
-                        { value: 'Connecting Room', pt: 'Quarto Conectado', en: 'Connecting Room' },
-                        { value: 'Accessible Room', pt: 'Quarto Acess\u00edvel', en: 'Accessible Room' },
-                        { value: 'Other', pt: 'Outro', en: 'Other' },
-                      ].map(rt => (
+                      {ROOM_TYPES.map(rt => (
                         <option key={rt.value} value={rt.value}>{lang === 'pt' ? rt.pt : rt.en}</option>
                       ))}
                     </select>
@@ -401,6 +418,14 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   )}
                   <EditRow label={t('detail.confirmation')} value={editForm.confirmationNumber} onChange={v => handleEditChange('confirmationNumber', v)} />
                   <EditRow label={t('detail.originalPrice')} value={editForm.originalPrice} onChange={v => handleEditChange('originalPrice', v)} type="number" />
+                  <div className="info-row">
+                    <span className="info-label">{lang === 'pt' ? 'Moeda' : 'Currency'}</span>
+                    <select className="edit-input" value={editForm.currency} onChange={e => handleEditChange('currency', e.target.value)}>
+                      {CURRENCIES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
                   <EditRow label={t('detail.guest')} value={editForm.guestName} onChange={v => handleEditChange('guestName', v)} />
                   <div className="info-row">
                     <span className="info-label">{t('detail.rateType')}</span>
@@ -469,7 +494,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
             </div>
             {booking.lastChecked && (
               <p className="results-updated">
-                {t('detail.lastChecked')} {formatDate(booking.lastChecked)} {formatTime(booking.lastChecked)}
+                {t('detail.lastChecked')} {formatMoment(booking.lastChecked)} {formatTime(booking.lastChecked)}
                 {booking.checkCount > 0 && <span className="check-count"> ({booking.checkCount}x)</span>}
               </p>
             )}
@@ -576,7 +601,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                     <div className="alert-content">
                       <div className="alert-message">{alert.message}</div>
                       <div className="alert-time">
-                        {formatDate(alert.date)} - {formatTime(alert.date)}
+                        {formatMoment(alert.date)} - {formatTime(alert.date)}
                       </div>
                     </div>
                   </div>
@@ -622,7 +647,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       <span className="ph-price">{fmt(entry.price)}</span>
                       <span className="ph-source">{entry.source}</span>
                       <span className="ph-date">
-                        {formatStayDate(entry.date, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        {formatInstantDate(entry.date, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </span>
                     </div>
                   </div>

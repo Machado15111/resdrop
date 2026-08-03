@@ -532,6 +532,9 @@ function quoteCurrencyFor(booking, options = {}) {
   return (booking?.currency || options.currency || 'USD').toUpperCase();
 }
 
+// Currencies a booking may be held in (mirrors the editor's dropdown).
+const SUPPORTED_CURRENCIES = ['USD', 'BRL', 'EUR', 'GBP'];
+
 // ─── Price search: real APIs only (no simulation) ────────────
 async function searchPrices(booking, options = {}) {
   const allResults = [];
@@ -1345,6 +1348,16 @@ app.put('/api/bookings/:id', authMiddleware, async (req, res) => {
   // Validate status if provided
   if (req.body.status && !VALID_BOOKING_STATUSES.includes(req.body.status)) {
     return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_BOOKING_STATUSES.join(', ')}` });
+  }
+
+  // The booking's currency drives which currency every rate is quoted in, so a
+  // junk value would silently corrupt every future price check.
+  if (req.body.currency !== undefined) {
+    const cur = String(req.body.currency).toUpperCase();
+    if (!SUPPORTED_CURRENCIES.includes(cur)) {
+      return res.status(400).json({ error: `Invalid currency. Must be one of: ${SUPPORTED_CURRENCIES.join(', ')}` });
+    }
+    req.body.currency = cur;
   }
 
   const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType', 'status', 'cancellationPolicy', 'bookingSource', 'currency', 'bookingUrl', 'alertPreferences'];

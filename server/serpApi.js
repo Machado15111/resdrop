@@ -35,7 +35,7 @@ function normalize(str) {
  *   - Minimum 2 word matches required
  *   - Single-word names require exact match
  */
-export function isHotelNameMatch(resultName, bookingName) {
+export function isHotelNameMatch(resultName, bookingName, context = {}) {
   if (!resultName || !bookingName) return false;
 
   const a = normalize(resultName);
@@ -55,6 +55,16 @@ export function isHotelNameMatch(resultName, bookingName) {
     'rio', 'janeiro', 'sao', 'paulo', 'copacabana', 'ipanema', 'leblon', 'barra',
     'tokyo', 'london', 'paris', 'miami', 'york', 'city', 'downtown', 'center', 'centro'
   ]);
+
+  // The hardcoded list above only covers a handful of cities, so any other city
+  // name embedded in a hotel name counted as identity evidence — that is how
+  // "Regent Carlton Cannes" was accepted as "Hôtel Juliana Cannes" (they share
+  // only "cannes") and the guest was shown a different property's rate. Every
+  // hotel in town shares the destination, so those tokens are geography, never
+  // identity.
+  for (const token of normalize(context.destination || '').split(' ')) {
+    if (token.length > 1) stopWords.add(token);
+  }
 
   const stripStop = (str) =>
     str.split(' ')
@@ -80,8 +90,13 @@ export function isHotelNameMatch(resultName, bookingName) {
 
   const minWords = Math.min(wordsA.length, wordsB.length);
 
-  if (minWords <= 2 && overlap >= 1) return true;
-  return (overlap / minWords) >= 0.5;
+  // ONE shared word is not evidence of the same property — it is almost always
+  // the city or a generic descriptor. The old rule ("≤2 significant words and
+  // any single overlap wins") is what let a two-word booking name match any
+  // hotel in the same city. Require the shorter name to be substantially
+  // covered by the overlap instead.
+  if (minWords === 1) return overlap === 1;
+  return (overlap / minWords) >= 0.6;
 }
 
 /**
@@ -331,7 +346,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     const hotelName = data.name;
     const rating = data.overall_rating || 0;
     const reviews = data.reviews || 0;
-    const isMatch = isHotelNameMatch(hotelName, booking.hotelName);
+    const isMatch = isHotelNameMatch(hotelName, booking.hotelName, { destination: booking.destination });
 
     // Room type from the booking for comparison
     const bookingRoomType = booking.roomType || '';
@@ -472,7 +487,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     if (isHiddenSource(source.name)) continue;
 
     // Check if this is the same hotel the user booked
-    const isMatch = isHotelNameMatch(name, booking.hotelName);
+    const isMatch = isHotelNameMatch(name, booking.hotelName, { destination: booking.destination });
 
     // Room type and trust checks
     const trusted = isTrustedSource(source.name);
@@ -958,7 +973,7 @@ export async function searchRealPrices(booking, options = {}) {
       // result with isExactMatch via the detail page's own name, and the UI only
       // ever shows exact-hotel quotes — a wrong guess yields an empty panel, not
       // a wrong rate. Match against the ORIGINAL booked name, not the variant.
-      const nameMatched = withToken.find(p => isHotelNameMatch(p.name, booking.hotelName));
+      const nameMatched = withToken.find(p => isHotelNameMatch(p.name, booking.hotelName, { destination: booking.destination }));
       const target = nameMatched || withToken[0] || null;
 
       if (target) {

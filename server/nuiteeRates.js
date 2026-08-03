@@ -36,7 +36,7 @@ async function resolveNuiteeHotelId(booking, hints) {
 
   const candidates = await getHotels({ cityName: hints.city, countryCode, limit: 100 });
   const named = (Array.isArray(candidates) ? candidates : [])
-    .find(c => c?.name && isHotelNameMatch(c.name, booking.hotelName));
+    .find(c => c?.name && isHotelNameMatch(c.name, booking.hotelName, { destination: booking.destination }));
   if (named?.id) {
     console.log(`[Nuitée] Lenient name match for "${booking.hotelName}" → "${named.name}" (${named.id})`);
     return named.id;
