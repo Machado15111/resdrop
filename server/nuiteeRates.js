@@ -55,7 +55,9 @@ function nightsBetween(checkin, checkout) {
  * Pull the lowest live Nuitée rate for the booked hotel and map it to a result.
  * Always resolves to an array (0 or 1 result); never throws.
  */
-export async function searchNuiteeRates(booking, { currency = 'BRL' } = {}) {
+export async function searchNuiteeRates(booking, { currency } = {}) {
+  // Quote in the booking's own currency (see quoteCurrencyFor in index.js).
+  currency = currency || booking?.currency || 'USD';
   if (!nuiteeConfigured()) return [];
   if (!booking?.hotelName || !booking.checkinDate || !booking.checkoutDate) return [];
 
@@ -95,7 +97,10 @@ export async function searchNuiteeRates(booking, { currency = 'BRL' } = {}) {
  * shape it like a SerpApi result. Defensive against the response's nested,
  * sometimes-varying structure.
  */
-export function parseNuiteeRates(data, booking, currency = 'BRL') {
+export function parseNuiteeRates(data, booking, quoteCurrency) {
+  // Amounts come back in the currency the request asked for — stamp it on the
+  // result so the UI never labels them with a different currency's symbol.
+  const currency = quoteCurrency || booking?.currency || 'USD';
   const hotels = data?.data || data?.rates || [];
   if (!Array.isArray(hotels) || hotels.length === 0) return [];
 
@@ -130,7 +135,7 @@ export function parseNuiteeRates(data, booking, currency = 'BRL') {
 
   return [{
     source: 'Nuitée',
-    sourceLogo: '🏨',
+    sourceLogo: '',
     sourceId: 'nuitee_real',
     hotelName: booking.hotelName,
     isExactMatch: true,            // resolved by hotel id — same property by construction
@@ -139,6 +144,7 @@ export function parseNuiteeRates(data, booking, currency = 'BRL') {
     roomTypeMatch,
     isTrustedSource: true,
     confidenceScore: 90,
+    currency,
     pricePerNight: Math.round((best.total / nights) * 100) / 100,
     totalPrice: best.total,
     savings: savings > 0 ? savings : 0,

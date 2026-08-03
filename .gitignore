@@ -15,6 +15,11 @@ dist-ssr
 # Environment secrets
 .env
 server/.env
+# Any per-target env file (.env.vercel, .env.local, …). Committed secrets stay
+# in git history forever, so match the whole family — never file by file.
+.env.*
+!.env.example
+!server/.env.example
 
 # Old JSON data (now using Supabase)
 server/data/

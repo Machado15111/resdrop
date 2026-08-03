@@ -1,0 +1,51 @@
+/* Loading gate for the booking detail screen: shown until the hotel imagery is
+   decoded and the first rate search has run, so the page never appears half-built
+   (placeholder icon + "no quotes, click Refresh"). */
+.bdp-loading {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
+.bdp-loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+.bdp-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 3px solid var(--border, #e5e7eb);
+  border-top-color: var(--primary, #1a3a2e);
+  animation: bdp-spin 0.8s linear infinite;
+}
+
+@keyframes bdp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bdp-loading-label {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text, #111827);
+}
+
+.bdp-loading-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-muted, #6b7280);
+}
+
+/* Respect users who ask for reduced motion — keep the indicator, drop the spin. */
+@media (prefers-reduced-motion: reduce) {
+  .bdp-spinner { animation: none; }
+}

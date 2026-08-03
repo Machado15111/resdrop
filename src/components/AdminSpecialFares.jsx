@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API } from '../api';
+import { formatStayDate } from '../dates';
 import './AdminSpecialFares.css';
 
 // ─── Status workflow with allowed transitions ──────────────────
@@ -186,7 +187,8 @@ function AdminSpecialFares() {
     setShowBookingPicker(false);
   };
 
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+  // Local parse for date-only stay dates so they don't render a day early.
+  const formatDate = (d) => formatStayDate(d, 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const formatCurrency = (v) => v ? `R$ ${parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}` : '—';
   const calcSavingsPercent = (orig, offered) => {
     if (!orig || !offered) return '';
@@ -404,7 +406,7 @@ function AdminSpecialFares() {
 
                   {/* Hotel */}
                   <div className="asf-form-section">
-                    <h3>🏨 Hotel</h3>
+                    <h3>Hotel</h3>
                     <FormField label="Hotel *" value={form.hotelName} onChange={v => setForm(f => ({ ...f, hotelName: v }))} />
                     <FormField label="Destino" value={form.destination} onChange={v => setForm(f => ({ ...f, destination: v }))} />
                     <div className="asf-field-row">

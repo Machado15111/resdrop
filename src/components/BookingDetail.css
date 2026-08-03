@@ -816,11 +816,19 @@
     gap: 12px;
   }
   .result-action {
-    align-items: flex-start;
+    align-items: center;
     width: 100%;
     flex-direction: row;
     justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
   }
+  /* The pricing block is right-aligned for the desktop 3-column row; once the
+     row stacks, that stranded right edge reads as a mistake. */
+  .result-pricing { text-align: left; width: 100%; }
+  .result-source { width: 100%; }
+  /* Keep the rebook CTA comfortably tappable rather than shrink-wrapped. */
+  .result-action .btn { flex: 0 0 auto; min-height: 40px; }
 }
 
 /* ── Hotel reference: Expedia-style gallery + info + location ────────── */
@@ -852,7 +860,12 @@
 }
 
 .hotel-ref-cols { display: grid; grid-template-columns: 1fr 300px; gap: 28px; }
-.hotel-badges { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+/* Grid/flex children default to min-width:auto, so a long amenity chip or the
+   rating row can refuse to shrink and push the whole card past the viewport
+   (measured: a 309px column rendering a 362px child = 20px of horizontal page
+   scroll on a 375px phone). min-width:0 lets them wrap instead of overflowing. */
+.hotel-ref-cols > * { min-width: 0; }
+.hotel-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .hotel-badge-lux {
   background: #FBF3DC; color: #8a6d1f; font-weight: 700; font-size: 12px;
   padding: 4px 10px; border-radius: 6px; letter-spacing: .02em;
@@ -945,6 +958,12 @@
 
 @media (max-width: 760px) {
   .monitor-grid { grid-template-columns: repeat(2, 1fr); }
+  /* The price-history row is bar + a 260px fixed detail block. On a phone that
+     leaves the bar a useless sliver, so stack the numbers under the bar. */
+  .ph-entry { flex-direction: column; align-items: stretch; gap: 8px; }
+  .ph-details { min-width: 0; width: 100%; justify-content: space-between; gap: 10px; }
+  .ph-bar-container { height: 24px; }
+  .ph-price { min-width: 0; }
 }
 
 @media (max-width: 760px) {

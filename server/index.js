@@ -48,6 +48,8 @@ import {
   isSerpApiConfigured,
   searchRealPrices,
   fetchCategorizedHotelPhotos,
+  bookingIsRefundable,
+  isRefundabilityCompatible,
 } from './serpApi.js';
 import { filterOutPeopleImages } from './imageFilter.js';
 import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
@@ -122,37 +124,57 @@ function bookingHotelIdentity(booking) {
   };
 }
 
+// A hotel record is only worth SHOWING as a gallery if it actually carries
+// photos. Used throughout resolution so an imageless record never wins over one
+// with images.
+const hasImages = (h) => Array.isArray(h?.images) && h.images.length > 0;
+
 async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
   if (!booking || !booking.hotelName) return null;
   const identity = bookingHotelIdentity(booking);
 
+  // A match that carries NO photos must never SHADOW a source that does — that
+  // was the "picture erases on reload and never returns" bug: an imageless
+  // VERIFIED mapping was returned first and permanently blocked the SerpApi
+  // gallery. Keep such a match aside for its metadata (map/star/nuiteeHotelId)
+  // and only fall back to it once nothing with images has turned up.
+  let imagelessMatch = null;
+
   // 1) Nuitée first — the authoritative match. It keeps nuiteeHotelId, which
-  //    Price Trends needs, so a real catalogue hit always wins.
+  //    Price Trends needs, so a real catalogue hit WITH photos always wins.
   if (nuiteeConfigured()) {
     try {
       const match = await matchHotelWithNuitee(identity, { cacheOnly });
-      if (match?.hotel) return match;
+      if (match?.hotel && hasImages(match.hotel)) return match;
+      if (match?.hotel) imagelessMatch = match;   // remember, but keep hunting for photos
     } catch (e) {
       console.error('[resolveBookingHotel] nuitee:', e.message);
     }
   }
 
+  // Carry the Nuitée id onto a Google-sourced gallery so Price Trends still works
+  // when the photos came from SerpApi rather than Nuitée's (image-less) match.
+  const withNuiteeId = (hotel) => (
+    imagelessMatch?.hotel?.nuiteeHotelId && !hotel.nuiteeHotelId
+      ? { ...hotel, nuiteeHotelId: imagelessMatch.hotel.nuiteeHotelId }
+      : hotel
+  );
+
   // 2) Cached SerpApi (Google Hotels) imagery from hotel_mappings. Serves
   //    photos/coords for ANY hotel Google finds, even one absent from Nuitée's
-  //    catalogue. No nuiteeHotelId, so Price Trends stays correctly gated. Only
-  //    serve a cache built by the CURRENT imagery pipeline; an older-version
-  //    cache (e.g. built before people-filtering) is refreshed on-demand below.
+  //    catalogue. serpFallbackHotel only returns a record that HAS images.
   let stale = null;
   try {
     const fallback = await db.getHotelMappingByKey(hotelKeyFor(identity));
     const hotel = serpFallbackHotel(fallback);
     if (hotel) {
-      const result = { hotel, matchScore: fallback.matchScore || 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
+      const result = { hotel: withNuiteeId(hotel), matchScore: fallback.matchScore || 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
       if ((hotel.enrichVersion || 0) >= SERP_ENRICH_VERSION) return result;
-      // Outdated: in full mode, refresh below and use this only as last resort.
-      // In cacheOnly, treat as a miss so the fast path doesn't serve stale imagery
-      // (the frontend then calls /hotel, which refreshes it).
-      if (!cacheOnly) stale = result;
+      // Older-pipeline cache: the full /hotel path refreshes it below, but a real
+      // gallery in hand ALWAYS beats blanking it — so serve it as the fallback on
+      // BOTH paths (including the fast cacheOnly reload). This is what "freezes"
+      // the picture: once cached, a reload never wipes it to chase a flaky refresh.
+      stale = result;
     }
   } catch (e) {
     console.error('[resolveBookingHotel] serp fallback:', e.message);
@@ -183,16 +205,19 @@ async function resolveBookingHotel(booking, { cacheOnly = false } = {}) {
         if (serpResults.hotelInfo?.images?.length) break;
       }
       const hotelData = await persistSerpHotelData(booking, serpResults.hotelInfo);
-      if (hotelData && Array.isArray(hotelData.images) && hotelData.images.length > 0) {
-        return { hotel: hotelData, matchScore: 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
+      if (hasImages(hotelData)) {
+        return { hotel: withNuiteeId(hotelData), matchScore: 0, matchSource: 'serpapi', status: 'SERP_FALLBACK' };
       }
     } catch (e) {
       console.error('[resolveBookingHotel] serp on-demand:', e.message);
     }
   }
 
-  // Outdated cache beats a blank gallery if the refresh produced nothing.
+  // Preference order once nothing fresh-with-photos was found: an older-pipeline
+  // gallery (still has images) beats an imageless metadata match, which in turn
+  // beats nothing (map/star still render from that last-resort match).
   if (stale) return stale;
+  if (imagelessMatch) return imagelessMatch;
   return null;
 }
 
@@ -259,10 +284,12 @@ async function cleanSerpImages(hotelInfo) {
  * canonical hotelKey the Nuitée matcher uses, so resolveBookingHotel serves it
  * as a fallback.
  *
- * ONLY fills a gap: never overwrites a VERIFIED mapping (Nuitée/Google Places),
- * which carry nuiteeHotelId and better data. Returns the built hotelData (so the
- * on-demand path can serve it even if the DB write fails), or null when there's
- * no usable imagery.
+ * A VERIFIED mapping (Nuitée/Google Places) is authoritative and wins — UNLESS
+ * it has no photos. An imageless VERIFIED row otherwise PERMANENTLY blocks Google
+ * imagery (the "picture never comes back" bug), so when it lacks images we enrich
+ * it IN PLACE: keep its id/metadata/VERIFIED status, just add the salvaged
+ * gallery. Returns the resulting hotelData (so the on-demand path can serve it
+ * even if the DB write fails), or null when there's no usable imagery.
  */
 async function persistSerpHotelData(booking, hotelInfo) {
   if (!booking || !booking.hotelName || !hotelInfo) return null;
@@ -273,19 +300,28 @@ async function persistSerpHotelData(booking, hotelInfo) {
   try {
     existing = await db.getHotelMappingByKey(key);
   } catch { /* treat as cache miss */ }
-  if (existing && existing.status === 'VERIFIED') return existing.hotelData || null; // authoritative wins
+  // A VERIFIED mapping that ALREADY has photos is authoritative — leave it be.
+  if (existing?.status === 'VERIFIED' && hasImages(existing.hotelData)) return existing.hotelData;
+
   const images = await cleanSerpImages(hotelInfo);
-  const hotelData = buildSerpHotelData(identity, booking, hotelInfo, images);
+  if (images.length === 0) return existing?.hotelData || null;
+
+  // Enrich an authoritative-but-imageless record in place (keep its id/metadata
+  // and VERIFIED status, just add the gallery); otherwise write a SERP_FALLBACK.
+  const enrichInPlace = existing?.status === 'VERIFIED';
+  const hotelData = enrichInPlace
+    ? { ...existing.hotelData, images, enrichVersion: SERP_ENRICH_VERSION, verifiedAt: new Date().toISOString() }
+    : buildSerpHotelData(identity, booking, hotelInfo, images);
   try {
     await db.upsertHotelMapping({
       normalizedHotelKey: key,
-      nuiteeHotelId: null,
-      source: 'serpapi',
-      matchScore: 0,
-      status: 'SERP_FALLBACK',
+      nuiteeHotelId: enrichInPlace ? (existing.nuiteeHotelId || existing.hotelData?.nuiteeHotelId || null) : null,
+      source: enrichInPlace ? (existing.source || 'nuitee') : 'serpapi',
+      matchScore: enrichInPlace ? (existing.matchScore || 0) : 0,
+      status: enrichInPlace ? 'VERIFIED' : 'SERP_FALLBACK',
       hotelData,
     });
-    console.log(`[SerpHotelData] Cached ${hotelData.images.length} image(s) for "${booking.hotelName}" (no Nuitée match)`);
+    console.log(`[SerpHotelData] ${enrichInPlace ? 'Enriched imageless VERIFIED mapping with' : 'Cached'} ${hotelData.images.length} image(s) for "${booking.hotelName}"`);
   } catch (e) {
     console.error('[persistSerpHotelData]', e.message);
   }
@@ -349,7 +385,7 @@ app.use((req, res, next) => {
     "media-src 'self' https:",
     "font-src 'self' https://fonts.gstatic.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://tp-em.com",
     "connect-src 'self' https:",
     "frame-src https://www.openstreetmap.org",
     "worker-src 'self'",
@@ -484,6 +520,18 @@ function adminMiddleware(req, res, next) {
   next();
 }
 
+/**
+ * The currency a booking's rates must be quoted in — ALWAYS the currency the
+ * reservation itself was made in. A user whose profile is BRL can hold a USD
+ * reservation; quoting that stay in BRL and rendering it under the booking's
+ * USD label showed a Brazilian amount with a "$" (R$30,390 → $30,390). The
+ * booking wins; the caller-supplied option is only a fallback for bookings that
+ * somehow carry no currency.
+ */
+function quoteCurrencyFor(booking, options = {}) {
+  return (booking?.currency || options.currency || 'USD').toUpperCase();
+}
+
 // ─── Price search: real APIs only (no simulation) ────────────
 async function searchPrices(booking, options = {}) {
   const allResults = [];
@@ -491,7 +539,7 @@ async function searchPrices(booking, options = {}) {
   // 1) Try SerpApi Google Hotels (real prices from multiple OTAs)
   if (isSerpApiConfigured()) {
     try {
-      const serpResults = await searchRealPrices(booking, { currency: options.currency || 'BRL' });
+      const serpResults = await searchRealPrices(booking, { currency: quoteCurrencyFor(booking, options) });
       // Salvage hotel imagery from the detail page for hotels not in Nuitée's
       // catalogue. Fire-and-forget so it never slows the price check.
       if (serpResults.hotelInfo) {
@@ -529,7 +577,7 @@ async function searchPrices(booking, options = {}) {
   // thin. Deduped against SerpApi's Nuitée entry (if any) by source name below.
   if (nuiteeConfigured()) {
     try {
-      const nuiteeResults = await searchNuiteeRates(booking, { currency: options.currency || 'BRL' });
+      const nuiteeResults = await searchNuiteeRates(booking, { currency: quoteCurrencyFor(booking, options) });
       if (nuiteeResults.length > 0) {
         allResults.push(...nuiteeResults);
         console.log(`[Search] Nuitée returned ${nuiteeResults.length} real result(s)`);
@@ -613,18 +661,13 @@ async function applyBestResult(booking, results) {
     // Further filter: check refundability compatibility
     // If booking is non-refundable, don't compare to refundable (different product)
     // If booking is refundable, don't compare to non-refundable (worse product)
-    const bookingRefundable = booking.cancellationPolicy
-      ? ['free_cancellation', 'fully_refundable', 'refundable'].includes(booking.cancellationPolicy)
-      : null; // unknown
-
-    const fullyComparable = comparableMatches.filter(r => {
-      // If we don't know booking's refundability, allow all matches (but log as unconfirmed)
-      if (bookingRefundable === null) return true;
-      // If we don't know result's refundability, allow but flag
-      if (r.freeCancellation === undefined || r.freeCancellation === null) return true;
-      // Both known — must match
-      return bookingRefundable === r.freeCancellation;
-    });
+    // Same rule the rate parser applies when it decides whether a quote may
+    // claim a saving, so the detail screen and the alerting path can never
+    // disagree about what counts as comparable.
+    const bookingRefundable = bookingIsRefundable(booking);
+    const fullyComparable = comparableMatches.filter(
+      r => isRefundabilityCompatible(bookingRefundable, r.freeCancellation)
+    );
 
     const bestMatch = fullyComparable.length > 0
       ? fullyComparable.sort((a, b) => a.totalPrice - b.totalPrice)[0]
@@ -956,7 +999,7 @@ app.post('/api/bookings', authMiddleware, bookingRateLimit, async (req, res) => 
     (async () => {
       try {
         const user = await db.getUser(req.userEmail);
-        const results = await searchPrices(created, { currency: user?.currency || 'BRL' });
+        const results = await searchPrices(created, { currency: user?.currency });
         await applyBestResult(created, results);
       } catch (err) {
         console.warn(`[Check] First check for ${created.id} (${created.hotelName}): ${err.message}`);
@@ -1251,7 +1294,7 @@ app.post('/api/bookings/:id/check', authMiddleware, async (req, res) => {
 
   try {
     const user = await db.getUser(req.userEmail);
-    const results = await searchPrices(booking, { currency: user?.currency || 'BRL' });
+    const results = await searchPrices(booking, { currency: user?.currency });
     await applyBestResult(booking, results);
     // Re-fetch to get the updated version from DB
     const updated = await db.getBooking(req.params.id);
@@ -3024,7 +3067,7 @@ app.use('/api', inboundEmailRoutes(authMiddleware));
 if (process.env.MONITOR_ENABLED !== 'false') {
   startScheduler(
     () => db.getAllBookings(),
-    (booking) => searchPrices(booking, { currency: booking.currency || 'BRL' }),
+    (booking) => searchPrices(booking, { currency: booking.currency }),
     applyBestResult
   );
 } else {

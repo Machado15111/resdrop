@@ -5,6 +5,7 @@ import SavingsConfirmationModal from './SavingsConfirmationModal';
 import PhotoLightbox from './PhotoLightbox';
 import PriceTrends from './PriceTrends';
 import { formatCurrency } from '../currency';
+import { parseDateOnly, nightsBetween, formatStayDate } from '../dates';
 import './BookingDetail.css';
 
 // "2h ago" / "3d ago" style relative time for the monitoring stats.
@@ -36,10 +37,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const locale = lang === 'pt' ? 'pt-BR' : 'en-US';
   // Render every price in the currency the booking was actually saved in.
   const fmt = (amount, curr) => formatCurrency(amount, curr || booking.currency || 'USD');
-  const nights = Math.ceil(
-    (new Date(booking.checkoutDate) - new Date(booking.checkinDate)) /
-      (1000 * 60 * 60 * 24)
-  );
+  const nights = nightsBetween(booking.checkinDate, booking.checkoutDate);
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -61,19 +59,16 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const isSuccess = bookingState?.state === 'success';
   const isError = bookingState?.state === 'error';
 
-  const formatDate = (dateStr) =>
-    new Date(dateStr).toLocaleDateString(locale, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+  // Handles both stay dates (date-only → local, never shifts) and real
+  // timestamps (full ISO → normal parsing). See src/dates.js.
+  const formatDate = (dateStr) => formatStayDate(dateStr, locale);
 
-  const formatTime = (dateStr) =>
-    new Date(dateStr).toLocaleTimeString(locale, {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatTime = (dateStr) => {
+    const d = parseDateOnly(dateStr);
+    return d
+      ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+      : '—';
+  };
 
   const startEditing = () => {
     setEditForm({
@@ -507,7 +502,12 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       key={`${result.sourceId}-${i}`}
                     >
                       <div className="result-source">
-                        <span className="result-logo">{result.sourceLogo}</span>
+                        {/* Sources without a mark render the app's own hotel
+                            glyph rather than an emoji, so the row keeps its
+                            rhythm without a stray pictograph. */}
+                        <span className="result-logo">
+                          {result.sourceLogo || <IconHotel size={22} />}
+                        </span>
                         <div>
                           <div className="result-source-name">{result.source}</div>
                           <div className="result-perks">
@@ -622,7 +622,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       <span className="ph-price">{fmt(entry.price)}</span>
                       <span className="ph-source">{entry.source}</span>
                       <span className="ph-date">
-                        {new Date(entry.date).toLocaleDateString(locale)}
+                        {formatStayDate(entry.date, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </span>
                     </div>
                   </div>

@@ -280,9 +280,37 @@ function comparisonRateFor(booking, tax) {
   return tax.total;
 }
 
-export function parseGoogleHotelsResults(data, originalPrice, booking) {
+// TRUE / FALSE / NULL (policy not recorded on the reservation).
+export function bookingIsRefundable(booking) {
+  if (!booking?.cancellationPolicy) return null;
+  return ['free_cancellation', 'fully_refundable', 'refundable'].includes(booking.cancellationPolicy);
+}
+
+/**
+ * May a vendor rate be priced against this booking on cancellation terms?
+ *
+ * Swapping a refundable reservation for a non-refundable rate is a different —
+ * and worse — product, so a "saving" there is not a saving. Anything we cannot
+ * positively verify is treated as not comparable: the rate is still displayed,
+ * it just may not claim a saving or fire an alert.
+ */
+export function isRefundabilityCompatible(bookingRefundable, resultRefundable) {
+  if (bookingRefundable == null || resultRefundable == null) return false; // unverifiable
+  if (bookingRefundable) return resultRefundable === true;
+  return true; // non-refundable booking: an equally/more flexible rate is fine
+}
+
+// Every quote MUST carry the currency its amounts are actually denominated in.
+// Google Hotels returns amounts in whatever currency the request asked for, so
+// the request currency IS the quote currency. Without this stamp the UI fell
+// back to the booking's currency label and rendered BRL amounts with a "$"
+// (a USD booking showing a R$30,390 quote as $30,390) — a real money bug.
+export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurrency) {
   const results = [];
   const properties = data.properties || [];
+  const currency = quoteCurrency || booking?.currency || 'USD';
+  // Cancellation terms of the reservation we are shopping against.
+  const bookingRefundable = bookingIsRefundable(booking);
 
   // Nights in the stay — used to reconstruct a total when a vendor only quotes
   // a per-night rate (some Google Hotels vendors omit total_rate).
@@ -346,8 +374,13 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
 
       // Compare on the SAME tax basis as the user's price so savings are honest.
       const comparisonRate = comparisonRateFor(booking, tax);
-      // STRICT: savings only when hotel matches AND room type is compatible AND source is trusted
-      const validComparison = isMatch && roomTypeMatch && trusted;
+      // STRICT: savings only when the hotel matches AND the room type is
+      // compatible AND the source is trusted AND the cancellation terms are
+      // like-for-like. Refundability is enforced HERE too, not only in the
+      // alerting path — otherwise the detail screen showed "Save $617" on a rate
+      // the monitor then refused to alert on as "different cancellation policy".
+      const refundabilityMatch = isRefundabilityCompatible(bookingRefundable, freeCancellation);
+      const validComparison = isMatch && roomTypeMatch && trusted && refundabilityMatch;
       const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
       const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
       const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
@@ -363,6 +396,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
         roomTypeMatch,
         isTrustedSource: trusted,
         confidenceScore,
+        currency,
         pricePerNight: perNight,
         totalPrice: totalRate,
         pricePerNightBeforeTax: tax.perNightBeforeTax || undefined,
@@ -446,9 +480,11 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
     const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
     const freeCancellation = detectFreeCancellation(prop);
 
-    // Savings only apply for exact matches with compatible room types
+    // Savings only apply for exact matches with compatible room types AND
+    // like-for-like cancellation terms (see the detail-page branch above).
     const comparisonRate = comparisonRateFor(booking, tax);
-    const validComparison = isMatch && roomTypeMatch;
+    const validComparison = isMatch && roomTypeMatch
+      && isRefundabilityCompatible(bookingRefundable, freeCancellation);
     const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
     const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
     const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
@@ -464,6 +500,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking) {
       roomTypeMatch,
       isTrustedSource: trusted,
       confidenceScore,
+      currency,
       pricePerNight: perNight,
       totalPrice: totalRate,
       pricePerNightBeforeTax: tax.perNightBeforeTax || undefined,
@@ -579,11 +616,21 @@ export function normalizeRoomType(roomTypeStr) {
 export function isRoomTypeCompatible(roomTypeA, roomTypeB) {
   const catA = normalizeRoomType(roomTypeA);
   const catB = normalizeRoomType(roomTypeB);
+  const unknownA = catA === ROOM_TYPE_CATEGORIES.OTHER;
+  const unknownB = catB === ROOM_TYPE_CATEGORIES.OTHER;
 
-  // If both categories are known and distinct (e.g. SUITE vs STANDARD), incompatible
-  if (catA !== ROOM_TYPE_CATEGORIES.OTHER && catB !== ROOM_TYPE_CATEGORIES.OTHER && catA !== catB) {
-    return false;
-  }
+  // Both known — they must be the SAME category (SUITE vs STANDARD is not a deal).
+  if (!unknownA && !unknownB) return catA === catB;
+
+  // One known, one unknown: we cannot verify it is the same product, so it is
+  // NOT comparable. This is the rule the contract above always described, but
+  // the implementation used to return true here — which let a Deluxe booking be
+  // priced against a vendor rate that carried no room information at all
+  // (Google frequently omits room_type), producing savings claims for a room the
+  // guest never booked. The rate is still SHOWN; it just cannot claim a saving.
+  if (unknownA !== unknownB) return false;
+
+  // Both unknown — nothing distinguishes them; treat as comparable.
   return true;
 }
 
@@ -656,30 +703,34 @@ function isHiddenSource(sourceName) {
 /**
  * Detect free cancellation from SerpApi result data.
  * Checks multiple fields where cancellation info may appear.
+ *
+ * Returns TRUE (confirmed free cancellation), FALSE (confirmed non-refundable),
+ * or NULL (Google said nothing about the policy). The three states must stay
+ * distinct: this used to return `false` for "no information", which is a claim
+ * we cannot support — it made an unlabelled rate indistinguishable from one
+ * explicitly sold as non-refundable, and callers comparing refundability could
+ * never tell "different policy" from "policy unknown".
  */
 function detectFreeCancellation(item) {
-  // Direct amenities check
+  const haystacks = [];
   if (item.amenities) {
-    const amenities = Array.isArray(item.amenities) ? item.amenities : [item.amenities];
-    for (const a of amenities) {
-      const lower = (a || '').toLowerCase();
-      if (lower.includes('free cancellation') || lower.includes('cancelamento gratuito') || lower.includes('cancelamento gratis')) {
-        return true;
-      }
-    }
+    haystacks.push(...(Array.isArray(item.amenities) ? item.amenities : [item.amenities]));
   }
-  // Check rate features or deal description
-  const desc = (item.deal_description || item.deal || '').toLowerCase();
-  if (desc.includes('free cancellation') || desc.includes('cancelamento gratuito')) return true;
-  // Check the rate_features field (some SerpApi responses include this)
+  haystacks.push(item.deal_description || '', item.deal || '');
   if (item.rate_features) {
-    const features = Array.isArray(item.rate_features) ? item.rate_features : [item.rate_features];
-    for (const f of features) {
-      const lower = (f || '').toLowerCase();
-      if (lower.includes('free cancellation') || lower.includes('cancelamento')) return true;
-    }
+    haystacks.push(...(Array.isArray(item.rate_features) ? item.rate_features : [item.rate_features]));
   }
-  return false;
+  const text = haystacks.map(h => String(h || '').toLowerCase()).filter(Boolean).join(' | ');
+  if (!text) return null; // nothing to go on
+
+  // Explicit non-refundable wording wins over a generic "cancellation" mention.
+  if (/non[-\s]?refundable|no[nt][-\s]?refundable|não reembolsável|nao reembolsavel|sem reembolso|no free cancellation/.test(text)) {
+    return false;
+  }
+  if (/free cancellation|cancelamento gratuito|cancelamento grátis|cancelamento gratis|fully refundable|reembolsável|reembolsavel/.test(text)) {
+    return true;
+  }
+  return null; // policy simply wasn't stated
 }
 
 // ── Confidence Scoring ──────────────────────────────────────────────
@@ -739,7 +790,7 @@ function detectSourceFromVendor(vendorName, link) {
   // Major OTAs by name
   if (v.includes('booking.com')) return { name: 'Booking.com', logo: '🅱️', id: 'booking_real' };
   if (v.includes('expedia')) return { name: 'Expedia', logo: '✈️', id: 'expedia_real' };
-  if (v.includes('hoteis.com') || v.includes('hotels.com')) return { name: 'Hotels.com', logo: '🏨', id: 'hotels_real' };
+  if (v.includes('hoteis.com') || v.includes('hotels.com')) return { name: 'Hotels.com', logo: '', id: 'hotels_real' };
   if (v.includes('agoda')) return { name: 'Agoda', logo: '🌟', id: 'agoda_real' };
   if (v.includes('trip.com')) return { name: 'Trip.com', logo: '📡', id: 'trip_real' };
   if (v.includes('kayak')) return { name: 'Kayak', logo: '🔍', id: 'kayak_real' };
@@ -756,13 +807,13 @@ function detectSourceFromVendor(vendorName, link) {
   if (v.includes('my luxury')) return { name: 'My Luxury Hotel', logo: '💎', id: 'myluxury_real' };
 
   // Hotel chains (when the vendor is the hotel itself)
-  if (v.includes('meli')) return { name: 'Meliá (Direto)', logo: '🏨', id: 'melia_direct' };
-  if (v.includes('hilton')) return { name: 'Hilton (Direto)', logo: '🏨', id: 'hilton_direct' };
-  if (v.includes('marriott')) return { name: 'Marriott (Direto)', logo: '🏨', id: 'marriott_direct' };
-  if (v.includes('accor')) return { name: 'Accor (Direto)', logo: '🏨', id: 'accor_direct' };
-  if (v.includes('ihg')) return { name: 'IHG (Direto)', logo: '🏨', id: 'ihg_direct' };
-  if (v.includes('hyatt')) return { name: 'Hyatt (Direto)', logo: '🏨', id: 'hyatt_direct' };
-  if (v.includes('wyndham')) return { name: 'Wyndham (Direto)', logo: '🏨', id: 'wyndham_direct' };
+  if (v.includes('meli')) return { name: 'Meliá (Direto)', logo: '', id: 'melia_direct' };
+  if (v.includes('hilton')) return { name: 'Hilton (Direto)', logo: '', id: 'hilton_direct' };
+  if (v.includes('marriott')) return { name: 'Marriott (Direto)', logo: '', id: 'marriott_direct' };
+  if (v.includes('accor')) return { name: 'Accor (Direto)', logo: '', id: 'accor_direct' };
+  if (v.includes('ihg')) return { name: 'IHG (Direto)', logo: '', id: 'ihg_direct' };
+  if (v.includes('hyatt')) return { name: 'Hyatt (Direto)', logo: '', id: 'hyatt_direct' };
+  if (v.includes('wyndham')) return { name: 'Wyndham (Direto)', logo: '', id: 'wyndham_direct' };
 
   // Fallback: try link detection, then use vendor name as-is
   if (link) {
@@ -784,7 +835,7 @@ function detectSource(prop, link) {
   // Major OTAs
   if (url.includes('booking.com')) return { name: 'Booking.com', logo: '🅱️', id: 'booking_real' };
   if (url.includes('expedia.com')) return { name: 'Expedia', logo: '✈️', id: 'expedia_real' };
-  if (url.includes('hotels.com')) return { name: 'Hotels.com', logo: '🏨', id: 'hotels_real' };
+  if (url.includes('hotels.com')) return { name: 'Hotels.com', logo: '', id: 'hotels_real' };
   if (url.includes('agoda.com')) return { name: 'Agoda', logo: '🌟', id: 'agoda_real' };
   if (url.includes('trip.com')) return { name: 'Trip.com', logo: '📡', id: 'trip_real' };
   if (url.includes('kayak')) return { name: 'Kayak', logo: '🔍', id: 'kayak_real' };
@@ -794,19 +845,19 @@ function detectSource(prop, link) {
   if (url.includes('hurb.com')) return { name: 'Hurb', logo: '🌴', id: 'hurb_real' };
 
   // Hotel chains — direct sites
-  if (url.includes('all.accor.com') || url.includes('accor.com')) return { name: 'Accor (Direto)', logo: '🏨', id: 'accor_direct' };
-  if (url.includes('hilton.com')) return { name: 'Hilton (Direto)', logo: '🏨', id: 'hilton_direct' };
-  if (url.includes('marriott.com')) return { name: 'Marriott (Direto)', logo: '🏨', id: 'marriott_direct' };
-  if (url.includes('ihg.com')) return { name: 'IHG (Direto)', logo: '🏨', id: 'ihg_direct' };
-  if (url.includes('hyatt.com')) return { name: 'Hyatt (Direto)', logo: '🏨', id: 'hyatt_direct' };
-  if (url.includes('wyndham')) return { name: 'Wyndham (Direto)', logo: '🏨', id: 'wyndham_direct' };
-  if (url.includes('melia.com')) return { name: 'Melia (Direto)', logo: '🏨', id: 'melia_direct' };
-  if (url.includes('vilagale.com')) return { name: 'Vila Gale (Direto)', logo: '🏨', id: 'vilagale_direct' };
-  if (url.includes('bluetree.com')) return { name: 'Blue Tree (Direto)', logo: '🏨', id: 'bluetree_direct' };
-  if (url.includes('intercityhoteis')) return { name: 'Intercity (Direto)', logo: '🏨', id: 'intercity_direct' };
-  if (url.includes('travelinn.com')) return { name: 'Travel Inn (Direto)', logo: '🏨', id: 'travelinn_direct' };
+  if (url.includes('all.accor.com') || url.includes('accor.com')) return { name: 'Accor (Direto)', logo: '', id: 'accor_direct' };
+  if (url.includes('hilton.com')) return { name: 'Hilton (Direto)', logo: '', id: 'hilton_direct' };
+  if (url.includes('marriott.com')) return { name: 'Marriott (Direto)', logo: '', id: 'marriott_direct' };
+  if (url.includes('ihg.com')) return { name: 'IHG (Direto)', logo: '', id: 'ihg_direct' };
+  if (url.includes('hyatt.com')) return { name: 'Hyatt (Direto)', logo: '', id: 'hyatt_direct' };
+  if (url.includes('wyndham')) return { name: 'Wyndham (Direto)', logo: '', id: 'wyndham_direct' };
+  if (url.includes('melia.com')) return { name: 'Melia (Direto)', logo: '', id: 'melia_direct' };
+  if (url.includes('vilagale.com')) return { name: 'Vila Gale (Direto)', logo: '', id: 'vilagale_direct' };
+  if (url.includes('bluetree.com')) return { name: 'Blue Tree (Direto)', logo: '', id: 'bluetree_direct' };
+  if (url.includes('intercityhoteis')) return { name: 'Intercity (Direto)', logo: '', id: 'intercity_direct' };
+  if (url.includes('travelinn.com')) return { name: 'Travel Inn (Direto)', logo: '', id: 'travelinn_direct' };
   if (url.includes('housi.com')) return { name: 'Housi (Direto)', logo: '🏠', id: 'housi_direct' };
-  if (url.includes('atlanticahotels')) return { name: 'Atlantica (Direto)', logo: '🏨', id: 'atlantica_direct' };
+  if (url.includes('atlanticahotels')) return { name: 'Atlantica (Direto)', logo: '', id: 'atlantica_direct' };
 
   // Generic fallback: unknown URL — do NOT label as "hotel direct" or trusted
   // These will be filtered out by isTrustedSource() check
@@ -858,7 +909,10 @@ function buildQueryVariants(hotelName, destination) {
 }
 
 export async function searchRealPrices(booking, options = {}) {
-  const currency = options.currency || 'BRL';
+  // Quote in the currency the reservation was made in, so the comparison is
+  // like-for-like and no conversion is ever implied. Never default to a fixed
+  // BRL here: that returned Brazilian amounts for a USD booking.
+  const currency = options.currency || booking?.currency || 'USD';
   // Normalize the user's price to a stay TOTAL so per-vendor savings compare
   // like-for-like against Google's total rates. If the booking was entered
   // per-night, multiply by nights.
@@ -919,7 +973,7 @@ export async function searchRealPrices(booking, options = {}) {
             currency,
             propertyToken: target.property_token,
           });
-          const detailResults = parseGoogleHotelsResults(detailData, effectiveOriginal, booking);
+          const detailResults = parseGoogleHotelsResults(detailData, effectiveOriginal, booking, currency);
           if (detailResults.hotelInfo) hotelInfo = detailResults.hotelInfo;
           if (detailResults.length > 0) {
             console.log(`[SerpApi] Detail page for "${target.name}": ${detailResults.length} vendor prices [${detailResults.map(r => r.source).join(', ')}]`);
@@ -933,7 +987,7 @@ export async function searchRealPrices(booking, options = {}) {
 
     // Fallback — parse whatever the first response gave us (detail page when the
     // search resolved directly to one hotel, or the list otherwise).
-    const results = parseGoogleHotelsResults(searchData, effectiveOriginal, booking);
+    const results = parseGoogleHotelsResults(searchData, effectiveOriginal, booking, currency);
     if (!results.hotelInfo && hotelInfo) results.hotelInfo = hotelInfo;
     return results;
   };

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconBarChart, IconDollar, IconSearch, IconUpload, IconExternalLink, IconClock } from './Icons';
 import { useI18n } from '../i18n';
+import { formatStayDate, nightsBetween } from '../dates';
 import HotelDetailsModal from './HotelDetailsModal';
 import './Dashboard.css';
 
@@ -23,15 +24,14 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
   const [showNuiteeModal, setShowNuiteeModal] = useState(false);
   const [nuiteeHotelId] = useState(null);
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US', {
+  // Stay dates are date-only strings — parse them locally so they don't shift a
+  // day backwards in negative-offset timezones. See src/dates.js.
+  const formatDate = (dateStr) =>
+    formatStayDate(dateStr, lang === 'pt' ? 'pt-BR' : 'en-US', {
       day: 'numeric', month: 'short',
     });
-  };
 
-  const getNights = (checkin, checkout) => {
-    return Math.ceil((new Date(checkout) - new Date(checkin)) / (1000 * 60 * 60 * 24));
-  };
+  const getNights = (checkin, checkout) => nightsBetween(checkin, checkout);
 
   const now = new Date();
   const firstName = currentUser?.name?.split(' ')[0] || '';
