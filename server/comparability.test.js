@@ -59,8 +59,18 @@ test('refundability: refundable booking needs a refundable rate', () => {
   assert.equal(isRefundabilityCompatible(true, null), false);
 });
 
-test('refundability: unknown booking policy blocks a savings claim', () => {
-  assert.equal(isRefundabilityCompatible(null, true), false);
+test('refundability: a CONFIRMED refundable rate is always comparable', () => {
+  // The most flexible product there is — moving to it can never be a downgrade,
+  // so it stands even when the reservation's own policy was never recorded.
+  assert.equal(isRefundabilityCompatible(null, true), true);
+  assert.equal(isRefundabilityCompatible(false, true), true);
+});
+
+test('refundability: a non-refundable rate needs a non-refundable booking', () => {
+  assert.equal(isRefundabilityCompatible(false, false), true);
+  assert.equal(isRefundabilityCompatible(true, false), false);
+  // An unrecorded original is not evidence that the downgrade is safe.
+  assert.equal(isRefundabilityCompatible(null, false), false);
 });
 
 // ── End to end through the parser ───────────────────────────────────

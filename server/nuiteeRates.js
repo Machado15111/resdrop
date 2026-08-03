@@ -12,7 +12,10 @@
 
 import { searchRates, nuiteeConfigured, getHotels } from './liteApi.js';
 import { matchHotelWithNuitee, resolveCountryCode } from './enrichment.js';
-import { isRoomTypeCompatible, normalizeRoomType, isHotelNameMatch } from './serpApi.js';
+import {
+  isRoomTypeCompatible, normalizeRoomType, isHotelNameMatch, roomMatchRank,
+  isRefundabilityCompatible, bookingIsRefundable,
+} from './serpApi.js';
 
 /**
  * Resolve the booking's hotel to a Nuitée hotel id.
@@ -107,7 +110,13 @@ export function parseNuiteeRates(data, booking, quoteCurrency) {
   const nights = nightsBetween(booking.checkinDate, booking.checkoutDate);
   const bookingRoomType = booking.roomType || '';
 
-  let best = null;
+  // The room the guest actually holds — imported bookings keep the hotel's own
+  // wording under roomTypeCustom.
+  const wantedRoom = (booking.roomType === 'Other' && booking.roomTypeCustom)
+    ? booking.roomTypeCustom
+    : bookingRoomType;
+
+  const candidates = [];
   for (const h of hotels) {
     for (const rt of (h.roomTypes || [])) {
       for (const rate of (rt.rates || [])) {
@@ -119,18 +128,41 @@ export function parseNuiteeRates(data, booking, quoteCurrency) {
 
         const roomName = rate.name || rate.boardName || rt.name || '';
         const tag = rate?.cancellationPolicies?.refundableTag;
-        const freeCancellation = tag === 'RFN' || rate?.cancellationPolicies?.refundable === true;
+        const flag = rate?.cancellationPolicies?.refundable;
+        // TRUE / FALSE / NULL — "LiteAPI didn't say" must stay distinct from
+        // "sold as non-refundable" (same contract as detectFreeCancellation).
+        const freeCancellation =
+          (tag === 'RFN' || flag === true) ? true
+            : (tag === 'NRFN' || flag === false) ? false
+              : null;
 
-        if (!best || total < best.total) best = { total, roomName, freeCancellation };
+        candidates.push({ total, roomName, freeCancellation });
       }
     }
   }
+  if (!candidates.length) return [];
 
-  if (!best) return [];
+  // Quote the guest's OWN room when the hotel sells it. Taking the globally
+  // cheapest rate prices a Deluxe reservation against a Standard room — the
+  // same defect the Google parser had (see pickRoomRate in serpApi.js): it
+  // reads as a saving that simply isn't the same product. Fall back to the
+  // cheapest only when their room isn't offered, in which case roomTypeMatch
+  // below keeps the quote flagged as non-comparable.
+  const ranked = candidates
+    .map(c => ({ ...c, rank: roomMatchRank(c.roomName, wantedRoom) }))
+    .filter(c => c.rank !== null);
+  ranked.sort((a, b) => (a.rank - b.rank) || (a.total - b.total));
+
+  const best = ranked[0]
+    || candidates.slice().sort((a, b) => a.total - b.total)[0];
 
   const originalPrice = parseFloat(booking.originalPrice) || 0;
   const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, best.roomName);
-  const savings = roomTypeMatch ? Math.round((originalPrice - best.total) * 100) / 100 : 0;
+  // Same bar as the Google parser: a saving needs the same room AND
+  // like-for-like cancellation terms, or it isn't the same product.
+  const comparable = roomTypeMatch
+    && isRefundabilityCompatible(bookingIsRefundable(booking), best.freeCancellation);
+  const savings = comparable ? Math.round((originalPrice - best.total) * 100) / 100 : 0;
   const savingsPercent = savings > 0 && originalPrice > 0 ? Math.round((savings / originalPrice) * 100) : 0;
 
   return [{
@@ -149,7 +181,7 @@ export function parseNuiteeRates(data, booking, quoteCurrency) {
     totalPrice: best.total,
     savings: savings > 0 ? savings : 0,
     savingsPercent: savingsPercent > 0 ? savingsPercent : 0,
-    hasDrop: roomTypeMatch && savings > 0,
+    hasDrop: comparable && savings > 0,
     freeCancellation: best.freeCancellation,
     breakfastIncluded: false,
     lastChecked: new Date().toISOString(),

@@ -295,6 +295,56 @@ function comparisonRateFor(booking, tax) {
   return tax.total;
 }
 
+/**
+ * The room a vendor entry should be priced on.
+ *
+ * A vendor's top-level rate is the CHEAPEST room it sells at the property, but
+ * `rooms[]` carries a per-room breakdown. Quoting the top level compares the
+ * guest's Deluxe against the hotel's Standard — a different, cheaper product
+ * dressed up as their own rate. For the Juliana stay that was $5,962 (Standard
+ * Double) instead of $8,771 (Deluxe Double with Balcony), i.e. an invented
+ * $1,655 "saving" on a room the guest never booked.
+ *
+ * Returns the matching room object (same rate shape as the vendor) or null when
+ * the guest's room isn't among them — in which case the caller keeps the
+ * vendor-level rate and the comparison stays flagged as non-comparable.
+ */
+/**
+ * How well a vendor's room name matches the booked room — 0 best, null for no
+ * match. Shared by every rate source so "same room" means one thing app-wide.
+ * The hotel's wording rarely matches ours verbatim ("Deluxe Room, Balcony (or
+ * Terrace)" vs "Deluxe Double Room with Balcony or Terrace"), hence the ladder:
+ * exact → one contains the other → same normalized category.
+ */
+export function roomMatchRank(candidateName, bookedRoomType) {
+  if (!candidateName || !bookedRoomType) return null;
+  const c = normalize(candidateName);
+  const w = normalize(bookedRoomType);
+  if (!c || !w) return null;
+  if (c === w) return 0;
+  if (c.includes(w) || w.includes(c)) return 1;
+  const wanted = normalizeRoomType(bookedRoomType);
+  if (wanted !== ROOM_TYPE_CATEGORIES.OTHER && normalizeRoomType(candidateName) === wanted) return 2;
+  return null;
+}
+
+export function pickRoomRate(vendor, bookingRoomType) {
+  const rooms = Array.isArray(vendor?.rooms) ? vendor.rooms : [];
+  if (!rooms.length || !bookingRoomType) return null;
+
+  const totalOf = (r) => r?.total_rate?.extracted_lowest || r?.rate_per_night?.extracted_lowest || 0;
+  const ranked = rooms
+    .map(r => ({ room: r, rank: roomMatchRank(r?.name, bookingRoomType), total: totalOf(r) }))
+    .filter(x => x.rank !== null && x.total > 0);
+  if (!ranked.length) return null;
+
+  // Best match wins; among equally good matches take the CHEAPEST — the best
+  // comparable offer for that room, and the reading that can never overstate a
+  // saving.
+  ranked.sort((x, y) => (x.rank - y.rank) || (x.total - y.total));
+  return ranked[0].room;
+}
+
 // TRUE / FALSE / NULL (policy not recorded on the reservation).
 export function bookingIsRefundable(booking) {
   if (!booking?.cancellationPolicy) return null;
@@ -310,9 +360,16 @@ export function bookingIsRefundable(booking) {
  * it just may not claim a saving or fire an alert.
  */
 export function isRefundabilityCompatible(bookingRefundable, resultRefundable) {
-  if (bookingRefundable == null || resultRefundable == null) return false; // unverifiable
-  if (bookingRefundable) return resultRefundable === true;
-  return true; // non-refundable booking: an equally/more flexible rate is fine
+  // A rate we cannot verify at all is never comparable.
+  if (resultRefundable == null) return false;
+  // A CONFIRMED refundable rate is the most flexible product there is, so
+  // moving to it can never be a downgrade on cancellation terms — true even
+  // when the reservation's own policy was never recorded.
+  if (resultRefundable === true) return true;
+  // The rate is non-refundable: only comparable if the guest already holds a
+  // non-refundable booking. Swapping a refundable stay into one is a different,
+  // worse product, and an unknown original is not evidence that it is safe.
+  return bookingRefundable === false;
 }
 
 // Every quote MUST carry the currency its amounts are actually denominated in.
@@ -348,25 +405,40 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     const reviews = data.reviews || 0;
     const isMatch = isHotelNameMatch(hotelName, booking.hotelName, { destination: booking.destination });
 
-    // Room type from the booking for comparison
-    const bookingRoomType = booking.roomType || '';
+    // Room type from the booking for comparison. A booking imported from a
+    // confirmation keeps the hotel's own wording under roomTypeCustom.
+    const bookingRoomType = (booking.roomType === 'Other' && booking.roomTypeCustom)
+      ? booking.roomTypeCustom
+      : (booking.roomType || '');
 
-    // Combine prices and featured_prices, dedup by source name
-    const allPrices = [...(data.prices || []), ...(data.featured_prices || [])];
+    // Google lists a vendor in BOTH `prices` and `featured_prices`, but only one
+    // of the two carries the per-room breakdown — and it is not always the
+    // first. The old dedup kept whichever came first, which threw away the
+    // rooms[] data every time and left us quoting the property's cheapest room.
+    const bySource = new Map();
+    const roomCount = (x) => (Array.isArray(x?.rooms) ? x.rooms.length : 0);
+    for (const entry of [...(data.prices || []), ...(data.featured_prices || [])]) {
+      const name = entry.source || 'Unknown';
+      const kept = bySource.get(name);
+      if (!kept || roomCount(entry) > roomCount(kept)) bySource.set(name, entry);
+    }
+    const allPrices = [...bySource.values()];
     // Diagnostic: log every raw vendor Google returned, before any filtering,
     // so we can see from the logs why a vendor may be missing.
     console.log(`[SerpApi] Detail "${hotelName}" raw vendors: [${allPrices.map(p => `${p.source}${p.official ? '*' : ''}=${p.total_rate?.extracted_lowest || p.rate_per_night?.extracted_lowest || '?'}`).join(', ')}]`);
-    const seen = new Set();
-
     for (const p of allPrices) {
       const sourceName = p.source || 'Unknown';
-      if (seen.has(sourceName)) continue;
-      seen.add(sourceName);
 
-      const tax = extractTaxRates(p, stayNights);
+      // Price the guest's OWN room when the vendor breaks its rates down by
+      // room; otherwise fall back to the vendor's headline (cheapest) rate,
+      // which stays flagged as non-comparable further down.
+      const matchedRoom = pickRoomRate(p, bookingRoomType);
+      const priced = matchedRoom || p;
+
+      const tax = extractTaxRates(priced, stayNights);
       const perNight = tax.perNight;
       const totalRate = tax.total;
-      const link = p.link || data.link || '';
+      const link = matchedRoom?.link || p.link || data.link || '';
 
       if (totalRate <= 0) continue;
 
@@ -383,9 +455,12 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
       // hotel site (SerpApi flags it `official: true`) is a legitimate direct
       // source even for independent hotels not in the brand allow-list.
       const trusted = isTrustedSource(source.name) || p.official === true;
-      const resultRoomType = p.room_type || p.room_name || '';
+      // The room name lives on the matched room; the old code read `room_type` /
+      // `room_name`, fields Google does not send on a vendor entry, so every
+      // quote arrived room-less and could never be judged comparable.
+      const resultRoomType = matchedRoom?.name || p.room_type || p.room_name || '';
       const roomTypeMatch = isRoomTypeCompatible(bookingRoomType, resultRoomType);
-      const freeCancellation = detectFreeCancellation(p);
+      const freeCancellation = detectFreeCancellation(matchedRoom) ?? detectFreeCancellation(p);
 
       // Compare on the SAME tax basis as the user's price so savings are honest.
       const comparisonRate = comparisonRateFor(booking, tax);
@@ -727,6 +802,7 @@ function isHiddenSource(sourceName) {
  * never tell "different policy" from "policy unknown".
  */
 function detectFreeCancellation(item) {
+  if (!item) return null; // callers probe the matched room before the vendor
   const haystacks = [];
   if (item.amenities) {
     haystacks.push(...(Array.isArray(item.amenities) ? item.amenities : [item.amenities]));
