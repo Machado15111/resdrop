@@ -85,6 +85,16 @@ function App() {
     return () => (ric && window.cancelIdleCallback ? window.cancelIdleCallback(id) : clearTimeout(id));
   }, []);
 
+  // The Travelpayouts ad loader (index.html) injects remote third-party JS and runs
+  // ONLY for logged-out visitors on public routes. Logging in is client-side, so that
+  // ad document would otherwise persist into the authenticated app — where the auth
+  // token lives in localStorage. Force ONE full reload at the login boundary: the URL
+  // already points at the post-login destination (dashboard/onboarding, reviewImport
+  // query preserved), and the fresh document's injector sees the token and stays out.
+  useEffect(() => {
+    if (isAuthenticated && window.__rdpAdLoaded) window.location.reload();
+  }, [isAuthenticated]);
+
   if (loading) return null;
 
   // The dramatic full-screen "curtain" reveal is a first-impression effect for the

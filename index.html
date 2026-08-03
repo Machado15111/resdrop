@@ -121,6 +121,28 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Inter+Tight:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+
+    <!-- Travelpayouts monetization (affiliate commission).
+         SECURITY: this loads REMOTE third-party JS with full page access, and the
+         user's auth token lives in localStorage ('resdrop-token'). So it must run
+         ONLY for logged-out visitors on public/marketing routes — never in an
+         authenticated document. The login-boundary reload in src/App.jsx keeps this
+         guarantee when a logged-out visitor logs in via client-side navigation. -->
+    <script>
+      (function () {
+        var TOKEN_KEY = 'resdrop-token';
+        var PUBLIC_PATHS = ['/', '/v2', '/v3', '/v4', '/about', '/privacy', '/terms', '/plans'];
+        var loggedIn;
+        try { loggedIn = !!localStorage.getItem(TOKEN_KEY); } catch (e) { loggedIn = true; }
+        if (loggedIn || PUBLIC_PATHS.indexOf(location.pathname) === -1) return;
+        window.__rdpAdLoaded = true;
+        var s = document.createElement('script');
+        s.async = true;
+        s.setAttribute('data-cmp-ab', '2');
+        s.src = 'https://tp-em.com/NTU3NDg1.js?t=557485';
+        document.head.appendChild(s);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
