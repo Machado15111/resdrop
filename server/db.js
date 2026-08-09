@@ -5,6 +5,7 @@ import { dirname, join } from 'path';
 import * as supa from './supabase-rest.js';
 import { invalidateToken, invalidateEmail } from './authCache.js';
 import { hashToken } from './tokens.js';
+import { isAdminEmail } from './admins.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -158,16 +159,10 @@ export async function getUserWithPassword(email) {
   return null;
 }
 
-const ADMIN_EMAILS = [
-  (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
-  'junior13machadojr@gmail.com',
-  'machado1jr@gmail.com'
-].filter(Boolean);
-
-export function isAdminEmail(email) {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase());
-}
+// Re-exported so existing callers of db.isAdminEmail keep working. The list
+// itself lives in admins.js — it used to be duplicated here and in index.js,
+// which meant the two copies could disagree about who is an admin.
+export { isAdminEmail };
 
 export async function getUser(email) {
   const user = await getUserWithPassword(email);

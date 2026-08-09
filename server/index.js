@@ -58,6 +58,7 @@ import { PLANS, planChangeDecision, selfServiceEnabled } from './planAuthz.js';
 import { rateLimit, startSweeper } from './rateLimit.js';
 import { requestId, apiNotFound, errorHandler } from './errorHandler.js';
 import { generateToken } from './tokens.js';
+import { isAdminEmail, configuredAdmins } from './admins.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -445,6 +446,7 @@ console.log(`[RepriceHQ] Storage: Supabase (PostgreSQL)`);
 // Make the proxy setting visible in Railway logs: if this ever reads 0, every
 // IP-keyed rate limit has silently collapsed into one shared global bucket.
 console.log(`[RepriceHQ] trust proxy: ${TRUST_PROXY_HOPS} hop(s) — rate limits key on the client IP as seen by our edge proxy`);
+console.log(`[RepriceHQ] Admins configured: ${configuredAdmins().length} (from ADMIN_EMAILS)`);
 if (isSerpApiConfigured()) {
   console.log('[RepriceHQ] SerpApi Google Hotels: configured ✓ (real prices)');
 }
@@ -474,16 +476,9 @@ function generateId() {
 }
 
 // ─── Auth Middleware ─────────────────────────────────────────
-const ADMIN_EMAILS = [
-  (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
-  'junior13machadojr@gmail.com',
-  'machado1jr@gmail.com'
-].filter(Boolean);
-
-export function isAdminEmail(email) {
-  if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase());
-}
+// isAdminEmail is defined once, in admins.js, and re-exported here so anything
+// importing it from index.js keeps working.
+export { isAdminEmail };
 
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
