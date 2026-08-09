@@ -15,9 +15,28 @@ dotenv.config({ path: join(__dirname, '.env') });
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-export const isConfigured = !!(SUPABASE_URL && SUPABASE_KEY);
+/**
+ * SAFETY: the test suite must never reach the live project.
+ *
+ * server/.env holds the production SUPABASE_URL and SERVICE_KEY, and dotenv
+ * loads it on import — so under `node --test` this client was fully configured
+ * and pointed at production. Nothing was written only because the FK on
+ * sessions.user_email rejected fixture rows; a test calling updateUser or
+ * deleteUserSessions with a real address would have mutated live data and
+ * signed that user out.
+ *
+ * Tests therefore run with REST disabled, which routes db.js down its in-memory
+ * path — what the existing suite already assumes. Set ALLOW_TEST_DB_WRITES=true
+ * to opt a run back in (for a disposable project, never production).
+ */
+const UNDER_TEST = process.env.NODE_ENV === 'test' || /\.test\.js$/.test(process.argv[1] || '');
+const TEST_DB_OPT_IN = process.env.ALLOW_TEST_DB_WRITES === 'true';
 
-if (!isConfigured) {
+export const isConfigured = !!(SUPABASE_URL && SUPABASE_KEY) && (!UNDER_TEST || TEST_DB_OPT_IN);
+
+if (UNDER_TEST && SUPABASE_URL && !TEST_DB_OPT_IN) {
+  console.warn('[Supabase REST] Disabled under test — using in-memory storage. Set ALLOW_TEST_DB_WRITES=true to override.');
+} else if (!isConfigured) {
   console.warn('[Supabase REST] Not configured — SUPABASE_URL or SUPABASE_SERVICE_KEY missing');
 }
 
