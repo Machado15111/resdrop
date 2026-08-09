@@ -72,6 +72,7 @@ import savingsRoutes from './routes/savings.js';
 import specialFaresRoutes from './routes/specialFares.js';
 import documentRoutes from './routes/documents.js';
 import inboundEmailRoutes from './routes/inbound-email.js';
+import affiliateRoutes from './routes/affiliates.js';
 import { registerNuiteeRoutes } from './nuiteeRoutes.js';
 import {
   isEmailConfigured,
@@ -1948,106 +1949,8 @@ app.put('/api/users/:email/plan', authMiddleware, async (req, res) => {
   res.json({ ...updated, planLimit: planInfo.bookingsPerMonth, currency: billingCurrency, amount: planInfo.price });
 });
 
-// ─── AWIN ROUTES ─────────────────────────────────────────────
-
-app.get('/api/awin/status', authMiddleware, adminMiddleware, async (req, res) => {
-  if (!isAwinConfigured()) {
-    return res.json({ connected: false, error: 'Awin not configured' });
-  }
-  try {
-    const programmes = await getJoinedProgrammes();
-    const bookingProgramme = Array.isArray(programmes)
-      ? programmes.find(p =>
-          (p.name || '').toLowerCase().includes('booking') ||
-          String(p.id) === process.env.BOOKING_AWIN_ADVERTISER_ID_APAC ||
-          String(p.id) === process.env.BOOKING_AWIN_ADVERTISER_ID_NA
-        )
-      : null;
-    res.json({
-      connected: true,
-      publisherId: process.env.AWIN_AFFILIATE_ID,
-      totalProgrammes: Array.isArray(programmes) ? programmes.length : 0,
-      bookingComJoined: !!bookingProgramme,
-      bookingProgramme: bookingProgramme || null,
-    });
-  } catch (err) {
-    res.json({ connected: false, error: err.message });
-  }
-});
-
-app.get('/api/awin/promotions', publicRateLimit, async (req, res) => {
-  if (!isAwinConfigured()) {
-    return res.status(400).json({ error: 'Awin not configured' });
-  }
-  try {
-    const raw = await getBookingPromotions({ region: req.query.region || 'brazil' });
-    const deals = parsePromotions(raw);
-    res.json({ deals, raw, count: deals.length });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post('/api/awin/link', publicRateLimit, (req, res) => {
-  const { destination, checkinDate, checkoutDate, adults, rooms } = req.body;
-  if (!isAwinConfigured()) {
-    return res.status(400).json({ error: 'Awin not configured' });
-  }
-  const link = buildBookingSearchLink({
-    destination,
-    checkinDate,
-    checkoutDate,
-    adults: adults || 2,
-    rooms: rooms || 1,
-    clickRef: `repricehq_${Date.now()}`,
-  });
-  res.json({ affiliateLink: link });
-});
-
-app.get('/api/awin/transactions', authMiddleware, adminMiddleware, async (req, res) => {
-  if (!isAwinConfigured()) {
-    return res.status(400).json({ error: 'Awin not configured' });
-  }
-  try {
-    const txns = await getTransactions({
-      startDate: req.query.start,
-      endDate: req.query.end,
-    });
-    res.json({ transactions: txns, count: Array.isArray(txns) ? txns.length : 0 });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── EXPEDIA ROUTES ──────────────────────────────────────────
-
-app.get('/api/expedia/status', publicRateLimit, (req, res) => {
-  res.json({
-    configured: isExpediaConfigured(),
-    programme: getExpediaProgrammeInfo(),
-    commissions: getExpediaCommissionRates(),
-  });
-});
-
-app.post('/api/expedia/link', publicRateLimit, (req, res) => {
-  const { destination, checkinDate, checkoutDate, adults, rooms, currency } = req.body;
-  const link = buildExpediaSearchLink({
-    destination,
-    checkinDate,
-    checkoutDate,
-    adults: adults || 2,
-    rooms: rooms || 1,
-    currency: currency || 'BRL',
-    clickRef: `repricehq_${Date.now()}`,
-  });
-  res.json({ affiliateLink: link });
-});
-
-app.post('/api/expedia/commission', publicRateLimit, (req, res) => {
-  const { amount, type } = req.body;
-  const commission = calculateExpediaCommission(amount || 0, type || 'lodging');
-  res.json(commission);
-});
+// Awin + Expedia affiliate routes now live in routes/affiliates.js
+// (mounted below with the other routers).
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN ROUTES
@@ -3157,6 +3060,9 @@ app.use('/api', documentRoutes(authMiddleware));
 
 // ─── Mount inbound email webhook (public) + address endpoint (auth) ─
 app.use('/api', inboundEmailRoutes(authMiddleware));
+
+// ─── Mount Awin + Expedia affiliate routes ───────────────────
+app.use('/api', affiliateRoutes(authMiddleware, adminMiddleware, publicRateLimit));
 
 // Is this process actually serving traffic, or has something imported index.js
 // for its `app` (the route tests, tooling)? Under `node --test` we must not bind

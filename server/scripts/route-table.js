@@ -29,6 +29,31 @@ function pathOf(layer, prefix) {
   return joined || '/';
 }
 
+/**
+ * Recover a router's mount prefix.
+ *
+ * Express 5 dropped `layer.regexp` (and `layer.path`) in favour of `matchers`:
+ * an array of functions that return `{ path, params }` for a match and `false`
+ * otherwise. Scraping the old regexp source silently produced empty prefixes,
+ * which made every mounted route render as '/awin/status' instead of
+ * '/api/awin/status' — an unmounted-looking path that would have masked a real
+ * mounting mistake. Probing the matcher asks Express itself.
+ */
+const CANDIDATE_PREFIXES = ['/api', '/'];
+
+function mountPrefixOf(layer) {
+  const matchers = layer.matchers || [];
+  for (const candidate of CANDIDATE_PREFIXES) {
+    for (const match of matchers) {
+      try {
+        const m = match(candidate);
+        if (m && m.path && m.path !== '/') return m.path;
+      } catch { /* not this one */ }
+    }
+  }
+  return '';
+}
+
 const rows = [];
 
 function walk(stack, prefix = '') {
@@ -42,11 +67,7 @@ function walk(stack, prefix = '') {
         rows.push({ method, path: pathOf(layer, prefix), chain: chainOf(layer) });
       }
     } else if (layer.name === 'router' && layer.handle?.stack) {
-      // Recover the mount path from the layer's regexp.
-      const src = layer.regexp?.source || '';
-      const m = /^\^\\\/(?<seg>[^\\?]*)/.exec(src);
-      const mount = m?.groups?.seg ? `/${m.groups.seg}` : '';
-      walk(layer.handle.stack, prefix + mount);
+      walk(layer.handle.stack, prefix + mountPrefixOf(layer));
     }
   }
 }
