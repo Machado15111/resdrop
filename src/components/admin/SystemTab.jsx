@@ -1,19 +1,15 @@
 /**
  * SystemTab — moved verbatim out of AdminDashboard.jsx (was one 1,565-line file).
  */
-import { useState, useEffect } from 'react';
 import { IconClock, IconServer, IconSettings } from '../Icons';
 import { KpiCard, StatRow, StatusBadge } from './SharedUI';
 import { API } from '../../api';
 
 function SystemTab({ system, config }) {
-  const [emailStatus, setEmailStatus] = useState(null);
-
-  useEffect(() => {
-    // Check email configuration from config
-    const resendConfigured = !!config?.resendConfigured;
-    setEmailStatus(resendConfigured);
-  }, [config]);
+  // Plain derived value, not state. This was a useState + useEffect that only
+  // ever copied config.resendConfigured into state — which rendered once with
+  // `null` (reported as "disconnected") before the effect corrected it.
+  const emailStatus = !!config?.resendConfigured;
 
   return (
     <div className="admin-section">

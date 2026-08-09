@@ -38,6 +38,12 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
 
   // Deadline alerts: bookings with a cancellationDeadline within 72h
   const deadlineAlerts = useMemo(() => {
+    // `now` is computed inside the memo rather than read from the enclosing
+    // render. The outer `const now = new Date()` is a fresh object every
+    // render, so listing it as a dependency would defeat the memo entirely,
+    // while omitting it (the previous state) meant these alerts were measured
+    // against whatever `now` happened to be when `bookings` last changed.
+    const now = new Date();
     return bookings
       .filter(b => {
         if (!b.cancellationDeadline || b.status === 'archived') return false;

@@ -169,4 +169,3 @@ function Pricing() {
 }
 
 export default Pricing;
-export { plans };
