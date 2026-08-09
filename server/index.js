@@ -56,6 +56,7 @@ import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
 import { stripeConfigured, createCheckoutSession, createPortalSession, constructWebhookEvent, planActionFromEvent } from './stripe.js';
 import { PLANS, planChangeDecision, selfServiceEnabled } from './planAuthz.js';
 import { rateLimit, startSweeper } from './rateLimit.js';
+import { requestId, apiNotFound, errorHandler } from './errorHandler.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -368,6 +369,10 @@ const TRUST_PROXY_HOPS = Number.isFinite(parseInt(process.env.TRUST_PROXY_HOPS, 
   ? parseInt(process.env.TRUST_PROXY_HOPS, 10)
   : 1;
 app.set('trust proxy', TRUST_PROXY_HOPS);
+
+// Correlation id on every request, so a 500 the user reports ("requestId
+// a1b2…") can be found in the logs. Must run before anything that can fail.
+app.use(requestId);
 
 // ─── Security: CORS — restrict to known origins ─────────────
 app.use(cors({
@@ -3120,19 +3125,30 @@ if (process.env.MONITOR_ENABLED !== 'false') {
 // Nuitée / Price Trends routes (registered before the SPA fallback)
 registerNuiteeRoutes(app, { authMiddleware, adminMiddleware, costlyApiRateLimit });
 
+// Every API router is mounted by this point. An /api path that reached here
+// matched nothing, so answer with JSON instead of falling through to the SPA —
+// which used to match it, return no response and hang the request.
+app.use('/api', apiNotFound);
+
 import { existsSync } from 'fs';
 const distPath = join(__dirname, '..', 'dist');
 if (existsSync(distPath)) {
   app.use(express.static(distPath));
   // SPA fallback — all non-API routes serve index.html
   // Express 5 requires named parameter syntax instead of bare '*'
-  app.get('/{*splat}', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(join(distPath, 'index.html'));
-    }
+  app.get('/{*splat}', (req, res, next) => {
+    // /api is already handled above; next() rather than hanging, just in case.
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(join(distPath, 'index.html'));
   });
   console.log('[ResDrop] Serving frontend from /dist');
 }
+
+// ─── Terminal error handler — MUST be the last app.use ──────
+// Converts any thrown/rejected handler into the { error, requestId } JSON shape
+// the frontend expects, logs the stack server-side, and never leaks a stack or
+// a raw driver message to the client.
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
