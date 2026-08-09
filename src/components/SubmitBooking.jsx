@@ -5,43 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { IconArrowLeft, IconMail, IconUpload, IconArrowRight, IconShield, IconChevronDown, IconCheck, IconX } from './Icons';
 import './SubmitBooking.css';
 import { API } from '../api';
-
-const ROOM_TYPES = [
-  { value: 'Standard Room', pt: 'Quarto Standard', en: 'Standard Room' },
-  { value: 'Superior Room', pt: 'Quarto Superior', en: 'Superior Room' },
-  { value: 'Deluxe Room', pt: 'Quarto Deluxe', en: 'Deluxe Room' },
-  { value: 'Junior Suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
-  { value: 'Studio', pt: 'Studio', en: 'Studio' },
-  { value: 'Suite', pt: 'Suíte', en: 'Suite' },
-  { value: 'Penthouse', pt: 'Penthouse', en: 'Penthouse' },
-  { value: 'Other', pt: 'Outro', en: 'Other' },
-];
-
-const PREFERENCES = [
-  { value: 'sea_view', pt: 'Vista Mar', en: 'Sea View' },
-  { value: 'high_floor', pt: 'Andar Alto', en: 'High Floor' },
-  { value: 'lowest_category', pt: 'Categoria Mais Baixa', en: 'Lowest Category' },
-  { value: 'suite', pt: 'Suíte', en: 'Suite' },
-  { value: 'junior_suite', pt: 'Suíte Júnior', en: 'Junior Suite' },
-];
-
-const CONFIDENCE_COLORS = {
-  high: '#166534',
-  medium: '#92400e',
-  low: '#991b1b',
-};
-
-function getConfidenceLevel(score) {
-  if (score >= 0.7) return 'high';
-  if (score >= 0.4) return 'medium';
-  return 'low';
-}
-
-// Intake step constants
-const STEP_INTAKE = 'intake';
-const STEP_PROCESSING = 'processing';
-const STEP_REVIEW = 'review';
-const STEP_MANUAL = 'manual';
+import {
+  ROOM_TYPES, PREFERENCES,
+  STEP_INTAKE, STEP_PROCESSING, STEP_REVIEW, STEP_MANUAL,
+} from './submitBooking/constants';
+import ReviewField from './submitBooking/ReviewField';
+import ProcessingStep from './submitBooking/ProcessingStep';
 
 function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEmail }) {
   const { t, lang } = useI18n();
@@ -1112,45 +1081,5 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
 }
 
 // --- Review Field Component ---
-function ReviewField({ label, value, onChange, confidence, type = 'text', required, lang }) {
-  const level = confidence != null ? getConfidenceLevel(confidence) : null;
-
-  return (
-    <div className="review-field">
-      <div className="review-field-header">
-        <label>{label}{required ? ' *' : ''}</label>
-        {level && (
-          <span
-            className={`review-confidence review-confidence-${level}`}
-            style={{ color: CONFIDENCE_COLORS[level] }}
-          >
-            {level === 'high' ? (lang === 'pt' ? 'Alta' : 'High') :
-             level === 'medium' ? (lang === 'pt' ? 'Média' : 'Med') :
-             (lang === 'pt' ? 'Baixa' : 'Low')}
-          </span>
-        )}
-      </div>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className={`review-input ${level ? `review-input-${level}` : ''} ${!value && required ? 'review-input-empty' : ''}`}
-        required={required}
-      />
-    </div>
-  );
-}
-
-// --- Processing Step Indicator ---
-function ProcessingStep({ label, done, active }) {
-  return (
-    <div className={`processing-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
-      <div className="processing-step-dot">
-        {done && <IconCheck size={10} />}
-      </div>
-      <span>{label}</span>
-    </div>
-  );
-}
 
 export default SubmitBooking;
