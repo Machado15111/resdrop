@@ -54,11 +54,12 @@ export function AuthProvider({ children }) {
     return data.user;
   };
 
-  const signup = async ({ email, name, password, phone, currency, country }) => {
+  const signup = async ({ email, name, password, phone, currency, country, lang }) => {
     const res = await fetch(`${API}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, password, phone, currency, country }),
+      // lang lets the server return validation errors in the user's language.
+      body: JSON.stringify({ email, name, password, phone, currency, country, lang }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Signup failed');

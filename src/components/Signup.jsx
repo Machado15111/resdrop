@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { API } from '../api';
 import { IconMail, IconLock } from './Icons';
+import { MIN_PASSWORD_LENGTH } from '../constants/password';
 import './Account.css';
 
 function Signup() {
@@ -45,7 +46,7 @@ function Signup() {
   const validate = () => {
     if (!form.name.trim()) return t('signup.nameRequired');
     if (!form.email.trim()) return t('signup.emailRequired');
-    if (form.password.length < 6) return t('signup.passwordMin');
+    if (form.password.length < MIN_PASSWORD_LENGTH) return t('signup.passwordMin');
     if (form.password !== form.confirmPassword) return t('signup.passwordMismatch');
     return null;
   };
@@ -62,6 +63,7 @@ function Signup() {
         email: form.email,
         name: form.name,
         password: form.password,
+        lang,
       });
 
       if (rawToken) {
@@ -174,7 +176,7 @@ function Signup() {
                     onChange={handleChange}
                     placeholder={t('signup.passwordPlaceholder')}
                     required
-                    minLength={6}
+                    minLength={MIN_PASSWORD_LENGTH}
                   />
                 </div>
               </div>
@@ -190,7 +192,7 @@ function Signup() {
                     onChange={handleChange}
                     placeholder={t('signup.confirmPlaceholder')}
                     required
-                    minLength={6}
+                    minLength={MIN_PASSWORD_LENGTH}
                   />
                 </div>
               </div>

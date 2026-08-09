@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n';
 import { IconLock } from './Icons';
 import { API } from '../api';
+import { MIN_PASSWORD_LENGTH } from '../constants/password';
 import './Account.css';
 
 function ResetPassword() {
@@ -71,8 +72,8 @@ function ResetPassword() {
     e.preventDefault();
     setError('');
 
-    if (password.length < 6) {
-      setError(pt ? 'A senha deve ter pelo menos 6 caracteres.' : 'Password must be at least 6 characters.');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(pt ? `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.` : `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
       return;
     }
 
@@ -86,7 +87,7 @@ function ResetPassword() {
       const res = await fetch(`${API}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, lang }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -124,9 +125,9 @@ function ResetPassword() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder={pt ? 'Minimo 6 caracteres' : 'Minimum 6 characters'}
+                  placeholder={pt ? `Minimo ${MIN_PASSWORD_LENGTH} caracteres` : `Minimum ${MIN_PASSWORD_LENGTH} characters`}
                   required
-                  minLength={6}
+                  minLength={MIN_PASSWORD_LENGTH}
                   autoFocus
                 />
               </div>
@@ -142,7 +143,7 @@ function ResetPassword() {
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder={pt ? 'Repita a senha' : 'Repeat password'}
                   required
-                  minLength={6}
+                  minLength={MIN_PASSWORD_LENGTH}
                 />
               </div>
             </div>

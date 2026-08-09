@@ -8,8 +8,12 @@ dotenv.config({ path: join(__dirname, '.env') });
 
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
+import {
+  hashPassword, verifyPassword, rehashIfWeak, burnCompare,
+  validatePassword, messageFor, BCRYPT_COST, MIN_PASSWORD_LENGTH,
+} from './passwords.js';
 import * as db from './db.js';
 import {
   isBookingApiConfigured,
@@ -392,31 +396,53 @@ app.use(express.json({
   verify: (req, res, buf) => { req.rawBody = buf; },
 }));
 
-// ─── Security: Basic security headers ───────────────────────
+// ─── Security: headers (helmet) ─────────────────────────────
+//
+// Replaces a hand-rolled setHeader block. The CSP below is BYTE-FOR-BYTE the
+// policy that block emitted — helmet's defaults are deliberately overridden
+// rather than merged, because its stock policy would drop the directives this
+// app actually needs (the tp-em.com Travelpayouts script and the OpenStreetMap
+// frame) and break the SPA.
+//
+// TODO(csp): script-src still carries 'unsafe-inline', which is what makes an
+// XSS able to read the session token out of localStorage. Removing it needs
+// every inline <script> and inline handler in index.html / the Vite output to
+// move to a nonce or hash. Deliberately out of scope here — it is a change that
+// must be verified in a browser, not by a header assertion.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      'default-src': ["'self'"],
+      'base-uri': ["'self'"],
+      'object-src': ["'none'"],
+      'frame-ancestors': ["'none'"],
+      'form-action': ["'self'"],
+      'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+      'media-src': ["'self'", 'https:'],
+      'font-src': ["'self'", 'https://fonts.gstatic.com'],
+      'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      'script-src': ["'self'", "'unsafe-inline'", 'https://tp-em.com'],
+      'connect-src': ["'self'", 'https:'],
+      'frame-src': ['https://www.openstreetmap.org'],
+      'worker-src': ["'self'"],
+    },
+  },
+  // Match the previous header exactly: 1 year, includeSubDomains, no preload.
+  strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true, preload: false },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  frameguard: { action: 'deny' },
+  // helmet sets Cross-Origin-Resource-Policy: same-origin, which would block
+  // the /dist assets and hotel images the SPA loads cross-origin.
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+// helmet omits X-XSS-Protection by design (the legacy filter introduced its own
+// vulnerabilities and every current browser ignores it). The previous block set
+// it, so it is kept explicitly rather than silently dropped.
 app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  // Content-Security-Policy (defense-in-depth). Permissive enough for the SPA
-  // (external hashed bundles, Google Fonts, hotel-image CDNs over https, the
-  // OpenStreetMap map embed) while locking down object/base/form and framing.
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'none'",
-    "form-action 'self'",
-    "img-src 'self' data: blob: https:",
-    "media-src 'self' https:",
-    "font-src 'self' https://fonts.gstatic.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "script-src 'self' 'unsafe-inline' https://tp-em.com",
-    "connect-src 'self' https:",
-    "frame-src https://www.openstreetmap.org",
-    "worker-src 'self'",
-  ].join('; '));
   next();
 });
 
@@ -1649,16 +1675,34 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   if (!password) return res.status(400).json({ error: 'Senha obrigatoria' });
 
   const userWithPw = await db.getUserWithPassword(email);
-  // Security: Don't reveal whether user exists — generic error for all failures
-  if (!userWithPw) return res.status(401).json({ error: 'Credenciais invalidas' });
 
-  // Security: Require password — no legacy passwordless backdoor
-  if (!userWithPw.passwordHash) {
-    return res.status(401).json({ error: 'Conta requer redefinicao de senha. Use "Esqueci minha senha".' });
+  // Security: Don't reveal whether user exists — generic error for all failures.
+  // The generic MESSAGE was not enough on its own: returning immediately made a
+  // miss ~0ms while a hit paid the full bcrypt cost, and that timing gap is
+  // itself an enumeration oracle. Burn the same work either way.
+  if (!userWithPw || !userWithPw.passwordHash) {
+    await burnCompare(password);
+    if (userWithPw && !userWithPw.passwordHash) {
+      return res.status(401).json({ error: 'Conta requer redefinicao de senha. Use "Esqueci minha senha".' });
+    }
+    return res.status(401).json({ error: 'Credenciais invalidas' });
   }
 
-  const valid = await bcrypt.compare(password, userWithPw.passwordHash);
+  const valid = await verifyPassword(password, userWithPw.passwordHash);
   if (!valid) return res.status(401).json({ error: 'Credenciais invalidas' });
+
+  // Transparent upgrade: hashes made at the old cost factor are re-hashed at
+  // the current one now, while the plaintext is legitimately in hand. Best
+  // effort — a failure here must never block a valid login.
+  try {
+    const upgraded = await rehashIfWeak(password, userWithPw.passwordHash);
+    if (upgraded) {
+      await db.updateUser(email, { passwordHash: upgraded });
+      console.log(`[Auth] rehashed password for ${email.toLowerCase()} at cost ${BCRYPT_COST}`);
+    }
+  } catch (e) {
+    console.error('[Auth] password rehash failed (login continues):', e.message);
+  }
 
   await db.updateUser(email, { lastActive: new Date().toISOString() });
   await db.updateUserStats(email);
@@ -1671,10 +1715,11 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
 });
 
 app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
-  const { email, name, password, phone, currency, country } = req.body;
+  const { email, name, password, phone, currency, country, lang } = req.body;
   if (!email) return res.status(400).json({ error: 'Email obrigatorio' });
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  const pwCheck = validatePassword(password);
+  if (!pwCheck.ok) {
+    return res.status(400).json({ error: messageFor(pwCheck, lang), code: pwCheck.code });
   }
   // Security: Basic email format validation
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1684,7 +1729,7 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
   // Security: Generic error to prevent account enumeration
   if (existing) return res.status(409).json({ error: 'Nao foi possivel criar a conta. Tente fazer login ou redefinir senha.' });
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await hashPassword(password);
 
   // Insert new user — db.supabase is the postgres sql client
   let newUser;
@@ -1767,12 +1812,13 @@ app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
 });
 
 app.post('/api/auth/reset-password', resetSubmitLimit, async (req, res) => {
-  const { token, password } = req.body;
+  const { token, password, lang } = req.body;
   if (!token || !password) {
     return res.status(400).json({ error: 'Token e senha obrigatorios' });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+  const pwCheck = validatePassword(password);
+  if (!pwCheck.ok) {
+    return res.status(400).json({ error: messageFor(pwCheck, lang), code: pwCheck.code });
   }
 
   const reset = await db.getPasswordReset(token);
@@ -1780,7 +1826,7 @@ app.post('/api/auth/reset-password', resetSubmitLimit, async (req, res) => {
     return res.status(400).json({ error: 'Token invalido ou expirado' });
   }
 
-  const hash = await bcrypt.hash(password, 10);
+  const hash = await hashPassword(password);
   await db.updateUser(reset.user_email, { passwordHash: hash });
   await db.markPasswordResetUsed(token);
   await db.deleteUserSessions(reset.user_email);
