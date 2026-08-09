@@ -112,6 +112,10 @@ try {
   await sql`CREATE INDEX IF NOT EXISTS idx_push_email ON push_subscriptions(email)`;
   console.log('✓ push_subscriptions table');
 
+  // digest() for the token_hash backfills below. Harmless if already present.
+  await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`
+    .catch(e => console.warn('  (pgcrypto extension unavailable:', e.message.split('\n')[0], ')'));
+
   // ─── Sessions table ───────────────────────────────────────
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -126,6 +130,30 @@ try {
   await sql`CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_sessions_email ON sessions(user_email)`;
 
+  // Session tokens are stored as a SHA-256 digest, never in the clear: a leaked
+  // backup used to hand over every live session verbatim.
+  //
+  // Transition, in order:
+  //  1. add token_hash and index it
+  //  2. drop NOT NULL on the legacy `token` column — new rows write only the
+  //     hash, so leaving the constraint would break every login
+  //  3. db.js reads hash-first with a plaintext fallback, so sessions issued
+  //     before this migration stay valid until they expire
+  //  4. once every pre-migration session has aged out (30 days), the `token`
+  //     column and its fallback read can be dropped
+  await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS token_hash TEXT`;
+  await sql`ALTER TABLE sessions ALTER COLUMN token DROP NOT NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON sessions(token_hash)`;
+  // Backfill: a digest can be computed from the plaintext we already hold, so
+  // existing sessions move to the hashed path immediately rather than relying
+  // on the legacy read. pgcrypto's digest() is available on Supabase.
+  await sql`
+    UPDATE sessions
+       SET token_hash = encode(digest(token, 'sha256'), 'hex')
+     WHERE token_hash IS NULL AND token IS NOT NULL
+  `.catch(e => console.warn('  (sessions backfill skipped:', e.message.split('\n')[0], ')'));
+  console.log('✓ sessions.token_hash');
+
   // ─── Password resets table ────────────────────────────────
   await sql`
     CREATE TABLE IF NOT EXISTS password_resets (
@@ -139,6 +167,19 @@ try {
   `;
   console.log('✓ password_resets table');
   await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token)`;
+
+  // Same treatment as sessions. A leaked reset token is worse: it sets a new
+  // password without knowing the old one. These expire in 1 hour, so the
+  // legacy read in db.js can be removed an hour after this ships.
+  await sql`ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS token_hash TEXT`;
+  await sql`ALTER TABLE password_resets ALTER COLUMN token DROP NOT NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_password_resets_token_hash ON password_resets(token_hash)`;
+  await sql`
+    UPDATE password_resets
+       SET token_hash = encode(digest(token, 'sha256'), 'hex')
+     WHERE token_hash IS NULL AND token IS NOT NULL AND used = false
+  `.catch(e => console.warn('  (password_resets backfill skipped:', e.message.split('\n')[0], ')'));
+  console.log('✓ password_resets.token_hash');
 
   // ─── Fare alerts table ────────────────────────────────────
   await sql`

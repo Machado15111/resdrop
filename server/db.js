@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import * as supa from './supabase-rest.js';
 import { invalidateToken, invalidateEmail } from './authCache.js';
+import { hashToken } from './tokens.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -805,27 +806,85 @@ export async function updateDocumentUpload(id, updates) {
 }
 
 // ─── Sessions ─────────────────────────────────────────────
+//
+// Tokens are stored as a SHA-256 digest (`token_hash`), never in the clear —
+// see tokens.js for why. Reads are dual-path during the transition: hash first,
+// then the legacy plaintext `token` column, so sessions issued before this
+// change keep working until they expire (30 days) instead of logging everyone
+// out on deploy.
+//
+// The legacy plaintext write survives only as a FALLBACK for the case where the
+// `token_hash` column has not reached the database Supabase REST talks to.
+// run-migration.js migrates over DATABASE_URL, which does not necessarily point
+// at the same database (see getBooking's note), so failing closed here would
+// mean "nobody can log in". It warns loudly instead.
 
 const inMemorySessions = new Map();
 
+/**
+ * Log rather than swallow a failed mirror write to the secondary sql client.
+ * These used to be `.catch(() => {})`, so a logout that never reached the
+ * database looked identical to one that did.
+ *
+ * Silent when DATABASE_URL is unset: there is no secondary database to mirror
+ * to (tests, offline dev), and the client points at a mock localhost DSN — so a
+ * connection refusal there is expected, not a fault worth reporting.
+ */
+function logMirrorFailure(label) {
+  return (e) => {
+    if (!process.env.DATABASE_URL) return;
+    console.error(`[DB] ${label} (secondary sql mirror):`, e?.message || e);
+  };
+}
+
+let sessionHashColumnMissing = false;
+
 export async function createSession(email, token) {
+  const key = email.toLowerCase();
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const sess = {
     id: `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    user_email: email.toLowerCase(),
-    userEmail: email.toLowerCase(),
-    token,
-    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    user_email: key,
+    userEmail: key,
+    token_hash: tokenHash,
+    tokenHash,
+    expires_at: expiresAt,
+    expiresAt,
   };
-  inMemorySessions.set(token, sess);
+  // Keyed by hash in memory too, so nothing holds the raw token at rest.
+  inMemorySessions.set(tokenHash, sess);
 
   try {
     // REST is authoritative for sessions (auth-critical): they must live in the
     // same database as the `users` rows they are validated against.
-    const res = await supa.insert('sessions', { user_email: email.toLowerCase(), token });
+    const res = await supa.insert('sessions', { user_email: key, token_hash: tokenHash });
     if (res) {
-      sql`INSERT INTO sessions (user_email, token) VALUES (${email.toLowerCase()}, ${token})`.catch(() => {});
+      sql`INSERT INTO sessions (user_email, token_hash) VALUES (${key}, ${tokenHash})`
+        .catch(logMirrorFailure('createSession'));
       return res;
+    }
+
+    // Without REST configured (tests, local dev) the in-memory session below is
+    // the whole story — there is no column to be missing.
+    if (!supa.isConfigured) return sess;
+
+    // The hashed insert failed. Overwhelmingly likely: the column isn't there
+    // yet. Fall back so login keeps working, and make the cause impossible to
+    // miss in the logs.
+    if (!sessionHashColumnMissing) {
+      sessionHashColumnMissing = true;
+      console.error(
+        '[DB] createSession: hashed insert failed — falling back to PLAINTEXT token storage. ' +
+        'Apply the sessions.token_hash migration to the database Supabase REST reads ' +
+        '(run-migration.js migrates over DATABASE_URL, which may be a different database).'
+      );
+    }
+    const legacy = await supa.insert('sessions', { user_email: key, token });
+    if (legacy) {
+      sql`INSERT INTO sessions (user_email, token) VALUES (${key}, ${token})`
+        .catch(logMirrorFailure('createSession legacy'));
+      return legacy;
     }
   } catch (e) {
     console.error('[DB] createSession supa:', e.message);
@@ -833,49 +892,76 @@ export async function createSession(email, token) {
   return sess;
 }
 
+function unexpired(sess) {
+  return sess && (!sess.expires_at || new Date(sess.expires_at) > new Date());
+}
+
 export async function getSessionByToken(token) {
   if (!token) return null;
+  const tokenHash = hashToken(token);
+
+  try {
+    const rows = await supa.select('sessions', { token_hash: tokenHash }, { limit: 1 });
+    if (Array.isArray(rows) && rows[0] && unexpired(rows[0])) return rows[0];
+  } catch (e) {
+    console.error('[DB] getSession supa (hash):', e.message);
+  }
+
+  // Legacy path: sessions issued before tokens were hashed. Remove once every
+  // pre-migration session has aged out (30 days after this ships).
   try {
     const rows = await supa.select('sessions', { token }, { limit: 1 });
-    if (Array.isArray(rows) && rows[0]) {
-      const sess = rows[0];
-      if (!sess.expires_at || new Date(sess.expires_at) > new Date()) {
-        return sess;
-      }
-    }
+    if (Array.isArray(rows) && rows[0] && unexpired(rows[0])) return rows[0];
   } catch (e) {
-    console.error('[DB] getSession supa:', e.message);
+    console.error('[DB] getSession supa (legacy):', e.message);
   }
-  if (inMemorySessions.has(token)) {
-    const sess = inMemorySessions.get(token);
-    if (!sess.expires_at || new Date(sess.expires_at) > new Date()) {
-      return { ...sess };
-    }
-  }
+
+  const cached = inMemorySessions.get(tokenHash);
+  if (unexpired(cached)) return { ...cached };
   return null;
 }
 
+/**
+ * Invalidate one session. Returns true when the session is definitely gone from
+ * the authoritative store — the caller can then tell the user whether logout
+ * actually took effect instead of always claiming success.
+ */
 export async function deleteSession(token) {
-  inMemorySessions.delete(token);
+  const tokenHash = hashToken(token);
+  inMemorySessions.delete(tokenHash);
   invalidateToken(token); // logout must take effect immediately
+
   // REST is authoritative (logout must invalidate the session that auth reads).
+  let ok = false;
   try {
-    await supa.remove('sessions', { token });
+    const byHash = await supa.remove('sessions', { token_hash: tokenHash });
+    const byLegacy = await supa.remove('sessions', { token }); // pre-migration rows
+    ok = Boolean(byHash || byLegacy);
+    if (!ok) console.error('[DB] deleteSession: authoritative delete reported no success');
   } catch (e) {
     console.error('[DB] deleteSession rest:', e.message);
   }
-  sql`DELETE FROM sessions WHERE token = ${token}`.catch(() => {});
+  sql`DELETE FROM sessions WHERE token_hash = ${tokenHash} OR token = ${token}`
+    .catch(logMirrorFailure('deleteSession'));
+  return ok;
 }
 
 export async function deleteUserSessions(email) {
   const key = email.toLowerCase();
   invalidateEmail(key); // logout-all must take effect immediately
+  for (const [hash, sess] of inMemorySessions) {
+    if (sess.user_email === key) inMemorySessions.delete(hash);
+  }
+  let ok = false;
   try {
-    await supa.remove('sessions', { user_email: key });
+    ok = Boolean(await supa.remove('sessions', { user_email: key }));
+    if (!ok) console.error(`[DB] deleteUserSessions: no rows removed for ${key}`);
   } catch (e) {
     console.error('[DB] deleteUserSessions rest:', e.message);
   }
-  sql`DELETE FROM sessions WHERE user_email = ${key}`.catch(() => {});
+  sql`DELETE FROM sessions WHERE user_email = ${key}`
+    .catch(logMirrorFailure('deleteUserSessions'));
+  return ok;
 }
 
 // ─── Password Resets ──────────────────────────────────────
@@ -883,14 +969,31 @@ export async function deleteUserSessions(email) {
 // REST). Previously sql-only, which pointed at a different database than the one
 // holding the user rows — reset tokens could never be validated against them.
 
+// Reset tokens get the same treatment as sessions, and for a sharper reason: a
+// leaked reset token is a direct account-takeover primitive — it lets the holder
+// set a new password without knowing the old one.
+
+let resetHashColumnMissing = false;
+
 export async function createPasswordReset(email, token) {
   const key = email.toLowerCase();
+  const tokenHash = hashToken(token);
   try {
     // Invalidate any outstanding tokens, then issue the new one.
     await supa.update('password_resets', { user_email: key, used: false }, { used: true });
-    const inserted = await supa.insert('password_resets', { user_email: key, token });
-    sql`UPDATE password_resets SET used = true WHERE user_email = ${key} AND used = false`.catch(() => {});
-    return inserted || null;
+    const inserted = await supa.insert('password_resets', { user_email: key, token_hash: tokenHash });
+    sql`UPDATE password_resets SET used = true WHERE user_email = ${key} AND used = false`
+      .catch(logMirrorFailure('createPasswordReset'));
+    if (inserted) return inserted;
+
+    if (!resetHashColumnMissing) {
+      resetHashColumnMissing = true;
+      console.error(
+        '[DB] createPasswordReset: hashed insert failed — falling back to PLAINTEXT token storage. ' +
+        'Apply the password_resets.token_hash migration to the database Supabase REST reads.'
+      );
+    }
+    return await supa.insert('password_resets', { user_email: key, token }) || null;
   } catch (e) {
     console.error('[DB] createPasswordReset rest:', e.message);
     return null;
@@ -898,21 +1001,28 @@ export async function createPasswordReset(email, token) {
 }
 
 export async function getPasswordReset(token) {
-  const rows = await supa.select('password_resets', {
-    token,
-    used: false,
-    expires_at: { op: 'gt', value: new Date().toISOString() },
-  }, { limit: 1 });
-  return (Array.isArray(rows) && rows[0]) || null;
+  const notExpired = { used: false, expires_at: { op: 'gt', value: new Date().toISOString() } };
+
+  const byHash = await supa.select('password_resets',
+    { token_hash: hashToken(token), ...notExpired }, { limit: 1 });
+  if (Array.isArray(byHash) && byHash[0]) return byHash[0];
+
+  // Legacy path: tokens issued before hashing. These expire in 1 hour, so this
+  // branch can be deleted one hour after the change ships.
+  const byPlain = await supa.select('password_resets', { token, ...notExpired }, { limit: 1 });
+  return (Array.isArray(byPlain) && byPlain[0]) || null;
 }
 
 export async function markPasswordResetUsed(token) {
+  const tokenHash = hashToken(token);
   try {
-    await supa.update('password_resets', { token }, { used: true });
+    await supa.update('password_resets', { token_hash: tokenHash }, { used: true });
+    await supa.update('password_resets', { token }, { used: true }); // legacy rows
   } catch (e) {
     console.error('[DB] markPasswordResetUsed rest:', e.message);
   }
-  sql`UPDATE password_resets SET used = true WHERE token = ${token}`.catch(() => {});
+  sql`UPDATE password_resets SET used = true WHERE token_hash = ${tokenHash} OR token = ${token}`
+    .catch(logMirrorFailure('markPasswordResetUsed'));
 }
 
 // ─── Inbound Emails ──────────────────────────────────────────

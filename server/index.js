@@ -57,6 +57,7 @@ import { stripeConfigured, createCheckoutSession, createPortalSession, construct
 import { PLANS, planChangeDecision, selfServiceEnabled } from './planAuthz.js';
 import { rateLimit, startSweeper } from './rateLimit.js';
 import { requestId, apiNotFound, errorHandler } from './errorHandler.js';
+import { generateToken } from './tokens.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -1667,7 +1668,7 @@ app.post('/api/auth/login', authRateLimit, async (req, res) => {
   await db.updateUser(email, { lastActive: new Date().toISOString() });
   await db.updateUserStats(email);
 
-  const token = crypto.randomBytes(32).toString('hex');
+  const token = generateToken();
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
@@ -1718,7 +1719,7 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
     return res.status(500).json({ error: 'Failed to create user' });
   }
 
-  const token = crypto.randomBytes(32).toString('hex');
+  const token = generateToken();
   await db.createSession(email.toLowerCase(), token);
 
   const user = await db.getUser(email);
@@ -1732,7 +1733,16 @@ app.post('/api/auth/signup', signupRateLimit, async (req, res) => {
 
 app.post('/api/auth/logout', authMiddleware, async (req, res) => {
   const token = req.headers.authorization.slice(7);
-  await db.deleteSession(token);
+  // deleteSession used to swallow its own failures, so a logout that never
+  // reached the database still reported success and the token stayed live.
+  const revoked = await db.deleteSession(token);
+  if (!revoked) {
+    console.error(`[Auth] logout did not confirm revocation for ${req.userEmail}`);
+    return res.status(500).json({
+      error: 'Could not fully sign out. Please try again.',
+      code: 'LOGOUT_INCOMPLETE',
+    });
+  }
   res.json({ success: true });
 });
 
@@ -1750,7 +1760,7 @@ app.post('/api/auth/forgot-password', resetRateLimit, async (req, res) => {
     return res.json({ success: true });
   }
 
-  const token = crypto.randomBytes(32).toString('hex');
+  const token = generateToken();
   await db.createPasswordReset(email.toLowerCase(), token);
   // Security: Token is NOT logged — only sent via email
 
