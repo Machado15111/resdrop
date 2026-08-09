@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1683,9 +1683,17 @@ app.use('/api', authRoutes({
 }));
 
 // Is this process actually serving traffic, or has something imported index.js
-// for its `app` (the route tests, tooling)? Under `node --test` we must not bind
-// a port or start the 24/7 price-check scheduler.
-const IS_TEST_IMPORT = process.env.NODE_ENV === 'test' || process.execArgv.includes('--test');
+// for its `app` (route tests, tooling)? Only the entry point binds a port and
+// starts the 24/7 price-check scheduler.
+//
+// This is the standard ESM "am I the main module" check, and it is deliberate:
+// sniffing NODE_ENV or process.execArgv does NOT work here. Under `node --test`
+// each test file runs in a child process where execArgv is [] and NODE_ENV is
+// unset, so an env-based guard silently fails open — importing index.js from a
+// test would bind port 3001 and start the scheduler against the production
+// database. argv[1] is the test file in that case, so this check is correct.
+const IS_MAIN = import.meta.url === pathToFileURL(process.argv[1] || '').href;
+const IS_TEST_IMPORT = !IS_MAIN;
 
 // ─── Automated price monitoring (cost-capped) ─────────────────
 // Loads bookings fresh from the DB each cycle and searches in each booking's own

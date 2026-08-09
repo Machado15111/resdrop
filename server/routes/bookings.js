@@ -317,49 +317,15 @@ export default function bookingRoutes({
   });
 
   // Get a single booking (ownership check)
-  router.get('/bookings/:id', authMiddleware, async (req, res) => {
-    const booking = await db.getBooking(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
-    const enriched = await attachHotelData(filterBookingResults(booking));
-    res.json(enriched);
-  });
-
-  // Progressive hotel data (images, star, address, coords + nuiteeHotelId) for the
-  // detail view. Runs the full resolution (may hit Nuitée) OUT of the critical
-  // booking-load path, so the reservation renders instantly and images fill in.
-  router.get('/bookings/:id/hotel', authMiddleware, async (req, res) => {
-    const booking = await db.getBooking(req.params.id);
-    if (!booking) return res.status(404).json({ error: 'Booking not found' });
-    if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
-    try {
-      const match = await resolveBookingHotel(booking, { cacheOnly: false });
-      if (match?.hotel) {
-        return res.json({ status: 'ok', hotelData: match.hotel, nuiteeHotelId: match.hotel.nuiteeHotelId || null });
-      }
-      return res.json({ status: match ? 'ok' : 'unmatched', hotelData: null, nuiteeHotelId: null });
-    } catch (e) {
-      console.error('[bookings/:id/hotel]', e.message);
-      return res.status(502).json({ status: 'error', hotelData: null });
-    }
-  });
-
-  // DELETE /api/bookings/:id — user deletes their own booking
-  router.delete('/bookings/:id', authMiddleware, async (req, res) => {
-    try {
-      const booking = await db.getBooking(req.params.id);
-      if (!booking) return res.status(404).json({ error: 'Booking not found' });
-      if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
-      const ok = await db.deleteBooking(req.params.id);
-      if (!ok) return res.status(500).json({ error: 'Failed to delete booking' });
-      if (booking.email) await db.updateUserStats(booking.email).catch(() => {});
-      res.json({ success: true });
-    } catch (err) {
-      console.error('[Bookings] delete error:', err.message);
-      res.status(500).json({ error: 'Failed to delete booking' });
-    }
-  });
-
+  // ─────────────────────────────────────────────────────────────
+  // ORDER MATTERS: these two literal paths MUST stay above
+  // '/bookings/:id'. Express matches in registration order, so while
+  // they sat below it, GET /bookings/export and
+  // GET /bookings/upcoming-deadlines were both swallowed by the ':id'
+  // handler, which looked up a booking whose id was the literal string
+  // "export" and answered 404 "Booking not found". The dashboard's CSV
+  // export button had been dead in production as a result.
+  // ─────────────────────────────────────────────────────────────
   // Export bookings as CSV or JSON (Issue 10)
   router.get('/bookings/export', authMiddleware, async (req, res) => {
     const format = req.query.format || 'json'; // 'csv' or 'json'
@@ -411,6 +377,68 @@ export default function bookingRoutes({
     }
   });
 
+  // Get bookings with upcoming cancellation deadlines (Issue 11)
+  router.get('/bookings/upcoming-deadlines', authMiddleware, async (req, res) => {
+    const bookings = await db.getBookingsByEmail(req.userEmail);
+    const now = new Date();
+    const hoursAhead = 72; // Check deadlines within 72 hours
+    const deadline = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+
+    const upcoming = bookings.filter(b => {
+      if (!b.cancellationDeadline || !['monitoring', 'lower_fare_found'].includes(b.status)) return false;
+      const dl = new Date(b.cancellationDeadline);
+      return dl > now && dl <= deadline;
+    }).map(b => ({
+      ...b,
+      hoursUntilDeadline: Math.round((new Date(b.cancellationDeadline) - now) / (1000 * 60 * 60)),
+    })).sort((a, b) => a.hoursUntilDeadline - b.hoursUntilDeadline);
+
+    res.json(upcoming);
+  });
+
+  router.get('/bookings/:id', authMiddleware, async (req, res) => {
+    const booking = await db.getBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+    const enriched = await attachHotelData(filterBookingResults(booking));
+    res.json(enriched);
+  });
+
+  // Progressive hotel data (images, star, address, coords + nuiteeHotelId) for the
+  // detail view. Runs the full resolution (may hit Nuitée) OUT of the critical
+  // booking-load path, so the reservation renders instantly and images fill in.
+  router.get('/bookings/:id/hotel', authMiddleware, async (req, res) => {
+    const booking = await db.getBooking(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+    try {
+      const match = await resolveBookingHotel(booking, { cacheOnly: false });
+      if (match?.hotel) {
+        return res.json({ status: 'ok', hotelData: match.hotel, nuiteeHotelId: match.hotel.nuiteeHotelId || null });
+      }
+      return res.json({ status: match ? 'ok' : 'unmatched', hotelData: null, nuiteeHotelId: null });
+    } catch (e) {
+      console.error('[bookings/:id/hotel]', e.message);
+      return res.status(502).json({ status: 'error', hotelData: null });
+    }
+  });
+
+  // DELETE /api/bookings/:id — user deletes their own booking
+  router.delete('/bookings/:id', authMiddleware, async (req, res) => {
+    try {
+      const booking = await db.getBooking(req.params.id);
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+      if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
+      const ok = await db.deleteBooking(req.params.id);
+      if (!ok) return res.status(500).json({ error: 'Failed to delete booking' });
+      if (booking.email) await db.updateUserStats(booking.email).catch(() => {});
+      res.json({ success: true });
+    } catch (err) {
+      console.error('[Bookings] delete error:', err.message);
+      res.status(500).json({ error: 'Failed to delete booking' });
+    }
+  });
+
   // Upload attachment to booking (Issue 16: confirmation email, screenshots, etc)
   router.post('/bookings/:id/attachments', authMiddleware, async (req, res) => {
     const booking = await db.getBooking(req.params.id);
@@ -433,25 +461,6 @@ export default function bookingRoutes({
 
     const updated = await db.updateBooking(req.params.id, { attachments });
     res.json(updated);
-  });
-
-  // Get bookings with upcoming cancellation deadlines (Issue 11)
-  router.get('/bookings/upcoming-deadlines', authMiddleware, async (req, res) => {
-    const bookings = await db.getBookingsByEmail(req.userEmail);
-    const now = new Date();
-    const hoursAhead = 72; // Check deadlines within 72 hours
-    const deadline = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
-
-    const upcoming = bookings.filter(b => {
-      if (!b.cancellationDeadline || !['monitoring', 'lower_fare_found'].includes(b.status)) return false;
-      const dl = new Date(b.cancellationDeadline);
-      return dl > now && dl <= deadline;
-    }).map(b => ({
-      ...b,
-      hoursUntilDeadline: Math.round((new Date(b.cancellationDeadline) - now) / (1000 * 60 * 60)),
-    })).sort((a, b) => a.hoursUntilDeadline - b.hoursUntilDeadline);
-
-    res.json(upcoming);
   });
 
   // Refresh price check (ownership check)

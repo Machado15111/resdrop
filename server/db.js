@@ -13,7 +13,15 @@ dotenv.config({ path: join(__dirname, '.env') });
 
 const connectionString = process.env.DATABASE_URL || 'postgres://mock:mock@localhost:5432/mock';
 
-if (!process.env.DATABASE_URL && process.env.NODE_ENV !== 'test' && !process.execArgv.includes('--test')) {
+// NOTE: `process.execArgv.includes('--test')` does NOT detect the test runner.
+// `node --test` runs each file in a child process whose execArgv is empty, so
+// that half of the condition is always true. NODE_ENV is what actually decides
+// this, and the test script sets it. Kept as a cheap extra signal only.
+const UNDER_TEST = process.env.NODE_ENV === 'test'
+  || /\.test\.js$/.test(process.argv[1] || '')
+  || process.execArgv.includes('--test');
+
+if (!process.env.DATABASE_URL && !UNDER_TEST) {
   console.warn('[DB] No DATABASE_URL set; operating with mock DB client for offline/test mode.');
 }
 
