@@ -6,18 +6,21 @@ import './TravelerLanding.css';
 // Animated counter hook
 function useAnimatedCounter(target, duration = 2000, startOnView = true) {
   const [count, setCount] = useState(0);
-  const [hasStarted, setHasStarted] = useState(false);
+  // Derived from startOnView rather than set inside the effect: a counter that
+  // isn't gated on visibility has already "started" at mount, and setting that
+  // synchronously in an effect costs an extra render pass.
+  const [hasStarted, setHasStarted] = useState(!startOnView);
   const ref = useRef(null);
 
   useEffect(() => {
-    if (!startOnView) { setHasStarted(true); return; }
+    if (hasStarted) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting && !hasStarted) setHasStarted(true); },
+      ([entry]) => { if (entry.isIntersecting) setHasStarted(true); },
       { threshold: 0.3 }
     );
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [hasStarted, startOnView]);
+  }, [hasStarted]);
 
   useEffect(() => {
     if (!hasStarted) return;
@@ -31,7 +34,10 @@ function useAnimatedCounter(target, duration = 2000, startOnView = true) {
     return () => clearInterval(timer);
   }, [hasStarted, target, duration]);
 
-  return { count, ref };
+  // Returned as a tuple rather than { count, ref }. Reading `.ref` off a
+  // hook-returned object in JSX trips react-hooks' "Cannot access refs during
+  // render" rule; destructured bindings are plain values and read cleanly.
+  return [count, ref];
 }
 
 // Using inline SVG icons without external dependencies
@@ -66,9 +72,9 @@ export default function TravelerLanding() {
   const lastScrollY = useRef(0);
 
   // Animated counters for social proof
-  const savings = useAnimatedCounter(150000, 2500);
-  const users = useAnimatedCounter(500, 2000);
-  const drops = useAnimatedCounter(2800, 2200);
+  const [savingsCount, savingsRef] = useAnimatedCounter(150000, 2500);
+  const [usersCount, usersRef] = useAnimatedCounter(500, 2000);
+  const [dropsCount, dropsRef] = useAnimatedCounter(2800, 2200);
 
   // Ensure the page starts at the top
   useEffect(() => {
@@ -160,16 +166,16 @@ export default function TravelerLanding() {
       <section className="tl-stats">
         <div className="container">
           <div className="tl-stats-grid">
-            <div className="tl-stat-item" ref={savings.ref}>
-              <span className="tl-stat-number">R$ {savings.count.toLocaleString('pt-BR')}+</span>
+            <div className="tl-stat-item" ref={savingsRef}>
+              <span className="tl-stat-number">R$ {savingsCount.toLocaleString('pt-BR')}+</span>
               <span className="tl-stat-label">{pt ? 'Economia identificada para nossos usuários' : 'Savings identified for our users'}</span>
             </div>
-            <div className="tl-stat-item" ref={users.ref}>
-              <span className="tl-stat-number">{users.count}+</span>
+            <div className="tl-stat-item" ref={usersRef}>
+              <span className="tl-stat-number">{usersCount}+</span>
               <span className="tl-stat-label">{pt ? 'Viajantes monitorando reservas' : 'Travelers monitoring bookings'}</span>
             </div>
-            <div className="tl-stat-item" ref={drops.ref}>
-              <span className="tl-stat-number">{drops.count.toLocaleString('pt-BR')}+</span>
+            <div className="tl-stat-item" ref={dropsRef}>
+              <span className="tl-stat-number">{dropsCount.toLocaleString('pt-BR')}+</span>
               <span className="tl-stat-label">{pt ? 'Quedas de preço detectadas' : 'Price drops detected'}</span>
             </div>
           </div>

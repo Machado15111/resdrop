@@ -6,7 +6,11 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('resdrop-token'));
-  const [loading, setLoading] = useState(true);
+  // Start "loading" only when there is a session to restore. Deriving it from
+  // the initial token, rather than defaulting to true and immediately calling
+  // setLoading(false) inside the effect, avoids a cascading render on every
+  // logged-out page load — and is what react-hooks/set-state-in-effect flags.
+  const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('resdrop-token')));
 
   const authFetch = useCallback(async (url, options = {}) => {
     const headers = { ...options.headers };
@@ -21,9 +25,12 @@ export function AuthProvider({ children }) {
     return fetch(url, { ...options, headers });
   }, []);
 
-  // Restore session on mount
+  // Restore the session on mount. Runs once: `token` is read from the initial
+  // state and later changes come from login/logout, which set `user` directly.
   useEffect(() => {
-    if (!token) { setLoading(false); return; }
+    if (!token) return;
+    let cancelled = false;
+
     fetch(`${API}/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` },
     })
@@ -31,13 +38,18 @@ export function AuthProvider({ children }) {
         if (res.ok) return res.json();
         throw new Error('Invalid session');
       })
-      .then(userData => setUser(userData))
+      .then(userData => { if (!cancelled) setUser(userData); })
       .catch(() => {
+        if (cancelled) return;
         localStorage.removeItem('resdrop-token');
         setToken(null);
         setUser(null);
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    // React 18 StrictMode mounts effects twice in development; without this the
+    // second run's response could overwrite state from an unmounted first run.
+    return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = async (email, password) => {
