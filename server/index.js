@@ -450,19 +450,19 @@ app.use((req, res, next) => {
 // Implementation (and its single-process caveat) lives in rateLimit.js.
 startSweeper();
 
-const authRateLimit = rateLimit(15 * 60 * 1000, 15, req => `auth:${req.ip}`);        // 15 attempts per 15 min
-const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`);     // 10 signups per hour
-const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`);        // 5 resets per hour
-const resetSubmitLimit = rateLimit(15 * 60 * 1000, 10, req => `resetSubmit:${req.ip}`); // 10 reset attempts per 15 min
-const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`);  // 10 bookings per min
-const parseRateLimit = rateLimit(15 * 60 * 1000, 30, req => `parse:${req.userEmail}`); // 30 parses per 15 min
-const publicRateLimit = rateLimit(60 * 1000, 60, req => `public:${req.ip}`);           // 60/min per IP (unauth public endpoints)
+const authRateLimit = rateLimit(15 * 60 * 1000, 15, req => `auth:${req.ip}`, 'authRateLimit');        // 15 attempts per 15 min
+const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`, 'signupRateLimit');     // 10 signups per hour
+const resetRateLimit = rateLimit(60 * 60 * 1000, 5, req => `reset:${req.ip}`, 'resetRateLimit');        // 5 resets per hour
+const resetSubmitLimit = rateLimit(15 * 60 * 1000, 10, req => `resetSubmit:${req.ip}`, 'resetSubmitLimit'); // 10 reset attempts per 15 min
+const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmail}`, 'bookingRateLimit');  // 10 bookings per min
+const parseRateLimit = rateLimit(15 * 60 * 1000, 30, req => `parse:${req.userEmail}`, 'parseRateLimit'); // 30 parses per 15 min
+const publicRateLimit = rateLimit(60 * 1000, 60, req => `public:${req.ip}`, 'publicRateLimit');           // 60/min per IP (unauth public endpoints)
 
 // Paid-API guard. These routes each spend real money on an upstream call
 // (SerpApi Google Hotels / Nuitée), and were previously authenticated but
 // otherwise unlimited — one logged-in account could drain the monthly quota in
 // a loop. Keyed per user so one account can't spend everyone else's budget.
-const costlyApiRateLimit = rateLimit(60 * 60 * 1000, 30, req => `costly:${req.userEmail}`); // 30/hour per user
+const costlyApiRateLimit = rateLimit(60 * 60 * 1000, 30, req => `costly:${req.userEmail}`, 'costlyApiRateLimit'); // 30/hour per user
 
 // ─── Status Log ──────────────────────────────────────────────
 const API_MODE = isSerpApiConfigured() ? 'LIVE (SerpApi)' : isBookingApiConfigured() ? 'LIVE (Booking)' : 'SIMULATION';
@@ -3158,11 +3158,16 @@ app.use('/api', documentRoutes(authMiddleware));
 // ─── Mount inbound email webhook (public) + address endpoint (auth) ─
 app.use('/api', inboundEmailRoutes(authMiddleware));
 
+// Is this process actually serving traffic, or has something imported index.js
+// for its `app` (the route tests, tooling)? Under `node --test` we must not bind
+// a port or start the 24/7 price-check scheduler.
+const IS_TEST_IMPORT = process.env.NODE_ENV === 'test' || process.execArgv.includes('--test');
+
 // ─── Automated price monitoring (cost-capped) ─────────────────
 // Loads bookings fresh from the DB each cycle and searches in each booking's own
 // currency. Bounded by MONITOR_DAILY_BUDGET + per-booking cadence so it monitors
 // 24/7 without blowing the SerpApi quota. Set MONITOR_ENABLED=false to pause.
-if (process.env.MONITOR_ENABLED !== 'false') {
+if (!IS_TEST_IMPORT && process.env.MONITOR_ENABLED !== 'false') {
   startScheduler(
     () => db.getAllBookings(),
     (booking) => searchPrices(booking, { currency: booking.currency }),
@@ -3201,8 +3206,12 @@ if (existsSync(distPath)) {
 // a raw driver message to the client.
 app.use(errorHandler);
 
+// The configured app, importable without side effects. Route tests and tooling
+// mount this on an ephemeral port of their own; only a real run binds PORT.
+export { app };
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, async () => {
+if (!IS_TEST_IMPORT) app.listen(PORT, async () => {
   const userCount = await db.getUserCount();
   const bookingCount = await db.getBookingCount();
   console.log(`\n🏨 ResDrop API server running on http://localhost:${PORT}`);

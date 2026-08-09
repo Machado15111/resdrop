@@ -25,8 +25,8 @@
 
 const rateLimitMap = new Map();
 
-export function rateLimit(windowMs, max, keyFn) {
-  return (req, res, next) => {
+export function rateLimit(windowMs, max, keyFn, label) {
+  const middleware = (req, res, next) => {
     const key = keyFn ? keyFn(req) : req.ip;
     const now = Date.now();
     if (!rateLimitMap.has(key)) {
@@ -44,6 +44,13 @@ export function rateLimit(windowMs, max, keyFn) {
     }
     next();
   };
+  // A function returned from a factory has no inferred name, so the limiters
+  // were invisible to anything that inspects the middleware chain by name —
+  // including scripts/route-table.js, which is what verifies the routes/ split
+  // didn't change any chain. Name it explicitly so a swapped or dropped limiter
+  // shows up in that diff.
+  if (label) Object.defineProperty(middleware, 'name', { value: label, configurable: true });
+  return middleware;
 }
 
 /** Test/ops helper: current bucket count for a key (undefined if none). */
