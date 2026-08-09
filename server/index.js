@@ -54,6 +54,7 @@ import {
 import { filterOutPeopleImages } from './imageFilter.js';
 import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
 import { stripeConfigured, createCheckoutSession, createPortalSession, constructWebhookEvent, planActionFromEvent } from './stripe.js';
+import { PLANS, planChangeDecision, selfServiceEnabled } from './planAuthz.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -457,11 +458,8 @@ if (isEmailConfigured()) {
 }
 
 // ─── Plan definitions ────────────────────────────────────────
-const PLANS = {
-  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   price: 0,  priceBrl: 0 },
-  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  price: 9,  priceBrl: 37 },
-  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, price: 36, priceBrl: 125 },
-};
+// Defined in planAuthz.js alongside the rules for changing a plan, so the tiers
+// and the "who may move between them" logic can't drift apart.
 
 function generateId() {
   return crypto.randomUUID();
@@ -1847,12 +1845,41 @@ app.get('/api/users/:email', authMiddleware, async (req, res) => {
   res.json({ ...user, planLimit: plan.bookingsPerMonth, planPrice: plan.price });
 });
 
+/**
+ * Change the caller's own plan.
+ *
+ * This route can only ever LOWER a tier (or leave it unchanged). Raising a tier
+ * requires money to move first: POST /api/billing/checkout → Stripe Checkout →
+ * the signature-verified webhook at /api/stripe/webhook writes the new plan.
+ * Without that rule any authenticated user could grant themselves Premium for
+ * free, since the self-ownership check below passes for one's own account.
+ * See planAuthz.js for the decision table.
+ */
 app.put('/api/users/:email/plan', authMiddleware, async (req, res) => {
   if (req.params.email.toLowerCase() !== req.userEmail) {
     return res.status(403).json({ error: 'Access denied' });
   }
   const { plan, lang, currency } = req.body;
-  if (!PLANS[plan]) return res.status(400).json({ error: 'Plano invalido' });
+
+  const decision = planChangeDecision({
+    currentPlan: req.user?.plan,
+    requestedPlan: plan,
+    isAdmin: isAdminEmail(req.userEmail),
+    stripeEnabled: stripeConfigured(),
+    selfService: selfServiceEnabled(),
+  });
+
+  if (!decision.allow) {
+    if (decision.code === 'INVALID_PLAN') {
+      return res.status(400).json({ error: 'Plano invalido', code: decision.code });
+    }
+    return res.status(decision.status).json({
+      error: decision.reason,
+      code: decision.code,
+      checkoutUrl: '/api/billing/checkout',
+    });
+  }
+
   // Currency is resolved server-side from the account language; never trust an amount.
   const billingCurrency = lang === 'pt' ? 'BRL' : 'USD';
   if (currency && currency !== billingCurrency) {

@@ -117,18 +117,30 @@ function Account() {
       return;
     }
 
-    // Fallback when billing isn't configured: flip the plan flag directly.
+    // Fallback when billing isn't configured. The server only lets this path
+    // downgrade (or flip freely when ALLOW_PLAN_SELF_SERVICE is on in dev) — an
+    // upgrade comes back 402 UPGRADE_REQUIRES_CHECKOUT and must be surfaced.
     try {
       const res = await authFetch(`${API}/users/${user.email}/plan`, {
         method: 'PUT',
         body: JSON.stringify({ plan: planId, lang, currency: lang === 'pt' ? 'BRL' : 'USD' }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         updateUser(data);
+        setBillingMsg('');
+        return;
       }
+      if (data.code === 'UPGRADE_REQUIRES_CHECKOUT') {
+        setBillingMsg(lang === 'pt'
+          ? 'Pagamentos ainda não estão disponíveis. Fale conosco para ativar um plano pago.'
+          : 'Payments are not available yet. Contact us to activate a paid plan.');
+        return;
+      }
+      setBillingMsg(data.error || (lang === 'pt' ? 'Não foi possível alterar o plano.' : 'Could not change the plan.'));
     } catch (err) {
       console.error('Failed to change plan:', err);
+      setBillingMsg(lang === 'pt' ? 'Erro ao alterar o plano.' : 'Error changing the plan.');
     }
   };
 
