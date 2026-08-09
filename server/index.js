@@ -55,6 +55,7 @@ import { filterOutPeopleImages } from './imageFilter.js';
 import { pushConfigured, getVapidPublicKey, sendPushToUser } from './push.js';
 import { stripeConfigured, createCheckoutSession, createPortalSession, constructWebhookEvent, planActionFromEvent } from './stripe.js';
 import { PLANS, planChangeDecision, selfServiceEnabled } from './planAuthz.js';
+import { rateLimit, startSweeper } from './rateLimit.js';
 import { searchNuiteeRates } from './nuiteeRates.js';
 import { matchHotelWithNuitee, hotelKeyFor, serpFallbackHotel } from './enrichment.js';
 import { marketDataPoint, MAX_PRICE_HISTORY } from './priceHistory.js';
@@ -350,6 +351,24 @@ async function attachHotelData(booking) {
 
 const app = express();
 
+// ─── Security: proxy trust (must be set before anything reads req.ip) ───────
+//
+// In production the API sits behind Railway's edge proxy. Without this, Express
+// reports the PROXY's address as req.ip for every request, so every rate-limit
+// bucket keyed on req.ip collapses into a single shared counter: 15 failed
+// logins from anyone would lock out the whole user base, and publicRateLimit
+// (60/min) would throttle the entire site.
+//
+// The hop count is deliberate. `trust proxy: true` trusts the whole
+// X-Forwarded-For chain, which the client controls — an attacker could prepend
+// arbitrary addresses and mint a fresh rate-limit bucket per request. Trusting
+// exactly the number of proxies actually in front of us makes the resolved IP
+// the one OUR proxy observed.
+const TRUST_PROXY_HOPS = Number.isFinite(parseInt(process.env.TRUST_PROXY_HOPS, 10))
+  ? parseInt(process.env.TRUST_PROXY_HOPS, 10)
+  : 1;
+app.set('trust proxy', TRUST_PROXY_HOPS);
+
 // ─── Security: CORS — restrict to known origins ─────────────
 app.use(cors({
   origin: process.env.CORS_ORIGIN
@@ -395,34 +414,8 @@ app.use((req, res, next) => {
 });
 
 // ─── Security: Rate limiting ────────────────────────────────
-const rateLimitMap = new Map();
-function rateLimit(windowMs, max, keyFn) {
-  return (req, res, next) => {
-    const key = keyFn ? keyFn(req) : req.ip;
-    const now = Date.now();
-    if (!rateLimitMap.has(key)) {
-      rateLimitMap.set(key, { count: 1, start: now });
-      return next();
-    }
-    const entry = rateLimitMap.get(key);
-    if (now - entry.start > windowMs) {
-      rateLimitMap.set(key, { count: 1, start: now });
-      return next();
-    }
-    entry.count++;
-    if (entry.count > max) {
-      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
-    }
-    next();
-  };
-}
-// Clean up rate limit map every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitMap) {
-    if (now - entry.start > 15 * 60 * 1000) rateLimitMap.delete(key);
-  }
-}, 5 * 60 * 1000);
+// Implementation (and its single-process caveat) lives in rateLimit.js.
+startSweeper();
 
 const authRateLimit = rateLimit(15 * 60 * 1000, 15, req => `auth:${req.ip}`);        // 15 attempts per 15 min
 const signupRateLimit = rateLimit(60 * 60 * 1000, 10, req => `signup:${req.ip}`);     // 10 signups per hour
@@ -432,11 +425,20 @@ const bookingRateLimit = rateLimit(60 * 1000, 10, req => `booking:${req.userEmai
 const parseRateLimit = rateLimit(15 * 60 * 1000, 30, req => `parse:${req.userEmail}`); // 30 parses per 15 min
 const publicRateLimit = rateLimit(60 * 1000, 60, req => `public:${req.ip}`);           // 60/min per IP (unauth public endpoints)
 
+// Paid-API guard. These routes each spend real money on an upstream call
+// (SerpApi Google Hotels / Nuitée), and were previously authenticated but
+// otherwise unlimited — one logged-in account could drain the monthly quota in
+// a loop. Keyed per user so one account can't spend everyone else's budget.
+const costlyApiRateLimit = rateLimit(60 * 60 * 1000, 30, req => `costly:${req.userEmail}`); // 30/hour per user
+
 // ─── Status Log ──────────────────────────────────────────────
 const API_MODE = isSerpApiConfigured() ? 'LIVE (SerpApi)' : isBookingApiConfigured() ? 'LIVE (Booking)' : 'SIMULATION';
 const SERVER_START = new Date();
 console.log(`[RepriceHQ] Price engine mode: ${API_MODE}`);
 console.log(`[RepriceHQ] Storage: Supabase (PostgreSQL)`);
+// Make the proxy setting visible in Railway logs: if this ever reads 0, every
+// IP-keyed rate limit has silently collapsed into one shared global bucket.
+console.log(`[RepriceHQ] trust proxy: ${TRUST_PROXY_HOPS} hop(s) — rate limits key on the client IP as seen by our edge proxy`);
 if (isSerpApiConfigured()) {
   console.log('[RepriceHQ] SerpApi Google Hotels: configured ✓ (real prices)');
 }
@@ -1288,7 +1290,7 @@ app.get('/api/bookings/upcoming-deadlines', authMiddleware, async (req, res) => 
 });
 
 // Refresh price check (ownership check)
-app.post('/api/bookings/:id/check', authMiddleware, async (req, res) => {
+app.post('/api/bookings/:id/check', authMiddleware, costlyApiRateLimit, async (req, res) => {
   const booking = await db.getBooking(req.params.id);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.email !== req.userEmail) return res.status(403).json({ error: 'Access denied' });
@@ -3116,7 +3118,7 @@ if (process.env.MONITOR_ENABLED !== 'false') {
 
 // ─── Serve frontend build in production ─────────────────────
 // Nuitée / Price Trends routes (registered before the SPA fallback)
-registerNuiteeRoutes(app, { authMiddleware, adminMiddleware });
+registerNuiteeRoutes(app, { authMiddleware, adminMiddleware, costlyApiRateLimit });
 
 import { existsSync } from 'fs';
 const distPath = join(__dirname, '..', 'dist');

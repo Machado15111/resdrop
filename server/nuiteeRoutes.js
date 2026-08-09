@@ -25,12 +25,18 @@ const DISCLAIMER = {
   en: 'Price trends represent aggregated market data and may not match a currently bookable rate.',
 };
 
-export function registerNuiteeRoutes(app, { authMiddleware, adminMiddleware }) {
+export function registerNuiteeRoutes(app, { authMiddleware, adminMiddleware, costlyApiRateLimit }) {
   // NOTE: every route below reaches the upstream Nuitée/LiteAPI on each call, so
   // they are authenticated. Leaving them public would let anyone drain the
   // provider quota (and the paid cost cap) with a loop of anonymous requests.
   // Catalog browsing (hotels/cities/countries) is admin-only — it is an internal
   // data-exploration tool, not a customer feature.
+  //
+  // Authentication alone was not enough: a single logged-in account could still
+  // loop the upstream calls without bound. The user-facing paid routes now also
+  // carry costlyApiRateLimit. /api/price-trends is exempt because it already
+  // enforces its own per-user monthly cap and global cost cap in the service.
+  const paid = costlyApiRateLimit || ((req, res, next) => next());
 
   // ── Nuitée status (diagnostics: exposes circuit-breaker internals) ──
   app.get('/api/nuitee/status', authMiddleware, adminMiddleware, (req, res) => {
@@ -42,7 +48,7 @@ export function registerNuiteeRoutes(app, { authMiddleware, adminMiddleware }) {
   });
 
   // ── Hotel Essential Details (Nuitée / LiteAPI /data/hotel) ──
-  app.get('/api/nuitee/hotel/:hotelId', authMiddleware, async (req, res) => {
+  app.get('/api/nuitee/hotel/:hotelId', authMiddleware, paid, async (req, res) => {
     const { hotelId } = req.params;
     if (!hotelId) return res.status(400).json({ error: 'hotelId parameter is required' });
     try {
@@ -55,7 +61,7 @@ export function registerNuiteeRoutes(app, { authMiddleware, adminMiddleware }) {
   });
 
   // ── Live Rates Search (Nuitée / LiteAPI /hotels/rates) ──
-  app.post('/api/nuitee/rates', authMiddleware, async (req, res) => {
+  app.post('/api/nuitee/rates', authMiddleware, paid, async (req, res) => {
     const { hotelIds, checkin, checkout, occupancies, guestNationality, currency, maxRatesPerHotel } = req.body || {};
     if ((!Array.isArray(hotelIds) || !hotelIds.length) && !req.body?.hotelId) {
       return res.status(400).json({ error: 'hotelIds array (or hotelId) is required' });
