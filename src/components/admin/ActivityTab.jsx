@@ -1,31 +1,24 @@
 /**
  * ActivityTab — moved verbatim out of AdminDashboard.jsx (was one 1,565-line file).
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { API } from '../../api';
 
 function ActivityTab({ authFetch }) {
-  const [log, setLog] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [entityFilter, setEntityFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
 
-  const fetchActivity = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (entityFilter) params.set('entityType', entityFilter);
-      if (actionFilter) params.set('action', actionFilter);
-      const res = await authFetch(`${API}/admin/activity?${params}`);
-      const data = await res.json();
-      setLog(data.log || []);
-    } catch (err) {
-      console.error('Failed to fetch activity:', err);
-    }
-    setLoading(false);
+  const loadActivity = useCallback(async (signal) => {
+    const params = new URLSearchParams();
+    if (entityFilter) params.set('entityType', entityFilter);
+    if (actionFilter) params.set('action', actionFilter);
+    const res = await authFetch(`${API}/admin/activity?${params}`, { signal });
+    const data = await res.json();
+    return data.log || [];
   }, [authFetch, entityFilter, actionFilter]);
 
-  useEffect(() => { fetchActivity(); }, [fetchActivity]);
+  const { data: log, loading } = useAsyncData(loadActivity, { initialData: [] });
 
   const entityTypes = ['', 'booking', 'user', 'email', 'special_fare'];
   const actionTypes = ['', 'admin_update', 'admin_delete', 'admin_send_email', 'price_check', 'savings_found', 'status_change', 'created'];

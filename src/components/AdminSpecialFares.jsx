@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API } from '../api';
+import { useAsyncData } from '../hooks/useAsyncData';
 import { formatStayDate } from '../dates';
 import './AdminSpecialFares.css';
 
@@ -42,10 +43,7 @@ const PRIORITY_CONFIG = {
 function AdminSpecialFares() {
   const navigate = useNavigate();
   const { authFetch } = useAuth();
-  const [cases, setCases] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
@@ -79,27 +77,23 @@ function AdminSpecialFares() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  const fetchCases = useCallback(async () => {
-    try {
-      const params = activeTab !== 'all' ? `?status=${activeTab}` : '';
-      const res = await authFetch(`${API}/special-fares${params}`);
-      if (res.ok) setCases(await res.json());
-    } catch (err) {
-      console.error('Failed to fetch cases:', err);
-    }
-    setLoading(false);
+  const loadCases = useCallback(async (signal) => {
+    const params = activeTab !== 'all' ? `?status=${activeTab}` : '';
+    const res = await authFetch(`${API}/special-fares${params}`, { signal });
+    // Throwing keeps the previous list on screen, which is what the old
+    // `if (res.ok)` guard did by simply not calling setCases.
+    if (!res.ok) throw new Error(`special-fares responded ${res.status}`);
+    return await res.json();
   }, [authFetch, activeTab]);
 
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      const res = await authFetch(`${API}/special-fares-analytics`);
-      if (res.ok) setAnalytics(await res.json());
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err);
-    }
+  const loadAnalytics = useCallback(async (signal) => {
+    const res = await authFetch(`${API}/special-fares-analytics`, { signal });
+    if (!res.ok) throw new Error(`special-fares-analytics responded ${res.status}`);
+    return await res.json();
   }, [authFetch]);
 
-  useEffect(() => { fetchCases(); fetchAnalytics(); }, [fetchCases, fetchAnalytics]);
+  const { data: cases, loading, reload: fetchCases } = useAsyncData(loadCases, { initialData: [] });
+  const { data: analytics, reload: fetchAnalytics } = useAsyncData(loadAnalytics);
 
   // Fetch user bookings when linking
   const fetchBookingsForEmail = async (email) => {
@@ -278,7 +272,10 @@ function AdminSpecialFares() {
             <button
               key={tab.value}
               className={`asf-tab ${activeTab === tab.value ? 'active' : ''}`}
-              onClick={() => { setActiveTab(tab.value); setLoading(true); }}
+              // No setLoading here any more: switching tabs keeps the current
+              // cases on screen until the new ones arrive, instead of blanking
+              // the list to a spinner.
+              onClick={() => setActiveTab(tab.value)}
             >
               {tab.label}
               {analytics?.byStatus?.[tab.value] > 0 && (

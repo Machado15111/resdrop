@@ -1,20 +1,18 @@
 /**
  * BookingsTab — moved verbatim out of AdminDashboard.jsx (was one 1,565-line file).
  */
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useAsyncData } from '../../hooks/useAsyncData';
 import { IconChart, IconCheck, IconDollar, IconHotel, IconMail, IconSearch, IconTrash, IconX } from '../Icons';
 import { KpiCard, BookingStatusBadge } from './SharedUI';
 import { API } from '../../api';
 
 function BookingsTab({ authFetch }) {
-  const [bookings, setBookings] = useState([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sort, setSort] = useState('created_at');
   const [order, setOrder] = useState('desc');
-  const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -25,27 +23,24 @@ function BookingsTab({ authFetch }) {
   const searchTimer = useRef(null);
   const limit = 50;
 
-  const fetchBookings = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (search) params.set('search', search);
-      params.set('sort', sort);
-      params.set('order', order);
-      params.set('page', page);
-      params.set('limit', limit);
-      const res = await authFetch(`${API}/admin/bookings?${params}`);
-      const data = await res.json();
-      setBookings(data.bookings || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      console.error('Failed to fetch bookings:', err);
-    }
-    setLoading(false);
+  const loadBookings = useCallback(async (signal) => {
+    const params = new URLSearchParams();
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    if (search) params.set('search', search);
+    params.set('sort', sort);
+    params.set('order', order);
+    params.set('page', page);
+    params.set('limit', limit);
+    const res = await authFetch(`${API}/admin/bookings?${params}`, { signal });
+    const data = await res.json();
+    return { bookings: data.bookings || [], total: data.total || 0 };
   }, [authFetch, statusFilter, search, sort, order, page]);
 
-  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  // Each keystroke in the search box used to leave its request running, so the
+  // table settled on whichever answer came back last. The hook aborts the
+  // previous one and ignores any late reply.
+  const { data: { bookings, total }, loading, reload: fetchBookings } =
+    useAsyncData(loadBookings, { initialData: { bookings: [], total: 0 } });
 
   const handleSearch = (val) => {
     clearTimeout(searchTimer.current);

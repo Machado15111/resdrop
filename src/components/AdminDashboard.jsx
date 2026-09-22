@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { IconBarChart, IconUsers, IconDollar, IconSearch, IconLink, IconSettings, IconHotel, IconRefresh, IconClock, IconActivity, IconServer } from './Icons';
 import './AdminDashboard.css';
 import { API } from '../api';
+import { useAsyncData } from '../hooks/useAsyncData';
 
 // Each tab lives in its own file under admin/. This file is now just the shell:
 // data fetch, tab state, and routing between them.
@@ -21,26 +22,20 @@ function AdminDashboard() {
   const { authFetch } = useAuth();
   const onBack = () => navigate('/dashboard');
   const [activeTab, setActiveTab] = useState('overview');
-  const [adminData, setAdminData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [triggeringCheck, setTriggeringCheck] = useState(false);
 
-  const fetchAdminData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [dashboard, config] = await Promise.all([
-        authFetch(`${API}/admin/dashboard`).then(r => r.json()),
-        authFetch(`${API}/config`).then(r => r.json()),
-      ]);
-      setAdminData({ ...dashboard, config });
-    } catch (err) {
-      console.error('Failed to fetch admin data:', err);
-    }
-    setLoading(false);
+  const loadAdminData = useCallback(async (signal) => {
+    const [dashboard, config] = await Promise.all([
+      authFetch(`${API}/admin/dashboard`, { signal }).then(r => r.json()),
+      authFetch(`${API}/config`, { signal }).then(r => r.json()),
+    ]);
+    return { ...dashboard, config };
   }, [authFetch]);
 
+  const { data: adminData, loading, reload: fetchAdminData } = useAsyncData(loadAdminData);
+
+  // Keep the 30s refresh, but the hook owns the first load.
   useEffect(() => {
-    fetchAdminData();
     const interval = setInterval(fetchAdminData, 30000);
     return () => clearInterval(interval);
   }, [fetchAdminData]);

@@ -79,18 +79,21 @@ function Account() {
     }
   }, []);
 
-  // Synchronize form when user object is loaded or updated
-  useEffect(() => {
-    if (user) {
-      setProfileForm({
-        name: user.name || '',
-        phone: user.phone || '',
-        dateOfBirth: user.dateOfBirth || '',
-        preferredRoomType: user.preferredRoomType || 'Standard Room',
-      });
-      setLoyaltyPrograms(user.loyaltyPrograms || []);
-    }
-  }, [user]);
+  // Synchronize the form when the user object is loaded or updated. `user`
+  // lands after the session restore and changes again on every save; copying it
+  // in an effect cost an extra render pass each time, so this is React's
+  // documented "adjust state while rendering" pattern instead.
+  const [syncedUser, setSyncedUser] = useState(user);
+  if (user && user !== syncedUser) {
+    setSyncedUser(user);
+    setProfileForm({
+      name: user.name || '',
+      phone: user.phone || '',
+      dateOfBirth: user.dateOfBirth || '',
+      preferredRoomType: user.preferredRoomType || 'Standard Room',
+    });
+    setLoyaltyPrograms(user.loyaltyPrograms || []);
+  }
 
   const handleChangePlan = async (planId) => {
     if (!user || planId === user.plan) return;
