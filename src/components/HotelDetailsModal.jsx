@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { API } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { IconSearch, IconClock, IconAlertCircle, IconCheck, IconExternalLink, IconSparkles } from './Icons';
@@ -31,7 +31,7 @@ export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) 
   const [ratesResult, setRatesResult] = useState(null);
   const [ratesError, setRatesError] = useState(null);
 
-  const fetchDetails = async (idToFetch) => {
+  const fetchDetails = useCallback(async (idToFetch) => {
     if (!idToFetch) {
       setLoading(false);
       return;
@@ -56,13 +56,14 @@ export default function HotelDetailsModal({ hotelId: initialHotelId, onClose }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch]);
 
   useEffect(() => {
     if (initialHotelId) {
       fetchDetails(initialHotelId);
     }
-  }, [initialHotelId]);
+    // authFetch is stable, so fetchDetails is too — this cannot loop.
+  }, [initialHotelId, fetchDetails]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

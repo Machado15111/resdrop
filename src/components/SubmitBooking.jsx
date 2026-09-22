@@ -68,7 +68,9 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
         .then(data => setForwardAddress(data.primary || data.address || 'reservas@resdrop.app'))
         .catch(() => setForwardAddress('reservas@resdrop.app'));
     }
-  }, [showForwardEmail]);
+    // authFetch is stable and the !forwardAddress guard makes the extra run a
+    // no-op, so the honest dependency list costs nothing here.
+  }, [showForwardEmail, forwardAddress, authFetch]);
 
   const copyForwardAddress = () => {
     navigator.clipboard.writeText(forwardAddress || 'reservas@resdrop.app');
@@ -96,7 +98,12 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e) => {
+  // Not memoised, unlike its three siblings above: it calls processFile, which
+  // closes over `lang`. With useCallback([]) this kept the processFile from the
+  // first render, so a dropped file after a language switch narrated its
+  // progress in the old language. A plain function always sees the current one
+  // — and costs nothing, since IntakeStep re-renders with its parent anyway.
+  const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
@@ -104,7 +111,7 @@ function SubmitBooking({ onSubmit, onBack, loading, error: externalError, userEm
     if (dropped) {
       processFile(dropped);
     }
-  }, []);
+  };
 
   const handleFileSelect = (e) => {
     const selected = e.target.files?.[0];
