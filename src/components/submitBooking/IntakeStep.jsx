@@ -7,7 +7,7 @@
  * email, or fall through to typing it in by hand.
  */
 import { useI18n } from '../../i18n';
-import { IconUpload, IconMail, IconArrowRight, IconCheck, IconX, IconShield } from '../Icons';
+import { IconUpload, IconMail, IconArrowRight, IconCheck, IconShield } from '../Icons';
 import { STEP_MANUAL } from './constants';
 
 function IntakeStep({

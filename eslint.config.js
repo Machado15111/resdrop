@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
@@ -23,8 +24,18 @@ export default defineConfig([
         sourceType: 'module',
       },
     },
+    plugins: { react },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+      // Core no-undef does not see JSX element names, so a component used as
+      // <Thing /> without an import passes lint and vite build alike and only
+      // fails when that branch renders. These two teach eslint to read JSX:
+      // jsx-no-undef catches the missing import, jsx-uses-vars stops a used
+      // component from being reported as an unused one.
+      'react/jsx-no-undef': 'error',
+      'react/jsx-uses-vars': 'error',
+      // Only SCREAMING_CASE constants are exempt from the unused check now —
+      // an unused <Component> import is exactly what this should catch.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z][A-Z0-9_]*$', argsIgnorePattern: '^_' }],
       // React Compiler opinions: keep visible as warnings (a lot of pre-existing
       // instances), but don't block CI. Real correctness rules stay as errors.
       'react-hooks/exhaustive-deps': 'warn',

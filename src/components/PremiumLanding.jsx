@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import './PremiumLanding.css';
 
 // Using inline SVG icons to ensure zero dependencies and complete portability

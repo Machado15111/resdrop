@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API } from '../api';
 import { useAuth } from '../contexts/AuthContext';
-import { IconHotel, IconSearch, IconClock, IconAlertCircle, IconCheck, IconExternalLink, IconSparkles } from './Icons';
+import { IconSearch, IconClock, IconAlertCircle, IconCheck, IconExternalLink, IconSparkles } from './Icons';
 import { sanitizeHtml } from '../sanitize';
 import './HotelDetailsModal.css';
 

@@ -3,14 +3,10 @@ import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import './App.css';
 import Header from './components/Header';
-import Hero from './components/Hero';
-import HowItWorks from './components/HowItWorks';
 // import PlatformStrip from './components/PlatformStrip';
-import PriceStrategy from './components/PriceStrategy';
 import Pricing from './components/Pricing';
 import Footer from './components/Footer';
 // Core auth + app-shell routes stay eager for instant first interaction.
-import Login from './components/Login';
 import Signup from './components/Signup';
 import DashboardPage from './components/DashboardPage';
 import SubmitBookingPage from './components/SubmitBookingPage';
@@ -20,7 +16,7 @@ import Account from './components/Account';
 import ResetPassword from './components/ResetPassword';
 import ResDroppLanding from './components/ResDroppLanding';
 import ResDroppLogin from './components/ResDroppLogin';
-import { ProtectedRoute, OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
+import { OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
 import MobileTabBar from './components/MobileTabBar';
 
 // Heavy / rarely-first-loaded routes are code-split so they don't bloat the
@@ -41,18 +37,6 @@ function LayoutWithHeader() {
     <>
       <Header />
       <Outlet />
-    </>
-  );
-}
-
-function HomePage() {
-  return (
-    <>
-      <Hero />
-      <HowItWorks />
-      <PriceStrategy />
-      <Pricing />
-      <Footer />
     </>
   );
 }
