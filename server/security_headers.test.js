@@ -10,8 +10,12 @@ import helmet from 'helmet';
  * exact policy the old block produced.
  */
 
-// Verbatim copy of the header the pre-helmet code emitted.
-const LEGACY_CSP = [
+// The policy the app is meant to emit. It started as a verbatim copy of what
+// the pre-helmet block produced; two directives have moved since, each on
+// purpose: script-src dropped 'unsafe-inline' once the Travelpayouts bootstrap
+// moved to /tp-loader.js, and upgrade-insecure-requests was added because that
+// third-party script fetches its chunks over http://.
+const EXPECTED_CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -21,10 +25,11 @@ const LEGACY_CSP = [
   "media-src 'self' https:",
   "font-src 'self' https://fonts.gstatic.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "script-src 'self' 'unsafe-inline' https://tp-em.com",
+  "script-src 'self' https://tp-em.com",
   "connect-src 'self' https:",
   "frame-src https://www.openstreetmap.org",
   "worker-src 'self'",
+  'upgrade-insecure-requests',
 ].join('; ');
 
 // Must stay identical to the helmet config in index.js.
@@ -41,10 +46,11 @@ const HELMET_OPTIONS = {
       'media-src': ["'self'", 'https:'],
       'font-src': ["'self'", 'https://fonts.gstatic.com'],
       'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      'script-src': ["'self'", "'unsafe-inline'", 'https://tp-em.com'],
+      'script-src': ["'self'", 'https://tp-em.com'],
       'connect-src': ["'self'", 'https:'],
       'frame-src': ['https://www.openstreetmap.org'],
       'worker-src': ["'self'"],
+      'upgrade-insecure-requests': [],
     },
   },
   strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true, preload: false },
@@ -93,12 +99,12 @@ function parseCsp(policy) {
   return out;
 }
 
-test('the CSP is directive-for-directive the policy the hand-rolled block emitted', async () => {
-  assert.deepEqual(parseCsp(await csp()), parseCsp(LEGACY_CSP));
+test('the CSP is directive-for-directive the policy this file pins', async () => {
+  assert.deepEqual(parseCsp(await csp()), parseCsp(EXPECTED_CSP));
 });
 
-test('only the separator whitespace differs from the legacy header', async () => {
-  assert.equal((await csp()).replace(/;\s*/g, '; '), LEGACY_CSP);
+test('only the separator whitespace differs from the pinned header', async () => {
+  assert.equal((await csp()).replace(/;\s*/g, '; '), EXPECTED_CSP);
 });
 
 test('the directives the app depends on survived the swap', async () => {
@@ -112,13 +118,22 @@ test('the directives the app depends on survived the swap', async () => {
 
 test('helmet defaults did not sneak in extra directives', async () => {
   const policy = await csp();
-  assert.ok(!policy.includes('upgrade-insecure-requests'));
   assert.ok(!policy.includes('script-src-attr'));
+  assert.ok(!policy.includes('script-src-elem'));
   assert.deepEqual(
     Object.keys(parseCsp(policy)).sort(),
-    Object.keys(parseCsp(LEGACY_CSP)).sort(),
+    Object.keys(parseCsp(EXPECTED_CSP)).sort(),
     'the same set of directives, no more and no fewer',
   );
+});
+
+test("script-src does not allow inline script", async () => {
+  // The whole point of moving the Travelpayouts bootstrap into a file: with
+  // 'unsafe-inline' here, any XSS could read the session token out of
+  // localStorage.
+  const policy = await csp();
+  const scriptSrc = policy.split(';').map(d => d.trim()).find(d => d.startsWith('script-src'));
+  assert.ok(!scriptSrc.includes("'unsafe-inline'"), `script-src must stay inline-free, got: ${scriptSrc}`);
 });
 
 test('the lockdown directives are intact', async () => {
@@ -151,7 +166,7 @@ test('index.js uses exactly this helmet configuration', async () => {
   const src = await import('node:fs').then(fs =>
     fs.promises.readFile(new URL('./index.js', import.meta.url), 'utf8'));
   // Spot-check the directives most likely to be dropped by a careless edit.
-  assert.match(src, /'script-src':\s*\["'self'", "'unsafe-inline'", 'https:\/\/tp-em\.com'\]/);
+  assert.match(src, /'script-src':\s*\["'self'", 'https:\/\/tp-em\.com'\]/);
   assert.match(src, /'frame-src':\s*\['https:\/\/www\.openstreetmap\.org'\]/);
   assert.match(src, /useDefaults:\s*false/);
   assert.match(src, /maxAge:\s*31536000/);

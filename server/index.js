@@ -390,11 +390,19 @@ app.use(express.json({
 // app actually needs (the tp-em.com Travelpayouts script and the OpenStreetMap
 // frame) and break the SPA.
 //
-// TODO(csp): script-src still carries 'unsafe-inline', which is what makes an
-// XSS able to read the session token out of localStorage. Removing it needs
-// every inline <script> and inline handler in index.html / the Vite output to
-// move to a nonce or hash. Deliberately out of scope here — it is a change that
-// must be verified in a browser, not by a header assertion.
+// script-src no longer carries 'unsafe-inline': the one executable inline block
+// (the Travelpayouts bootstrap) moved to /tp-loader.js, and Vite's output is
+// all external. A nonce was not an option — resdrop.app is served by Vercel
+// from static files, which cannot vary a header per request. The three
+// application/ld+json blocks in index.html are data, not script, and are not
+// subject to script-src.
+//
+// style-src keeps 'unsafe-inline' for now. The app's own styles are external
+// and React's style props go through the CSSOM (which CSP does not police), so
+// it may well be droppable too — but that needs its own browser pass across
+// every screen, and a blocked stylesheet is a silently unreadable page.
+// NOTE: vercel.json carries the same policy for the statically served frontend.
+// The two must be changed together — see security_headers.test.js.
 app.use(helmet({
   contentSecurityPolicy: {
     useDefaults: false,
@@ -408,10 +416,15 @@ app.use(helmet({
       'media-src': ["'self'", 'https:'],
       'font-src': ["'self'", 'https://fonts.gstatic.com'],
       'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      'script-src': ["'self'", "'unsafe-inline'", 'https://tp-em.com'],
+      'script-src': ["'self'", 'https://tp-em.com'],
       'connect-src': ["'self'", 'https:'],
       'frame-src': ['https://www.openstreetmap.org'],
       'worker-src': ["'self'"],
+      // The Travelpayouts entrypoint pulls its own chunks over http://, which
+      // the browser blocks as mixed active content before CSP even weighs in.
+      // Upgrading them is what makes that script work at all; everything else
+      // the app loads is already https.
+      'upgrade-insecure-requests': [],
     },
   },
   // Match the previous header exactly: 1 year, includeSubDomains, no preload.
