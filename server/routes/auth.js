@@ -158,7 +158,10 @@ export default function authRoutes({
 
     // Fire-and-forget password reset email
     const resetUrl = `https://resdrop.app/reset-password?token=${token}`;
-    sendPasswordReset(email, user.name, resetUrl, user).catch(() => {});
+    // Swallowed on purpose — the response must not reveal whether the account
+    // exists — but a user who never gets the mail deserves a trace in the logs.
+    sendPasswordReset(email, user.name, resetUrl, user)
+      .catch((e) => console.error(`[Auth] forgot-password: reset email failed to send: ${e.message}`));
 
     res.json({ success: true });
   });
@@ -179,9 +182,47 @@ export default function authRoutes({
     }
 
     const hash = await hashPassword(password);
+
+    // These three writes have no transaction around them, so the order decides
+    // how a partial failure lands. Burning the token first fails CLOSED: the
+    // account is untouched and the same link still works, so the user just
+    // tries again. The old order (password first) failed open — it could leave
+    // a changed password behind a link that stayed usable for the rest of its
+    // hour.
+    const burned = await db.markPasswordResetUsed(token);
+    if (!burned) {
+      console.error(`[Auth] reset-password: could not consume token for ${reset.user_email} — password left unchanged`);
+      return res.status(500).json({ error: 'Nao foi possivel concluir agora. Tente novamente.' });
+    }
+
     await db.updateUser(reset.user_email, { passwordHash: hash });
-    await db.markPasswordResetUsed(token);
-    await db.deleteUserSessions(reset.user_email);
+
+    // updateUser falls back to a plain read when the authoritative write fails,
+    // so a truthy return is not proof that the new password landed — and
+    // reporting success on a password that never changed is how an account
+    // becomes unreachable. Read it back through the one accessor that keeps the
+    // hash and compare. The link is already spent at this point, hence the
+    // "ask for a new one" wording.
+    const stored = await db.getUserWithPassword(reset.user_email);
+    if (stored?.passwordHash !== hash) {
+      console.error(`[Auth] reset-password: password write did not land for ${reset.user_email}`);
+      return res.status(500).json({
+        error: 'Nao foi possivel alterar a senha. Solicite um novo link de redefinicao.',
+        code: 'RESET_WRITE_FAILED',
+      });
+    }
+
+    // The password is already changed, so a failure here must not be reported
+    // as a failed reset: the user would retry with a spent token, be told it is
+    // invalid, and never learn that the new password works. Surviving sessions
+    // are logged instead.
+    const revoked = await db.deleteUserSessions(reset.user_email).catch((e) => {
+      console.error(`[Auth] reset-password: session revocation threw for ${reset.user_email}: ${e.message}`);
+      return false;
+    });
+    if (!revoked) {
+      console.error(`[Auth] reset-password: sessions may still be live for ${reset.user_email} after a password change`);
+    }
 
     res.json({ success: true });
   });

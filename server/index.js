@@ -1669,6 +1669,7 @@ app.use('/api', bookingRoutes({
   resolveBookingHotel, generateId, detectOTA, validateBookingData,
   findDuplicateBooking, parseEmailContent,
   VALID_BOOKING_STATUSES, SUPPORTED_CURRENCIES,
+  apiMode: API_MODE,
 }));
 
 // ─── Mount admin routes ──────────────────────────────────────

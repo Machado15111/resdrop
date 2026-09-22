@@ -25,6 +25,7 @@ export default function bookingRoutes({
   resolveBookingHotel, generateId, detectOTA, validateBookingData,
   findDuplicateBooking, parseEmailContent,
   VALID_BOOKING_STATUSES, SUPPORTED_CURRENCIES,
+  apiMode,
 }) {
   const router = Router();
 
@@ -152,7 +153,7 @@ export default function bookingRoutes({
             details: { source: parseMethod || 'manual', parseMethod },
           },
         ],
-        apiMode: API_MODE,
+        apiMode,
       };
 
       const created = await db.createBooking(booking);
@@ -160,8 +161,10 @@ export default function bookingRoutes({
         return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
       }
 
-      // Fire-and-forget: booking created email
-      sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created, req.user).catch(() => {});
+      // Fire-and-forget: booking created email. The booking is already saved, so
+      // this must not fail the request — but it should not vanish either.
+      sendBookingCreated(req.userEmail, req.user.name || 'Traveler', created, req.user)
+        .catch((e) => console.error(`[API] booking-created email failed for ${created.id}: ${e.message}`));
 
       // Fire-and-forget: immediate first price check (don't wait for scheduled checks)
       (async () => {
@@ -296,7 +299,7 @@ export default function bookingRoutes({
           alerts: [],
           changeHistory: [],
           bookingHistory: [{ date: new Date().toISOString(), action: 'created', details: { source: 'bulk_import' } }],
-          apiMode: API_MODE,
+          apiMode,
         };
 
         const created = await db.createBooking(booking);
@@ -537,6 +540,7 @@ export default function bookingRoutes({
     const editable = ['hotelName', 'destination', 'checkinDate', 'checkoutDate', 'roomType', 'roomTypeCustom', 'originalPrice', 'confirmationNumber', 'guestName', 'notes', 'rateType', 'status', 'cancellationPolicy', 'bookingSource', 'currency', 'bookingUrl', 'alertPreferences'];
     const changes = [];
     const updates = {};
+    let statsNeedRecount = false;
 
     for (const field of editable) {
       if (req.body[field] !== undefined && req.body[field] !== booking[field]) {
@@ -576,10 +580,14 @@ export default function bookingRoutes({
           priceHistory[0].price = newOriginal;
           updates.priceHistory = priceHistory;
         }
-        await db.updateUserStats(booking.email);
+        statsNeedRecount = true;
       }
 
       const updated = await db.updateBooking(req.params.id, updates);
+      // After the write, never before: updateUserStats re-aggregates the user's
+      // totals straight from the bookings table, so running it first just
+      // recomputed the old numbers and left the account showing stale savings.
+      if (statsNeedRecount) await db.updateUserStats(booking.email);
       return res.json(updated);
     }
 
@@ -589,9 +597,6 @@ export default function bookingRoutes({
   router.post('/parse-email', authMiddleware, parseRateLimit, async (req, res) => {
     const { emailContent } = req.body;
     if (!emailContent) return res.status(400).json({ error: 'emailContent is required' });
-
-    const { extractBookingFromSource } = await import('./extractors/index.js');
-    const { createImportResult } = await import('./importResult.js');
 
     const extraction = await extractBookingFromSource({ text: emailContent });
     const essentialFields = ['hotelName', 'checkIn', 'checkOut', 'totalPrice', 'currency'];
@@ -682,7 +687,7 @@ export default function bookingRoutes({
       priceHistory: [{ date: new Date().toISOString(), price: parseFloat(parsed.originalPrice), source: 'Reserva Original' }],
       alerts: [],
       changeHistory: [],
-      apiMode: API_MODE,
+      apiMode,
     };
 
     const created = await db.createBooking(booking);
@@ -690,7 +695,6 @@ export default function bookingRoutes({
       return res.status(500).json({ error: 'Failed to create booking — database error. Check server logs.' });
     }
 
-    const { createImportResult } = await import('./importResult.js');
     const resultPayload = createImportResult({
       success: true,
       source: 'email_paste',
@@ -709,7 +713,7 @@ export default function bookingRoutes({
   router.get('/stats', authMiddleware, async (req, res) => {
     const stats = await db.getStats(req.userEmail);
     // stats now returns potentialSavings + totalSavings (confirmed only)
-    res.json({ ...stats, apiMode: API_MODE });
+    res.json({ ...stats, apiMode });
   });
 
   // API config status endpoint — public info only (no secrets/IDs)

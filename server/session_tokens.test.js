@@ -125,3 +125,15 @@ test('an expired session does not resolve', async () => {
     assert.ok(new Date(sess.expires_at) > new Date(), 'any returned session is unexpired');
   }
 });
+
+// ─── Password reset tokens ──────────────────────────────────
+
+test('markPasswordResetUsed reports whether the burn actually landed', async () => {
+  // POST /api/auth/reset-password consumes the token BEFORE it writes the new
+  // password, so that a failure leaves the account untouched and the link
+  // still usable. That ordering only means something if this function can say
+  // "I could not confirm it" — it used to return undefined either way.
+  const result = await db.markPasswordResetUsed(generateToken());
+  assert.equal(typeof result, 'boolean', 'the burn must report a boolean, not undefined');
+  assert.equal(result, false, 'with no authoritative store to write to, it must not claim success');
+});

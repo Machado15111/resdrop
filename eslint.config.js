@@ -5,9 +5,8 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  // Lint only the React app. The server has its own suite (cd server && node
-  // --test), and dist/subprojects/worktrees are build output or unrelated code.
-  globalIgnores(['dist', 'server', 'public', 'agents', 'docs', 'voyu', 'DROV', 'Coffeetip', 'marketing', '.claude']),
+  // dist/subprojects/worktrees are build output or unrelated code.
+  globalIgnores(['dist', 'public', 'agents', 'docs', 'voyu', 'DROV', 'Coffeetip', 'marketing', '.claude', 'server/node_modules']),
   {
     files: ['src/**/*.{js,jsx}'],
     extends: [
@@ -33,6 +32,28 @@ export default defineConfig([
       'react-hooks/refs': 'warn',
       'react-hooks/immutability': 'warn',
       'react-refresh/only-export-components': 'warn',
+    },
+  },
+  {
+    // The server used to be skipped entirely. That is how `API_MODE is not
+    // defined` survived the route extraction and killed POST /api/bookings:
+    // nothing checked that a moved handler still had its identifiers in scope.
+    // no-undef is the rule that catches it, so it stays an error.
+    files: ['server/**/*.js', 'server/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: globals.node,
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      'no-undef': 'error',
+      'no-unreachable': 'error',
+      // Pre-existing noise in the extraction regexes; not worth touching 60+
+      // live patterns in a correctness pass.
+      'no-useless-escape': 'warn',
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+      'no-empty': ['warn', { allowEmptyCatch: true }],
     },
   },
 ])

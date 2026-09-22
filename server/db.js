@@ -800,12 +800,7 @@ export async function updateDocumentUpload(id, updates) {
   } catch (e) { console.error('[DB] updateDocumentUpload rest:', e.message); }
   const existing = inMemoryDocuments.get(id);
   if (existing) { const merged = { ...existing, ...updates }; inMemoryDocuments.set(id, merged); return merged; }
-  try {
-    return null;
-  } catch (e) {
-    console.error('[DB] updateDocumentUpload:', e.message);
-    return null;
-  }
+  return null;
 }
 
 // ─── Sessions ─────────────────────────────────────────────
@@ -1018,14 +1013,20 @@ export async function getPasswordReset(token) {
 
 export async function markPasswordResetUsed(token) {
   const tokenHash = hashToken(token);
+  // Reports whether the burn actually landed, the same way deleteSession does:
+  // a reset link that silently stays usable is the whole point of burning it.
+  let ok = false;
   try {
-    await supa.update('password_resets', { token_hash: tokenHash }, { used: true });
-    await supa.update('password_resets', { token }, { used: true }); // legacy rows
+    const byHash = await supa.update('password_resets', { token_hash: tokenHash }, { used: true });
+    const byLegacy = await supa.update('password_resets', { token }, { used: true }); // legacy rows
+    ok = Boolean(byHash || byLegacy);
+    if (!ok) console.error('[DB] markPasswordResetUsed: authoritative update reported no success');
   } catch (e) {
     console.error('[DB] markPasswordResetUsed rest:', e.message);
   }
   sql`UPDATE password_resets SET used = true WHERE token_hash = ${tokenHash} OR token = ${token}`
     .catch(logMirrorFailure('markPasswordResetUsed'));
+  return ok;
 }
 
 // ─── Inbound Emails ──────────────────────────────────────────
