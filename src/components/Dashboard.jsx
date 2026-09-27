@@ -91,6 +91,17 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewW
   const past = filtered.filter(b => new Date(b.checkoutDate) < now);
   const hasFilters = search.trim() || statusFilter !== 'all';
 
+  // Searching, filtering and sorting are answers to "I have too many bookings
+  // to scan". Below that point they are five controls sitting above an empty
+  // list. They come back the moment there is something to sift through — or if
+  // a filter is already on, so nobody is ever stuck behind a hidden control.
+  const FILTER_THRESHOLD = 5;
+  const showFilters = bookings.length >= FILTER_THRESHOLD || hasFilters || sortBy !== 'recent';
+  // Export of nothing is nothing; import is how a bulk of bookings arrives, so
+  // it stays useful precisely when the dashboard is empty.
+  const showExport = bookings.length > 0;
+  const showToolbar = showFilters || showExport || Boolean(onImport);
+
   return (
     <div className="dashboard-page">
       <div className="container">
@@ -146,7 +157,9 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewW
         )}
 
         {/* Toolbar: search, filter, sort, export, import */}
-        <div className="dash-toolbar">
+        {showToolbar && (
+        <div className={`dash-toolbar ${showFilters ? '' : 'dash-toolbar--quiet'}`}>
+          {showFilters && (<>
           <div className="dash-search">
             <IconSearch size={16} />
             <input
@@ -168,13 +181,14 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewW
             <option value="savings">{t('dash.sortSavings')}</option>
             <option value="checkin">{t('dash.sortCheckin')}</option>
           </select>
+          </>)}
           <div className="dash-toolbar-spacer" />
           {onImport && (
             <button className="dash-tool-btn" onClick={onImport}>
               <IconUpload size={15} /> {t('dash.import')}
             </button>
           )}
-          {onExport && (
+          {onExport && showExport && (
             <div className="dash-export-wrap">
               <button className="dash-tool-btn" onClick={() => onExport('csv')}>
                 <IconExternalLink size={15} /> {t('dash.exportCsv')}
@@ -182,6 +196,7 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewW
             </div>
           )}
         </div>
+        )}
 
         {/* Stats cards */}
         <div className="dash-kpis">

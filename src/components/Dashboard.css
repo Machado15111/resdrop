@@ -889,3 +889,10 @@
     flex-basis: 100%;
   }
 }
+
+/* Toolbar with the filters hidden: just the actions, pushed right, and no
+   reason to reserve the full bar height. */
+.dash-toolbar--quiet {
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
