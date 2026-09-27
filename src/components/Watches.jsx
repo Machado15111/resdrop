@@ -241,6 +241,17 @@ function Watches() {
                 ? 'Quando um hotel que você quer estiver esgotado, crie um alerta aqui em vez de ficar conferindo o site.'
                 : 'When a hotel you want is sold out, add a watch here instead of checking the site yourself.'}
             </p>
+            {/* The empty state is where someone actually is when they need to
+                create their first watch — leaving the only button up in the
+                header made them go looking for it. */}
+            <button
+              className="btn btn-primary watches-empty-cta"
+              onClick={() => { setShowForm(true); setFormError(null); }}
+              disabled={!canCreate}
+            >
+              <IconPlus size={16} />
+              {pt ? 'Criar meu primeiro alerta' : 'Create my first watch'}
+            </button>
           </div>
         )}
 

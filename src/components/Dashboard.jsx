@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconBarChart, IconDollar, IconSearch, IconUpload, IconExternalLink, IconClock } from './Icons';
+import { IconHotel, IconPlus, IconRefresh, IconArrowRight, IconTrendDown, IconBarChart, IconDollar, IconSearch, IconUpload, IconExternalLink, IconClock, IconBed } from './Icons';
 import { useI18n } from '../i18n';
 import { formatStayDate, nightsBetween } from '../dates';
 import HotelDetailsModal from './HotelDetailsModal';
@@ -13,7 +13,7 @@ function formatCurrency(amount, currencyCode) {
   return `${symbol}${Number(amount).toLocaleString(locale, { minimumFractionDigits: 0 })}`;
 }
 
-function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewAnalytics, onExport, onImport, onArchive, onDelete, currentUser, bookingStates = {} }) {
+function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewWatches, onViewAnalytics, onExport, onImport, onArchive, onDelete, currentUser, bookingStates = {} }) {
   const { t, lang } = useI18n();
   const currency = currentUser?.currency || 'BRL';
   const fmt = (amount) => formatCurrency(amount, currency);
@@ -109,6 +109,12 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
               <IconPlus size={18} />
               {t('dash.addBooking')}
             </button>
+            {onViewWatches && (
+              <button className="btn-secondary" onClick={onViewWatches}>
+                <IconBed size={18} />
+                {t('dash.watchCta')}
+              </button>
+            )}
             {onViewAnalytics && (
               <button className="btn-secondary" onClick={onViewAnalytics}>
                 <IconBarChart size={18} />
@@ -229,10 +235,14 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
                 <div className="empty-icon-wrap">
                   <IconHotel size={32} />
                 </div>
-                <h3>{t('dash.noBookings')}</h3>
-                <p>{t('dash.noBookingsDesc')}</p>
+                {/* "You have no bookings" and "all of your bookings have
+                    ended" are different things. Saying the first while the KPI
+                    above counts three and the history below lists them is what
+                    makes a dashboard feel broken. */}
+                <h3>{bookings.length > 0 ? t('dash.noActiveBookings') : t('dash.noBookings')}</h3>
+                <p>{bookings.length > 0 ? t('dash.noActiveBookingsDesc') : t('dash.noBookingsDesc')}</p>
                 <button className="btn-primary" onClick={onNewBooking}>
-                  {t('dash.addFirst')}
+                  {bookings.length > 0 ? t('dash.addBooking') : t('dash.addFirst')}
                 </button>
               </div>
             )
@@ -257,6 +267,20 @@ function Dashboard({ bookings, onSelect, onRefresh, stats, onNewBooking, onViewA
             </div>
           )}
         </div>
+
+        {/* The other way in, and it needs no booking: someone staring at an
+            empty dashboard because the hotel they want is sold out has nothing
+            to add here. This is the path for them. */}
+        {onViewWatches && (
+          <button type="button" className="dash-watch-promo" onClick={onViewWatches}>
+            <span className="dwp-icon"><IconBed size={22} /></span>
+            <span className="dwp-body">
+              <span className="dwp-title">{t('dash.orWatchTitle')}</span>
+              <span className="dwp-desc">{t('dash.orWatchDesc')}</span>
+            </span>
+            <span className="dwp-cta">{t('dash.orWatchCta')}<IconArrowRight size={15} /></span>
+          </button>
+        )}
 
         {/* Past bookings */}
         {past.length > 0 && (

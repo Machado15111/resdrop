@@ -26,11 +26,14 @@
 .header-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
   text-decoration: none;
-  font-size: 1.5rem;
+  /* Bumped with the mark (28 -> 38px) so the wordmark does not look stranded
+     next to it. */
+  font-size: 1.65rem;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--tl-bg-dark);
 }
 

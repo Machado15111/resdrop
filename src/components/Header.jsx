@@ -18,7 +18,7 @@ function Header() {
     <header className="header">
       <div className="container header-inner">
         <Link to={isAuthenticated ? '/dashboard' : '/'} className="header-logo" onClick={closeMobile}>
-          <Logo size={28} />
+          <Logo size={38} />
           <span className="logo-text">ResDrop</span>
         </Link>
 

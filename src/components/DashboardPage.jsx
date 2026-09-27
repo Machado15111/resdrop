@@ -217,6 +217,7 @@ function DashboardPage() {
         onRefresh={handleRefreshPrices}
         stats={stats}
         onNewBooking={() => navigate('/submit')}
+        onViewWatches={() => navigate('/watches')}
         onViewAnalytics={() => navigate('/analytics')}
         onExport={handleExport}
         onImport={() => setShowImport(true)}

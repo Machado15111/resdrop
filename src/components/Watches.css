@@ -380,3 +380,10 @@
     min-width: 0;
   }
 }
+
+.watches-empty-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+}
