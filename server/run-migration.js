@@ -499,7 +499,13 @@ try {
   // The scheduler's hot path is "every active watch, soonest check-in first".
   await sql`CREATE INDEX IF NOT EXISTS idx_watches_email ON availability_watches(email)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_watches_status_checkin ON availability_watches(status, checkin_date)`;
-  console.log('✓ availability_watches table');
+  // A watch row holds someone's email and travel dates. Every other table here
+  // that carries user data has RLS on (bookings, users, fare_alerts,
+  // document_uploads — verified in the Supabase project on 2026-09-27), and the
+  // server reaches this table with the service key, which bypasses RLS anyway.
+  // Idempotent, so it is safe on every boot.
+  await sql`ALTER TABLE availability_watches ENABLE ROW LEVEL SECURITY`;
+  console.log('✓ availability_watches table (RLS on)');
 
   console.log('\n✓ Migration complete');
 } catch (e) {
