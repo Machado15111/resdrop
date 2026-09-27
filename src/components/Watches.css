@@ -1,0 +1,382 @@
+/* ═══════════════════════════════════════════════════════════════
+   Watches.css — availability watches ("tell me when a room opens")
+   Shares the app surface vocabulary with AlertsPage/Dashboard.
+   ═══════════════════════════════════════════════════════════════ */
+
+.watches-page {
+  padding-bottom: 80px;
+  min-height: 100vh;
+  background: var(--tl-bg-page);
+  color: var(--tl-text-dark);
+}
+
+.watches-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 10px;
+}
+
+.watches-header h1 {
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.watches-subtitle {
+  color: var(--tl-text-muted);
+  font-size: 15px;
+  max-width: 62ch;
+  line-height: 1.6;
+}
+
+.watches-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.watches-quota {
+  font-size: 13px;
+  color: var(--tl-text-muted);
+  margin-bottom: 24px;
+}
+
+.watches-quota-full {
+  color: var(--tl-accent-gold-hover);
+}
+
+/* ─── Create form ──────────────────────────────────────────── */
+
+.watch-form {
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 22px;
+  margin-bottom: 28px;
+}
+
+.watch-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.watch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.watch-field-wide {
+  grid-column: span 3;
+}
+
+.watch-field span {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--tl-text-muted);
+}
+
+.watch-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--tl-text-dark);
+  background: var(--tl-bg-page);
+}
+
+.watch-field input:focus {
+  outline: none;
+  border-color: var(--color-green-600);
+  background: var(--tl-bg-surface);
+}
+
+.watch-form-error {
+  margin-top: 14px;
+  font-size: 13px;
+  color: #B3261E;
+}
+
+.watch-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ─── Empty state ──────────────────────────────────────────── */
+
+.watches-empty {
+  text-align: center;
+  padding: 64px 24px;
+  background: var(--tl-bg-surface);
+  border: 1px dashed var(--tl-border);
+  border-radius: var(--tl-radius);
+}
+
+.watches-empty svg {
+  color: var(--tl-text-muted);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.watches-empty h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.watches-empty p {
+  color: var(--tl-text-muted);
+  font-size: 14px;
+  max-width: 46ch;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ─── Cards ────────────────────────────────────────────────── */
+
+.watches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.watch-card {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 20px;
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: var(--tl-radius);
+  padding: 18px 20px;
+}
+
+/* The one state worth pulling the eye: a room is bookable right now. */
+.watch-card-open {
+  border-color: var(--color-green-500);
+  box-shadow: 0 0 0 3px rgba(82, 183, 136, 0.12);
+}
+
+.watch-card-past {
+  opacity: 0.6;
+}
+
+.watch-card-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.watch-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.watch-card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.watch-card-head h3 svg {
+  color: var(--tl-text-muted);
+  flex-shrink: 0;
+}
+
+.watch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.watch-badge-watching {
+  background: var(--tl-bg-soft-green);
+  color: var(--color-green-700);
+}
+
+.watch-badge-open {
+  background: var(--color-green-600);
+  color: #fff;
+}
+
+.watch-badge-off {
+  background: var(--color-neutral-100);
+  color: var(--tl-text-muted);
+}
+
+.watch-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--tl-text-muted);
+}
+
+.watch-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.watch-found {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--tl-bg-soft-green);
+  border-radius: 8px;
+}
+
+.watch-found-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-green-800);
+  margin: 0 0 2px;
+}
+
+.watch-found-meta {
+  font-size: 12px;
+  color: var(--color-green-700);
+  margin: 0;
+}
+
+.watch-found-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-green-700);
+  text-decoration: none;
+}
+
+.watch-found-link:hover {
+  text-decoration: underline;
+}
+
+.watch-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  background: #FFF8E8;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #6B5312;
+}
+
+.watch-review svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.watch-footnote {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--tl-text-muted);
+}
+
+/* ─── Row actions ──────────────────────────────────────────── */
+
+.watch-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.watch-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 112px;
+  padding: 8px 12px;
+  border: 1px solid var(--tl-border);
+  border-radius: 8px;
+  background: var(--tl-bg-surface);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.watch-action:hover:not(:disabled) {
+  background: var(--tl-bg-page);
+  border-color: var(--color-green-600);
+}
+
+.watch-action:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.watch-action-danger:hover:not(:disabled) {
+  border-color: #B3261E;
+  color: #B3261E;
+}
+
+/* ─── Mobile ───────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .watches-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .watches-add {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .watch-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .watch-field-wide {
+    grid-column: span 2;
+  }
+
+  .watch-card {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .watch-actions {
+    flex-direction: row;
+  }
+
+  .watch-action {
+    flex: 1;
+    min-width: 0;
+  }
+}

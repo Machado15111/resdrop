@@ -1,4 +1,5 @@
 import { pollInboundEmails } from './routes/inbound-email.js';
+import { selectWatchesToCheck, findExpiredWatches, watchConfig } from './availability.js';
 
 /**
  * Price Monitoring Scheduler (cost-aware)
@@ -27,6 +28,7 @@ function num(key, fallback) {
 // ── Scheduler state ──────────────────────────────────────────
 let schedulerInterval = null;
 let inboundEmailInterval = null;
+let availabilityInterval = null;
 let lastCheckTime = null;
 let totalChecksRun = 0;
 let checkHistory = [];
@@ -39,6 +41,19 @@ function budgetRemaining() {
   const today = new Date().toISOString().slice(0, 10);
   if (today !== budgetDate) { budgetDate = today; budgetUsed = 0; }
   return Math.max(0, num('MONITOR_DAILY_BUDGET', 100) - budgetUsed);
+}
+
+// Availability watches run on their own budget. Sharing MONITOR_DAILY_BUDGET
+// would let a burst of watches starve the price checks paying users rely on.
+let watchBudgetDate = '';
+let watchBudgetUsed = 0;
+let lastWatchCycle = null;
+let totalWatchChecks = 0;
+let totalRoomsFound = 0;
+function watchBudgetRemaining() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (today !== watchBudgetDate) { watchBudgetDate = today; watchBudgetUsed = 0; }
+  return Math.max(0, watchConfig().dailyBudget - watchBudgetUsed);
 }
 
 // ── Selection logic (pure, unit-testable) ────────────────────
@@ -100,7 +115,110 @@ export function getSchedulerStatus() {
     lastCheck: lastCheckTime,
     totalChecksRun,
     recentHistory: checkHistory.slice(-20),
+    availability: {
+      running: !!availabilityInterval,
+      intervalMinutes: num('AVAILABILITY_INTERVAL_MINUTES', 60),
+      cadenceHours: watchConfig().minHours,
+      urgentCadenceHours: watchConfig().urgentMinHours,
+      dailyBudget: watchConfig().dailyBudget,
+      budgetUsedToday: watchBudgetUsed,
+      budgetRemaining: watchBudgetRemaining(),
+      lastCycle: lastWatchCycle,
+      totalChecksRun: totalWatchChecks,
+      totalRoomsFound,
+    },
   };
+}
+
+// ── Availability watch cycle ─────────────────────────────────
+/**
+ * One pass over the availability watches: retire the ones whose stay has
+ * started, then check whichever are due, cheapest-to-ignore first.
+ *
+ * `checkOneFn` performs the search, the write and the alert (see
+ * availabilityRunner.checkWatch); this function owns only the scheduling.
+ */
+export async function runAvailabilityCycle(loadWatchesFn, checkOneFn, expireFn) {
+  const startTime = Date.now();
+  const cfg = watchConfig();
+  let watches = [];
+  try {
+    watches = await loadWatchesFn();
+  } catch (e) {
+    console.error('[Watch] load watches failed:', e.message);
+    lastWatchCycle = { timestamp: new Date().toISOString(), status: 'load_failed', checked: 0, found: 0, errors: 1 };
+    return lastWatchCycle;
+  }
+
+  // Retire first, so a past stay never consumes a slot in this cycle's budget.
+  const expired = findExpiredWatches(watches);
+  for (const w of expired) {
+    try { await expireFn(w); } catch (e) { console.error(`[Watch] expiring ${w.id}:`, e.message); }
+  }
+  const expiredIds = new Set(expired.map(w => w.id));
+  const live = watches.filter(w => !expiredIds.has(w.id));
+
+  const todo = selectWatchesToCheck(live, { cfg, budgetRemaining: watchBudgetRemaining() });
+  if (todo.length === 0) {
+    lastWatchCycle = {
+      timestamp: new Date().toISOString(), status: 'nothing_due',
+      checked: 0, found: 0, errors: 0, expired: expired.length,
+      duration: Date.now() - startTime,
+    };
+    return lastWatchCycle;
+  }
+
+  console.log(`[Watch] 🔎 cycle: ${todo.length} watch(es) due — budget left today: ${watchBudgetRemaining()}`);
+  let found = 0;
+  let errors = 0;
+  for (const watch of todo) {
+    try {
+      const outcome = await checkOneFn(watch);
+      watchBudgetUsed++;
+      totalWatchChecks++;
+      if (outcome?.alert) {
+        found++;
+        totalRoomsFound++;
+        console.log(`[Watch] 🛎  room opened at "${watch.hotelName}" (${watch.checkinDate} → ${watch.checkoutDate})`);
+      }
+      if (cfg.spacingMs > 0) await new Promise(r => setTimeout(r, cfg.spacingMs));
+    } catch (err) {
+      errors++;
+      console.error(`[Watch] error checking "${watch.hotelName}": ${err.message}`);
+    }
+  }
+
+  lastWatchCycle = {
+    timestamp: new Date().toISOString(), status: 'completed',
+    checked: todo.length, found, errors, expired: expired.length,
+    duration: Date.now() - startTime,
+  };
+  console.log(`[Watch] ✅ cycle done: ${todo.length} checked, ${found} room(s) opened, ${errors} error(s) (${lastWatchCycle.duration}ms)`);
+  return lastWatchCycle;
+}
+
+/**
+ * Start the availability loop. Runs more often than the price monitor because
+ * a watch inside the urgent window is allowed a check every hour — the cycle
+ * has to come around at least that often for that cadence to mean anything.
+ */
+export function startAvailabilityScheduler(loadWatchesFn, checkOneFn, expireFn) {
+  if (availabilityInterval) {
+    console.log('[Watch] already running');
+    return;
+  }
+  const cfg = watchConfig();
+  const intervalMin = num('AVAILABILITY_INTERVAL_MINUTES', 60);
+  console.log(`[Watch] 🕐 Availability watches ON — cycle every ${intervalMin}min · ≤${cfg.dailyBudget} checks/day · each watch ≤1×/${cfg.minHours}h (${cfg.urgentMinHours}h within ${cfg.urgentDays} days of check-in)`);
+
+  availabilityInterval = setInterval(() => {
+    runAvailabilityCycle(loadWatchesFn, checkOneFn, expireFn)
+      .catch(e => console.error('[Watch] cycle error:', e.message));
+  }, intervalMin * 60 * 1000);
+
+  setTimeout(() => {
+    runAvailabilityCycle(loadWatchesFn, checkOneFn, expireFn).catch(() => {});
+  }, num('AVAILABILITY_STARTUP_DELAY_MS', 25000));
 }
 
 // ── Automated cost-aware cycle ───────────────────────────────
@@ -187,6 +305,7 @@ export function startScheduler(loadBookingsFn, searchPricesFn, applyBestResultFn
 export function stopScheduler() {
   if (schedulerInterval) { clearInterval(schedulerInterval); schedulerInterval = null; }
   if (inboundEmailInterval) { clearInterval(inboundEmailInterval); inboundEmailInterval = null; }
+  if (availabilityInterval) { clearInterval(availabilityInterval); availabilityInterval = null; }
   console.log('[Monitor] stopped');
 }
 

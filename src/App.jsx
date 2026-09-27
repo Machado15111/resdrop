@@ -25,6 +25,7 @@ const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
 const AdminSpecialFares = lazy(() => import('./components/AdminSpecialFares'));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 const AlertsPage = lazy(() => import('./components/AlertsPage'));
+const Watches = lazy(() => import('./components/Watches'));
 const AboutPage = lazy(() => import('./components/AboutPage'));
 const PrivacyPage = lazy(() => import('./components/PrivacyPage'));
 const TermsPage = lazy(() => import('./components/TermsPage'));
@@ -59,6 +60,7 @@ function App() {
   useEffect(() => {
     const warm = () => {
       import('./components/AlertsPage');
+      import('./components/Watches');
       import('./components/AnalyticsDashboard');
       import('./components/AboutPage');
       import('./components/PrivacyPage');
@@ -155,6 +157,7 @@ function App() {
               <Route path="/submit" element={<SubmitBookingPage />} />
               <Route path="/account" element={<Account />} />
               <Route path="/alerts" element={<AlertsPage />} />
+              <Route path="/watches" element={<Watches />} />
               <Route path="/analytics" element={<AnalyticsDashboard />} />
             </Route>
 

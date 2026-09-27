@@ -38,6 +38,11 @@ function Header() {
               {t('header.alerts')}
             </NavLink>
           )}
+          {isAuthenticated && (
+            <NavLink to="/watches" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}>
+              {t('nav.watches')}
+            </NavLink>
+          )}
           <NavLink to="/plans" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={closeMobile}>
             {t('nav.pricing')}
           </NavLink>

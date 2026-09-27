@@ -487,6 +487,76 @@ export async function sendPasswordReset(to, name, resetUrl, user = {}) {
   return send(to, copy.subject, html);
 }
 
+// ─── Availability watch: a room opened up ──────────────────────
+//
+// Time-critical in a way a price drop is not: a room that reappears at a
+// sold-out hotel can be gone within the hour, so this mail leads with the one
+// thing the traveller needs (it is bookable now) and keeps everything else
+// short.
+export async function sendAvailabilityAlert(to, name, watch, user = {}) {
+  const lang     = detectLang(user);
+  const userName = esc(name) || (lang === 'pt' ? 'Viajante' : 'Traveler');
+  const hotel    = esc(watch.hotelName || watch.hotel_name || '');
+  const checkin  = fmtDate(watch.checkinDate || watch.checkin_date, lang);
+  const checkout = fmtDate(watch.checkoutDate || watch.checkout_date, lang);
+  const currency = watch.foundCurrency || watch.found_currency || user?.currency || 'USD';
+  const rawPrice = watch.foundPrice ?? watch.found_price;
+  const price    = Number.isFinite(Number(rawPrice)) && Number(rawPrice) > 0 ? fmtPrice(Number(rawPrice), currency) : null;
+  const source   = esc(watch.foundSource || watch.found_source || '');
+  const room     = esc(watch.foundRoomType || watch.found_room_type || '');
+  const watchUrl = `${BASE_URL}/watches`;
+
+  const copy = {
+    en: {
+      subject: `A room opened up — ${hotel}`,
+      preheader: `${hotel} has availability for your dates.`,
+      heading: 'A room opened up.',
+      sub: `Hi ${userName}, <strong>${hotel}</strong> has availability for the dates you asked us to watch.`,
+      labels: ['Hotel', 'Check-in', 'Check-out'],
+      cta: 'See the Details',
+      urgency: 'Rooms that reappear at a sold-out hotel are often taken quickly. We hold nothing and book nothing on your behalf — this is only a heads-up so you can decide.',
+      note: 'We keep watching these dates. If it sells out again, we will tell you the next time it opens.',
+      priceLabel: 'From',
+      sourceLabel: 'Found on',
+      roomLabel: 'Room',
+    },
+    pt: {
+      subject: `Abriu um quarto — ${hotel}`,
+      preheader: `O ${hotel} tem disponibilidade para as suas datas.`,
+      heading: 'Abriu um quarto.',
+      sub: `Olá ${userName}, o <strong>${hotel}</strong> tem disponibilidade para as datas que você pediu para acompanhar.`,
+      labels: ['Hotel', 'Check-in', 'Check-out'],
+      cta: 'Ver os Detalhes',
+      urgency: 'Quartos que reaparecem em hotel esgotado costumam sair rápido. Não reservamos nem seguramos nada no seu nome — este é só o aviso para você decidir.',
+      note: 'Continuamos acompanhando estas datas. Se esgotar de novo, avisamos na próxima vez que abrir.',
+      priceLabel: 'A partir de',
+      sourceLabel: 'Encontrado em',
+      roomLabel: 'Quarto',
+    },
+  }[lang];
+
+  const rows = [
+    [copy.labels[0], hotel],
+    [copy.labels[1], checkin],
+    [copy.labels[2], checkout],
+  ];
+  if (price) rows.push([copy.priceLabel, price]);
+  if (room) rows.push([copy.roomLabel, room]);
+  if (source) rows.push([copy.sourceLabel, source]);
+
+  const html = layout(copy.subject, `
+    ${h1(copy.heading)}
+    ${sub(copy.sub)}
+    ${infoCard(rows)}
+    ${p(copy.urgency)}
+    ${btn(watchUrl, copy.cta, 'gold')}
+    ${divider()}
+    ${pSmall(copy.note)}
+  `, copy.preheader);
+
+  return send(to, copy.subject, html);
+}
+
 // ─── Admin notification ────────────────────────────────────────
 export async function sendAdminNotification(subject, body) {
   const html = layout(`Admin: ${subject}`, `

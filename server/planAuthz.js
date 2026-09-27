@@ -14,10 +14,22 @@
  */
 
 export const PLANS = {
-  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   price: 0,  priceBrl: 0 },
-  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  price: 9,  priceBrl: 37 },
-  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, price: 36, priceBrl: 125 },
+  free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   activeWatches: 1,  price: 0,  priceBrl: 0 },
+  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  activeWatches: 5,  price: 9,  priceBrl: 37 },
+  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, activeWatches: 20, price: 36, priceBrl: 125 },
 };
+
+/**
+ * How many availability watches a plan may keep running at once.
+ *
+ * This is a cost limit, not a feature gate: an active watch costs a rate search
+ * every 1-2 hours for as long as it lives, which is far more API spend per
+ * month than a booking's daily price check. An unknown plan falls back to the
+ * free allowance rather than to unlimited.
+ */
+export function watchLimitFor(plan) {
+  return (PLANS[plan] || PLANS.free).activeWatches;
+}
 
 /**
  * Tier ordering. Derived from price so it can never drift out of sync with

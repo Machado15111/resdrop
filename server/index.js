@@ -31,7 +31,7 @@ import {
   isExpediaConfigured,
   buildExpediaSearchLink,
 } from './expediaApi.js';
-import { startScheduler } from './scheduler.js';
+import { startScheduler, startAvailabilityScheduler } from './scheduler.js';
 import { hotels } from './hotels.js';
 import {
   isSerpApiConfigured,
@@ -61,6 +61,8 @@ import billingRoutes from './routes/billing.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import bookingRoutes from './routes/bookings.js';
+import availabilityRoutes from './routes/availability.js';
+import { checkWatch } from './availabilityRunner.js';
 import { registerNuiteeRoutes } from './nuiteeRoutes.js';
 import {
   isEmailConfigured,
@@ -1686,6 +1688,11 @@ app.use('/api', bookingRoutes({
 }));
 
 // ─── Mount admin routes ──────────────────────────────────────
+// ─── Mount availability watches ──────────────────────────────
+app.use('/api', availabilityRoutes({
+  authMiddleware, bookingRateLimit, costlyApiRateLimit, searchPrices,
+}));
+
 app.use('/api', adminRoutes({
   authMiddleware, adminMiddleware, searchPrices, applyBestResult,
   apiMode: API_MODE, serverStart: SERVER_START,
@@ -1721,6 +1728,20 @@ if (!IS_TEST_IMPORT && process.env.MONITOR_ENABLED !== 'false') {
   );
 } else {
   console.log('[Monitor] Disabled (MONITOR_ENABLED=false) — price checks run manually only');
+}
+
+// ─── Availability watches ("tell me when a room opens up") ────
+// Its own loop and its own daily budget, so a burst of watches can never eat
+// the price-check budget. Follows MONITOR_ENABLED too: pausing monitoring is
+// meant to stop ALL automated API spend, not half of it.
+if (!IS_TEST_IMPORT && process.env.MONITOR_ENABLED !== 'false') {
+  startAvailabilityScheduler(
+    () => db.getActiveAvailabilityWatches(),
+    (watch) => checkWatch(watch, { searchPrices }),
+    (watch) => db.updateAvailabilityWatch(watch.id, { status: 'expired' }),
+  );
+} else if (!IS_TEST_IMPORT) {
+  console.log('[Watch] Disabled (MONITOR_ENABLED=false) — availability checks run manually only');
 }
 
 // ─── Serve frontend build in production ─────────────────────

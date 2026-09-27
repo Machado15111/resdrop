@@ -47,12 +47,15 @@ repricehq/
 │   ├── index.js              # Main Express API entrypoint & route registry
 │   ├── db.js                 # Database client (Postgres + Supabase REST, camel/snake helpers)
 │   ├── email.js              # Nodemailer/Resend HTML email templates (PT/EN)
+│   ├── availability.js       # Availability watches: cadence, budget & alert rules (pure)
+│   ├── availabilityRunner.js # Runs one watch check: search → persist → notify
 │   ├── priceIndex.js         # Nuitée price trends & quota manager
 │   ├── serpApi.js            # SerpApi Google Hotels rate search engine
 │   ├── awinApi.js            # Awin affiliate link builder & promo parser
 │   ├── expediaApi.js         # Expedia affiliate link builder
 │   ├── extractors/           # Deterministic booking extraction engine (PDF/OCR/HTML)
 │   ├── routes/               # Modular Express routers
+│   │   ├── availability.js   # Availability watch CRUD + "check now"
 │   │   ├── documents.js      # Document upload & extraction routes
 │   │   ├── inbound-email.js  # Inbound email webhook & token confirmation
 │   │   ├── savings.js        # Savings confirmation & activity logs
@@ -86,10 +89,30 @@ repricehq/
 - `POST /api/bookings`: Create new booking.
 - `POST /api/bookings/from-document`: Upload PDF/image for booking extraction.
 - `POST /api/inbound/cloudflare-email`: Cloudflare Worker email receiver.
+- `GET /api/availability-watches` & `POST /api/availability-watches`: "Tell me when a room opens up" — a watch is a hotel + dates with NO booking behind it. Ceiling per plan (`PLANS[x].activeWatches`), because each active watch costs a rate search every 1-2h.
+- `POST /api/availability-watches/:id/check`: On-demand availability check (costly-API rate limit).
 - `GET /api/admin/dashboard`: Admin overview statistics.
 - `GET /api/awin/status` & `GET /api/awin/transactions`: Admin affiliate status (Protected).
 
 ---
+
+## 4b. Availability Watches ("avise-me quando abrir")
+
+Complement to price monitoring: the traveller has **no reservation** because the
+hotel is sold out, and wants to know the moment a room appears.
+
+- **Same rate search, different success criterion.** `searchPrices` is reused as-is;
+  any exact-hotel quote coming back means there is inventory. Never call
+  `applyBestResult` for a watch — there is no original price and no saving to claim.
+- **Own scheduler loop and own budget.** `startAvailabilityScheduler` runs every
+  `AVAILABILITY_INTERVAL_MINUTES` (60) with `AVAILABILITY_DAILY_BUDGET` (200) —
+  deliberately separate from `MONITOR_DAILY_BUDGET` so a burst of watches cannot
+  starve the price checks. Per-watch cadence is 2h, tightening to 1h inside 7 days
+  of check-in.
+- **Alerting is edge-triggered**, with a 24h cooldown: only the transition from
+  sold out to available notifies, so flapping inventory cannot spam.
+- **Decisions are pure** in `availability.js` (tested without DB/HTTP/API keys);
+  I/O lives in `availabilityRunner.js`.
 
 ## 5. Database Patterns & Function Signatures
 

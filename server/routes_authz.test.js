@@ -91,6 +91,10 @@ const PROTECTED = [
   ['POST', '/api/billing/portal'],
   ['POST', '/api/push/subscribe'],
   ['GET', '/api/inbound/address'],
+  ['GET', '/api/availability-watches'],
+  ['POST', '/api/availability-watches'],
+  ['DELETE', '/api/availability-watches/some-id'],
+  ['POST', '/api/availability-watches/some-id/check'],
 ];
 
 const ADMIN_ONLY = [

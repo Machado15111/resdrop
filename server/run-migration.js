@@ -463,6 +463,44 @@ try {
   `;
   console.log('✓ Inbound email, attachments, hotel mappings, and provider usage tables');
 
+  // ─── Availability watches ─────────────────────────────────
+  //
+  // "Tell me when a room opens up." Deliberately NOT a booking: there is no
+  // confirmation number, no original price and nothing to compare against —
+  // the traveller does not have a reservation yet, which is the whole point.
+  await sql`
+    CREATE TABLE IF NOT EXISTS availability_watches (
+      id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email              TEXT NOT NULL,
+      hotel_name         TEXT NOT NULL,
+      destination        TEXT,
+      checkin_date       DATE NOT NULL,
+      checkout_date      DATE NOT NULL,
+      guests             INTEGER DEFAULT 2,
+      currency           TEXT DEFAULT 'USD',
+      note               TEXT,
+      status             TEXT DEFAULT 'watching',
+      last_checked       TIMESTAMPTZ,
+      check_count        INTEGER DEFAULT 0,
+      last_offer_count   INTEGER DEFAULT 0,
+      consecutive_empty  INTEGER DEFAULT 0,
+      needs_review       BOOLEAN DEFAULT false,
+      found_at           TIMESTAMPTZ,
+      found_price        NUMERIC,
+      found_currency     TEXT,
+      found_source       TEXT,
+      found_room_type    TEXT,
+      found_link         TEXT,
+      notified_at        TIMESTAMPTZ,
+      created_at         TIMESTAMPTZ DEFAULT now(),
+      updated_at         TIMESTAMPTZ DEFAULT now()
+    )
+  `;
+  // The scheduler's hot path is "every active watch, soonest check-in first".
+  await sql`CREATE INDEX IF NOT EXISTS idx_watches_email ON availability_watches(email)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_watches_status_checkin ON availability_watches(status, checkin_date)`;
+  console.log('✓ availability_watches table');
+
   console.log('\n✓ Migration complete');
 } catch (e) {
   console.error('Migration error:', e.message);

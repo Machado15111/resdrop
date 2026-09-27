@@ -9,6 +9,7 @@ const translations = {
     'nav.account': 'Minha Conta',
     'nav.addBooking': 'Adicionar Reserva',
     'nav.admin': 'Admin',
+    'nav.watches': 'Disponibilidade',
     // Header
     'header.alerts': 'Alertas',
     // Hero
@@ -362,6 +363,7 @@ const translations = {
     'nav.account': 'My Account',
     'nav.addBooking': 'Add Booking',
     'nav.admin': 'Admin',
+    'nav.watches': 'Availability',
     // Header
     'header.alerts': 'Alerts',
     // Hero

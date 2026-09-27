@@ -1408,6 +1408,124 @@ export async function checkAndConsumeProviderCap(provider, operation, dailyCap =
   }
 }
 
+// ─── Availability watches ─────────────────────────────────────
+//
+// "Tell me when a room opens up" — see availability.js for the rules. REST is
+// authoritative, with the same in-memory fallback the rest of this module uses
+// so local dev and tests work without Supabase.
+
+const inMemoryWatches = new Map();
+
+const ACTIVE_WATCH_STATUSES = ['watching', 'available'];
+
+export async function createAvailabilityWatch(watch) {
+  const fallbackId = `wch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const record = {
+    status: 'watching',
+    checkCount: 0,
+    consecutiveEmpty: 0,
+    needsReview: false,
+    createdAt: new Date().toISOString(),
+    ...watch,
+    email: watch.email ? watch.email.toLowerCase() : '',
+  };
+  const row = Object.fromEntries(Object.entries(toSnake(record)).filter(([, v]) => v !== undefined));
+  try {
+    const inserted = await supa.insert('availability_watches', row);
+    if (inserted) {
+      const saved = toCamel(inserted);
+      inMemoryWatches.set(saved.id, saved);
+      return saved;
+    }
+  } catch (e) {
+    console.error('[DB] createAvailabilityWatch rest:', e.message);
+  }
+  const offline = { id: fallbackId, ...record };
+  inMemoryWatches.set(fallbackId, offline);
+  return offline;
+}
+
+export async function getAvailabilityWatch(id) {
+  if (!id) return null;
+  try {
+    const rows = await supa.select('availability_watches', { id }, { limit: 1 });
+    if (Array.isArray(rows) && rows[0]) return toCamel(rows[0]);
+  } catch (e) {
+    console.error('[DB] getAvailabilityWatch rest:', e.message);
+  }
+  return inMemoryWatches.get(id) || null;
+}
+
+export async function getAvailabilityWatchesByEmail(email) {
+  if (!email) return [];
+  const key = email.toLowerCase();
+  try {
+    const rows = await supa.select('availability_watches', { email: key }, { order: 'checkin_date.asc' });
+    if (Array.isArray(rows) && rows.length > 0) return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getAvailabilityWatchesByEmail rest:', e.message);
+  }
+  return [...inMemoryWatches.values()]
+    .filter(w => w.email === key)
+    .sort((a, b) => String(a.checkinDate).localeCompare(String(b.checkinDate)));
+}
+
+/**
+ * Every watch the scheduler could still act on. Terminal ones are left behind
+ * in the query rather than filtered in JS, so a long tail of past stays never
+ * becomes a per-cycle transfer.
+ */
+export async function getActiveAvailabilityWatches() {
+  try {
+    const rows = await supa.select('availability_watches', {
+      status: { op: 'in', value: `(${ACTIVE_WATCH_STATUSES.join(',')})` },
+    }, { order: 'checkin_date.asc' });
+    if (Array.isArray(rows) && rows.length > 0) return rows.map(toCamel);
+  } catch (e) {
+    console.error('[DB] getActiveAvailabilityWatches rest:', e.message);
+  }
+  return [...inMemoryWatches.values()].filter(w => ACTIVE_WATCH_STATUSES.includes(w.status));
+}
+
+/** How many watches this user is currently paying us API calls for. */
+export async function countActiveWatches(email) {
+  const all = await getAvailabilityWatchesByEmail(email);
+  return all.filter(w => ACTIVE_WATCH_STATUSES.includes(w.status)).length;
+}
+
+export async function updateAvailabilityWatch(id, updates) {
+  if (!id) return null;
+  const merged = { ...updates, updatedAt: new Date().toISOString() };
+  const row = Object.fromEntries(Object.entries(toSnake(merged)).filter(([, v]) => v !== undefined));
+  if (Object.keys(row).length === 0) return await getAvailabilityWatch(id);
+
+  const cached = inMemoryWatches.get(id);
+  if (cached) inMemoryWatches.set(id, { ...cached, ...merged });
+
+  try {
+    const updated = await supa.update('availability_watches', { id }, row);
+    if (updated) {
+      const saved = toCamel(updated);
+      inMemoryWatches.set(saved.id, saved);
+      return saved;
+    }
+  } catch (e) {
+    console.error('[DB] updateAvailabilityWatch rest:', e.message);
+  }
+  return inMemoryWatches.get(id) || null;
+}
+
+export async function deleteAvailabilityWatch(id) {
+  if (!id) return false;
+  inMemoryWatches.delete(id);
+  try {
+    return Boolean(await supa.remove('availability_watches', { id }));
+  } catch (e) {
+    console.error('[DB] deleteAvailabilityWatch rest:', e.message);
+    return false;
+  }
+}
+
 // ─── Compat: expose sql client for index.js direct queries ────
 export { sql as supabase };
 
