@@ -44,25 +44,25 @@ const STEPS = [
   {
     n: '01',
     title: { en: 'Add your hotel booking', pt: 'Adicione sua reserva de hotel' },
-    desc: { en: 'Forward your confirmation email or paste the booking details. ResDrop reads the hotel, dates, room type, cancellation deadline, and total price. Every detail, not just the headline numbers.', pt: 'Encaminhe o e-mail de confirmação ou cole os detalhes da reserva. O ResDrop lê o hotel, datas, tipo de quarto, prazo de cancelamento e preço total. Cada detalhe, não só os números principais.' },
+    desc: { en: 'Forward your confirmation email or paste the details. Takes under a minute.', pt: 'Encaminhe o e-mail de confirmação ou cole os detalhes. Leva menos de um minuto.' },
     icon: <IcMail />
   },
   {
     n: '02',
     title: { en: 'ResDrop starts monitoring', pt: 'O ResDrop começa a monitorar' },
-    desc: { en: 'We check rates daily, more frequently as your cancellation deadline approaches. Room type, conditions, taxes, and included benefits are all tracked, not just the headline price.', pt: 'Verificamos tarifas diariamente, com mais frequência conforme o prazo de cancelamento se aproxima. Tipo de quarto, condições, impostos e benefícios incluídos são todos monitorados, não só o preço principal.' },
+    desc: { en: 'We check rates daily, more often as your cancellation deadline nears.', pt: 'Verificamos tarifas diariamente, com mais frequência perto do prazo de cancelamento.' },
     icon: <IcActivity />
   },
   {
     n: '03',
     title: { en: 'You get notified when something better appears', pt: 'Você é avisado quando algo melhor aparece' },
-    desc: { en: 'When a lower rate, better room, or improved availability shows up for the same hotel, you receive a clear side-by-side comparison. We only alert you when something genuinely worth switching to appears.', pt: 'Quando uma tarifa mais baixa, quarto melhor ou disponibilidade melhorada aparecer para o mesmo hotel, você recebe uma comparação clara lado a lado. Só avisamos quando algo realmente vale a troca.' },
+    desc: { en: 'A lower rate or better room, with a clear side-by-side comparison. Only when it genuinely beats what you have.', pt: 'Uma tarifa mais baixa ou quarto melhor, com comparação clara lado a lado. Só quando realmente vale a troca.' },
     icon: <IcCompare />
   },
   {
     n: '04',
     title: { en: 'You decide. We never act without you.', pt: 'Você decide. Nunca agimos sem você.' },
-    desc: { en: 'Review the comparison and choose: rebook, upgrade, or do nothing. ResDrop never cancels, modifies, or touches your reservation without your explicit approval.', pt: 'Revise a comparação e escolha: remarcar, fazer upgrade ou não fazer nada. O ResDrop nunca cancela, altera ou mexe na sua reserva sem sua aprovação explícita.' },
+    desc: { en: 'Rebook, upgrade, or do nothing. ResDrop never touches your reservation without your approval.', pt: 'Remarque, faça upgrade ou não faça nada. O ResDrop nunca mexe na sua reserva sem sua aprovação.' },
     icon: <IcCheckCircle />
   },
 ];
@@ -73,34 +73,6 @@ const TRUST_ITEMS = [
   { en: 'Total price including all taxes and fees', pt: 'Preço total com todos os impostos e taxas' },
   { en: 'Breakfast and included benefits verified', pt: 'Café da manhã e benefícios incluídos verificados' },
   { en: 'Nothing changed without your approval', pt: 'Nada alterado sem a sua aprovação' },
-];
-
-const FOR_WHO = [
-  {
-    n: '01',
-    title: { en: 'You booked a refundable hotel', pt: 'Você reservou um hotel reembolsável' },
-    desc: { en: 'Refundable reservations are where ResDrop adds the most value. You can switch without losing anything, so watching for a better option costs you nothing.', pt: 'Reservas reembolsáveis são onde o ResDrop agrega mais valor. Você pode trocar sem perder nada, então monitorar uma opção melhor não custa nada.' },
-  },
-  {
-    n: '02',
-    title: { en: 'You booked early and the price may still drop', pt: 'Você reservou cedo e o preço pode ainda cair' },
-    desc: { en: 'The earlier you book, the longer ResDrop has to watch. That window between reservation and check-in is when rates tend to move the most.', pt: 'Quanto mais cedo você reserva, mais tempo o ResDrop tem para monitorar. Essa janela entre a reserva e o check-in é quando as tarifas mais variam.' },
-  },
-  {
-    n: '03',
-    title: { en: 'You want a better room', pt: 'Você quer um quarto melhor' },
-    desc: { en: 'A room upgrade often becomes available as check-in approaches. ResDrop watches availability and room type, not just the headline price.', pt: 'Um upgrade de quarto frequentemente fica disponível conforme o check-in se aproxima. O ResDrop monitora disponibilidade e tipo de quarto, não só o preço.' },
-  },
-  {
-    n: '04',
-    title: { en: 'You are comparing multiple hotels', pt: 'Você está comparando vários hotéis' },
-    desc: { en: 'Tracking two or three options before your cancellation window closes? Add them all. ResDrop monitors each one and tells you when it is time to act.', pt: 'Monitorando duas ou três opções antes de fechar a janela de cancelamento? Adicione todas. O ResDrop acompanha cada uma e avisa quando é hora de agir.' },
-  },
-  {
-    n: '05',
-    title: { en: 'You are tired of checking manually', pt: 'Você está cansado de verificar manualmente' },
-    desc: { en: 'Most travelers check hotel prices four to six times after booking. Forward your confirmation once. ResDrop does the checking for you.', pt: 'A maioria dos viajantes verifica preços de hotel de 4 a 6 vezes após reservar. Encaminhe sua confirmação uma vez. O ResDrop verifica por você.' },
-  },
 ];
 
 const HOTEL_EXAMPLES = [
@@ -347,7 +319,7 @@ export default function ResDroppLanding() {
             <a href="#faq"          onClick={() => setMenuOpen(false)}>FAQ</a>
             <Link to="/login"   onClick={() => setMenuOpen(false)}>{pt ? 'Entrar' : 'Log in'}</Link>
             <Link to="/signup"  className="rdp-btn rdp-btn--green rdp-btn--block" onClick={() => setMenuOpen(false)}>
-              {pt ? 'Começar grátis' : 'Start tracking free'}
+              {pt ? 'Começar grátis' : 'Start free'}
             </Link>
             <LangSwitch pt={pt} setLang={setLang} block />
           </div>
@@ -559,133 +531,6 @@ export default function ResDroppLanding() {
           </div>
         </section>
 
-        {/* DASHBOARD SECTION */}
-        <section className="rdp-section rdp-dashboard rdp-fade">
-          <div className="rdp-container">
-            <div className="rdp-section-hd rdp-section-hd--center">
-              <div className="rdp-kicker">{pt ? 'Painel' : 'Dashboard'}</div>
-              <h2 className="rdp-h2">{pt ? 'Todas as suas reservas.' : 'All your bookings.'}<br />{pt ? 'Tarifas, alertas, economia.' : 'Rates. Alerts. Savings.'}</h2>
-              <p className="rdp-section-sub">
-                {pt ? 'Acompanhe vários hotéis, veja tarifas atuais e aja nos alertas, tudo em um só lugar.' : 'Track multiple hotels, see current rates, and act on alerts, all from one place.'}
-              </p>
-            </div>
-            <div className="rdp-browser">
-              <div className="rdp-browser__bar">
-                <div className="rdp-browser__dots">
-                  <span className="rdp-browser__dot rdp-browser__dot--red" />
-                  <span className="rdp-browser__dot rdp-browser__dot--yellow" />
-                  <span className="rdp-browser__dot rdp-browser__dot--green" />
-                </div>
-                <div className="rdp-browser__url">app.resdrop.com/bookings</div>
-              </div>
-              <div className="rdp-browser__body">
-                {/* Sidebar */}
-                <div className="rdp-dash-sidebar">
-                  <div className="rdp-dash-sidebar__logo"><IcLogo size={22} /> ResDrop</div>
-                  <nav className="rdp-dash-sidebar__nav">
-                    <div className="rdp-dash-nav-item rdp-dash-nav-item--active">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                      {pt ? 'Minhas Reservas' : 'My Bookings'}
-                    </div>
-                    <div className="rdp-dash-nav-item">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                      {pt ? 'Alertas' : 'Alerts'} <span className="rdp-dash-badge">2</span>
-                    </div>
-                    <div className="rdp-dash-nav-item">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                      {pt ? 'Economia' : 'Savings'}
-                    </div>
-                    <div className="rdp-dash-nav-item">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                      {pt ? 'Conta' : 'Account'}
-                    </div>
-                  </nav>
-                  <div className="rdp-dash-sidebar__user">
-                    <div className="rdp-dash-avatar">S</div>
-                    <span>Sofia M.</span>
-                  </div>
-                </div>
-                {/* Main */}
-                <div className="rdp-dash-main">
-                  <div className="rdp-dash-main__header">
-                    <h3 className="rdp-dash-main__title">{pt ? 'Minhas Reservas' : 'My Bookings'}</h3>
-                    <button className="rdp-dash-add">+ {pt ? 'Adicionar reserva' : 'Add booking'}</button>
-                  </div>
-                  <div className="rdp-dash-stats">
-                    <div className="rdp-dash-stat">
-                      <div className="rdp-dash-stat__label">{pt ? 'RASTREADAS' : 'TRACKED'}</div>
-                      <div className="rdp-dash-stat__value" data-count="4">4</div>
-                      <div className="rdp-dash-stat__sub">{pt ? 'Reservas ativas' : 'Active reservations'}</div>
-                    </div>
-                    <div className="rdp-dash-stat">
-                      <div className="rdp-dash-stat__label">{pt ? 'MONITORANDO' : 'MONITORING'}</div>
-                      <div className="rdp-dash-stat__value" data-count="3">3</div>
-                      <div className="rdp-dash-stat__sub">{pt ? 'Verificando agora' : 'Checking now'}</div>
-                    </div>
-                    <div className="rdp-dash-stat">
-                      <div className="rdp-dash-stat__label">{pt ? 'TOTAL ECON.' : 'TOTAL SAVED'}</div>
-                      <div className="rdp-dash-stat__value rdp-dash-stat__value--green" data-count="412" data-prefix="$">$412</div>
-                      <div className="rdp-dash-stat__sub">{pt ? 'Desde o início' : 'All time'}</div>
-                    </div>
-                    <div className="rdp-dash-stat">
-                      <div className="rdp-dash-stat__label">{pt ? 'ALERTAS ENV.' : 'ALERTS SENT'}</div>
-                      <div className="rdp-dash-stat__value" data-count="9">9</div>
-                      <div className="rdp-dash-stat__sub">{pt ? 'Últimos 90 dias' : 'Past 90 days'}</div>
-                    </div>
-                  </div>
-                  <div className="rdp-dash-alert">
-                    <div className="rdp-dash-alert__icon">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/></svg>
-                    </div>
-                    <span>{pt ? 'Melhoria de tarifa encontrada no ' : 'Rate improvement found on '}<strong>Park Hyatt Tokyo</strong> · {pt ? '$89/noite ' : '$89/night '}{pt ? 'melhor que a atual.' : 'better than your current booking.'}</span>
-                  </div>
-                  <table className="rdp-dash-table">
-                    <thead>
-                      <tr>
-                        <th>Hotel</th>
-                        <th>{pt ? 'Datas' : 'Dates'}</th>
-                        <th>{pt ? 'Tarifa/Noite' : 'Rate/Night'}</th>
-                        <th>{pt ? 'Economia' : 'Saved'}</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><strong>Park Hyatt Tokyo</strong><br /><span className="rdp-dash-sub">Tokyo, {pt ? 'Japão' : 'Japan'}</span></td>
-                        <td>{pt ? '14-17 Mar' : 'Mar 14-17'}</td>
-                        <td>$389</td>
-                        <td className="rdp-dash-saved">$267</td>
-                        <td><span className="rdp-dash-status rdp-dash-status--drop">{pt ? 'Queda encontrada' : 'Drop found'}</span></td>
-                      </tr>
-                      <tr>
-                        <td><strong>Rosewood London</strong><br /><span className="rdp-dash-sub">London, UK</span></td>
-                        <td>{pt ? '2-5 Abr' : 'Apr 2-5'}</td>
-                        <td>$620</td>
-                        <td className="rdp-dash-muted">--</td>
-                        <td><span className="rdp-dash-status rdp-dash-status--monitoring">{pt ? 'Monitorando' : 'Monitoring'}</span></td>
-                      </tr>
-                      <tr>
-                        <td><strong>Fasano Sao Paulo</strong><br /><span className="rdp-dash-sub">Sao Paulo, BR</span></td>
-                        <td>{pt ? '19-22 Abr' : 'Apr 19-22'}</td>
-                        <td>$1,020</td>
-                        <td className="rdp-dash-muted">--</td>
-                        <td><span className="rdp-dash-status rdp-dash-status--monitoring">{pt ? 'Monitorando' : 'Monitoring'}</span></td>
-                      </tr>
-                      <tr>
-                        <td><strong>Aman Tokyo</strong><br /><span className="rdp-dash-sub">Tokyo, {pt ? 'Japão' : 'Japan'}</span></td>
-                        <td>{pt ? '5-8 Mai' : 'May 5-8'}</td>
-                        <td>$1,140</td>
-                        <td className="rdp-dash-saved">$145</td>
-                        <td><span className="rdp-dash-status rdp-dash-status--saved">{pt ? 'Economizou' : 'Saved'}</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* HOTEL SAVINGS EXAMPLES */}
         <section className="rdp-section rdp-savings rdp-fade" id="savings">
           <div className="rdp-container">
@@ -736,25 +581,6 @@ export default function ResDroppLanding() {
           </div>
         </section>
 
-        {/* WHO IT IS FOR */}
-        <section className="rdp-section rdp-forwho rdp-fade">
-          <div className="rdp-container">
-            <div className="rdp-section-hd rdp-section-hd--center">
-              <div className="rdp-kicker">{pt ? 'Para quem é' : 'Who it is for'}</div>
-              <h2 className="rdp-h2">{pt ? 'Feito para viajantes' : 'Made for travelers'}<br />{pt ? 'que reservam com antecedência.' : 'who book ahead.'}</h2>
-            </div>
-            <div className="rdp-forwho__grid" data-stagger>
-              {FOR_WHO.map((w, i) => (
-                <div key={i} className="rdp-forwho__card anim-item">
-                  <div className="rdp-forwho__num">{w.n}</div>
-                  <h3 className="rdp-forwho__title">{pt ? w.title.pt : w.title.en}</h3>
-                  <p className="rdp-forwho__desc">{pt ? w.desc.pt : w.desc.en}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* PRICING */}
         <section className="rdp-section rdp-pricing rdp-fade" id="pricing">
           <div className="rdp-container">
@@ -775,7 +601,7 @@ export default function ResDroppLanding() {
                   ))}
                 </ul>
                 <Link to="/signup" className="rdp-btn rdp-btn--outline rdp-btn--block">
-                  {pt ? 'Começar grátis' : 'Get started free'}
+                  {pt ? 'Começar grátis' : 'Start free'}
                 </Link>
               </div>
               <div className="rdp-pricing__card rdp-pricing__card--highlight">
