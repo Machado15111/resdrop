@@ -77,6 +77,12 @@ export function AuthProvider({ children }) {
     }
     const data = await parseAuthResponse(res, 'O servidor nao respondeu como esperado. Tente novamente em instantes.');
     if (!res.ok) throw new Error(data.error || 'Login failed');
+    // A 2xx with a body that failed to parse (or parsed but is missing the
+    // fields we need) must not be treated as a successful login — without
+    // this, data.token is undefined and localStorage ends up storing the
+    // literal string "undefined", leaving the app believing it's signed in
+    // with a token that can never authenticate anything.
+    if (!data.token || !data.user) throw new Error('O servidor nao respondeu como esperado. Tente novamente em instantes.');
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('resdrop-token', data.token);
@@ -103,6 +109,7 @@ export function AuthProvider({ children }) {
     }
     const data = await parseAuthResponse(res, serverErr);
     if (!res.ok) throw new Error(data.error || 'Signup failed');
+    if (!data.token || !data.user) throw new Error(serverErr);
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('resdrop-token', data.token);

@@ -1,6 +1,6 @@
 import { pollInboundEmails } from './routes/inbound-email.js';
 import { selectWatchesToCheck, findExpiredWatches, watchConfig } from './availability.js';
-import { dormantActiveBooking, isNoBookingAdded, wasEmailedRecently, wasNudgeSentRecently } from './lifecycle.js';
+import { dormantActiveBooking, isNoBookingAdded, wasEmailedRecently, wasNudgeSentRecently, daysSince } from './lifecycle.js';
 
 /**
  * Price Monitoring Scheduler (cost-aware)
@@ -378,7 +378,18 @@ export async function runLifecycleCycle(deps) {
         await sendDormant(user, dormantBooking);
         await logSent(user, 'dormant_active_bookings');
       } else {
-        const days = Math.round((Date.now() - new Date(user.joinedAt || user.createdAt).getTime()) / 86400000);
+        // Reuses lifecycle.js's daysSince (Infinity on a missing/invalid
+        // date) instead of re-deriving the same joinedAt-or-createdAt math
+        // inline — that duplicate used to feed Math.round(Infinity) = NaN
+        // straight into the email as "you signed up NaN days ago" for a user
+        // row missing both fields, silently converted to "0 days" by
+        // Number(NaN) || 0 downstream. Bail instead of sending a nonsense date.
+        const rawDays = daysSince(user.joinedAt || user.createdAt, Date.now());
+        if (!Number.isFinite(rawDays)) {
+          console.error(`[Lifecycle] skipping no_booking_added for ${email}: no valid joinedAt/createdAt`);
+          continue;
+        }
+        const days = Math.round(rawDays);
         if (wasNudgeSentRecently(activity, 'no_booking_added')) continue;
         await sendNoBooking(user, days);
         await logSent(user, 'no_booking_added');

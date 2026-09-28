@@ -213,14 +213,27 @@ export async function getUser(email) {
   return user;
 }
 
-export async function createUser(email, name) {
+/**
+ * `extraFields` (camelCase, e.g. { passwordHash, phone, currency, country })
+ * is inserted in the SAME row as email/name — signup used to insert the bare
+ * row here and set these in a separate updateUser() call after. Supabase
+ * REST has no transaction across the two, so a failure in between left a
+ * user row with no password_hash: permanently locked out (can't log in, and
+ * a retry of signup hits the "account exists" check and can never reach the
+ * password field again). One insert is atomic by construction.
+ */
+export async function createUser(email, name, extraFields = {}) {
   const key = (email || '').toLowerCase();
+  const extra = Object.fromEntries(
+    Object.entries(toSnake(extraFields)).filter(([, v]) => v !== undefined)
+  );
+  const row = { email: key, name: name || 'Guest', ...extra };
   // REST is authoritative (see getUserWithPassword); sql is best-effort mirroring.
   try {
-    const row = await supa.insert('users', { email: key, name: name || 'Guest' });
-    if (row) {
-      sql`INSERT INTO users (email, name) VALUES (${key}, ${name || 'Guest'})`.catch(() => {});
-      return toCamel(row);
+    const inserted = await supa.insert('users', row);
+    if (inserted) {
+      sql`INSERT INTO users ${sql(row)}`.catch(() => {});
+      return toCamel(inserted);
     }
   } catch (e) {
     console.error('[DB] createUser supa:', e.message);
@@ -232,6 +245,7 @@ export async function createUser(email, name) {
     name: name || 'Guest',
     plan: isAdminEmail(key) ? 'premium' : 'free',
     joinedAt: new Date().toISOString(),
+    ...extraFields,
   };
   inMemoryUsers.set(key, memUser);
   return { ...memUser };
@@ -261,8 +275,15 @@ export function touchLastActive(email) {
   if (!email) return;
   const now = new Date().toISOString();
   const key = email.toLowerCase();
-  supa.update('users', { email: key }, { last_active: now }).catch(() => {});
-  sql`UPDATE users SET last_active = NOW() WHERE email = ${key}`.catch(() => {});
+  // Supabase REST only — deliberately not also writing to `sql` (DATABASE_URL).
+  // That second write is exactly the pattern that caused today's signup bug:
+  // DATABASE_URL can point at a different database from the one every read
+  // path (login, onboarding, this dormancy check itself) actually queries, so
+  // a write there is either a no-op mirror nothing reads, or — worse — it
+  // silently updates last_active somewhere the app never looks, hiding a
+  // dormant user's real activity from the one place that needs it.
+  supa.update('users', { email: key }, { last_active: now })
+    .catch((e) => console.error('[DB] touchLastActive:', e.message));
 }
 
 export async function updateUser(email, updates) {

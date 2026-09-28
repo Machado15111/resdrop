@@ -81,13 +81,17 @@ export default function authRoutes({
       });
     }
     const existing = await db.getUser(email);
-    // Security: generic enough not to confirm the account exists, but still
-    // says exactly what to do next rather than leaving the user guessing.
+    // Security: worded conditionally ("if you already have an account")
+    // rather than asserting one exists, so this reads the same whether or
+    // not it does. The 409 status code and ACCOUNT_EXISTS code are already
+    // distinguishable from a 400/500 by anyone probing the endpoint (that
+    // predates this message and isn't something a wording change fixes) —
+    // but there's no reason for the copy itself to confirm it outright.
     if (existing) {
       return res.status(409).json({
         error: lang === 'en'
-          ? 'An account may already exist for this email. Try logging in, or reset your password.'
-          : 'Uma conta pode ja existir com este e-mail. Tente fazer login ou redefinir sua senha.',
+          ? "We couldn't complete signup with these details. If you already have an account, try logging in or resetting your password."
+          : 'Nao foi possivel concluir o cadastro com estes dados. Se voce ja tem uma conta, tente fazer login ou redefinir sua senha.',
         code: 'ACCOUNT_EXISTS',
       });
     }
@@ -103,12 +107,16 @@ export default function authRoutes({
     // /auth/onboarding, "Credenciais invalidas" on the very next login with
     // the correct password, and a silent no-op on forgot-password. See
     // getUserWithPassword's comment for why REST must be the only path.
+    //
+    // passwordHash/phone/currency/country go in the SAME insert as
+    // email/name (createUser's extraFields), not a separate updateUser()
+    // call after — Supabase REST has no transaction across two requests, so
+    // a failure in between used to leave a user row with no password_hash:
+    // permanently locked out, since a retry of signup would hit the
+    // "account exists" check above and never reach the password field again.
     let newUser;
     try {
-      newUser = await db.createUser(email.toLowerCase(), name || 'Guest');
-      if (newUser) {
-        await db.updateUser(email.toLowerCase(), { passwordHash, phone, currency, country });
-      }
+      newUser = await db.createUser(email.toLowerCase(), name || 'Guest', { passwordHash, phone, currency, country });
     } catch (e) {
       console.error('[Signup] Insert failed:', e.message);
       return res.status(500).json({

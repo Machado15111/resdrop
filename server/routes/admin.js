@@ -407,7 +407,11 @@ export default function adminRoutes({
       if (!response.ok) {
         return res.status(response.status).json({ error: result.message || 'Failed to send email' });
       }
-      await db.logActivity('email', to, 'admin_send_email', req.user.email, { subject });
+      // entity_id is UUID — targetUser.id, not the raw email string (same
+      // fix as everywhere else entity_id was an email in this diff). This
+      // one was missed the first pass: every admin-sent manual email failed
+      // to log silently, same defect class as the shipped duplicate-nudge bug.
+      await db.logActivity('user', targetUser.id, 'admin_send_email', req.user.email, { subject, to });
       res.json({ success: true, id: result.id });
     } catch (err) {
       res.status(500).json({ error: err.message });

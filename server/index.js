@@ -26,6 +26,7 @@ import {
   buildAffiliateLink,
   getJoinedProgrammes,
   getTransactions,
+  bookingIdPrefix,
 } from './awinApi.js';
 import {
   isExpediaConfigured,
@@ -589,14 +590,14 @@ async function searchPrices(booking, options = {}) {
               destination: booking.destination,
               checkinDate: booking.checkinDate,
               checkoutDate: booking.checkoutDate,
-              clickRef: `resdrop_${booking.id?.slice(0, 8)}`,
+              clickRef: `resdrop_${bookingIdPrefix(booking.id)}`,
             });
           } else if ((r.sourceId === 'booking_real' || r.source === 'Booking.com') && isAwinConfigured()) {
             r.affiliateLink = buildBookingSearchLink({
               destination: booking.destination,
               checkinDate: booking.checkinDate,
               checkoutDate: booking.checkoutDate,
-              clickRef: `resdrop_${booking.id?.slice(0, 8)}`,
+              clickRef: `resdrop_${bookingIdPrefix(booking.id)}`,
             });
           }
         }

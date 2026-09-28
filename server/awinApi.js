@@ -266,13 +266,22 @@ export async function getJoinedProgrammes() {
 
 // ─── ATTRIBUTION ─────────────────────────────────────────────
 
-// searchPrices() (server/index.js) stamps every Booking.com/Expedia result with
-// clickRef: `resdrop_${booking.id.slice(0, 8)}` — booking-scoped, not
-// click-scoped, and never persisted separately. That's enough to reconcile: an
-// 8-hex-char prefix of a UUID is effectively unique at ResDrop's scale, so a
-// transaction's clickref alone tells us which booking (and therefore which
-// user) it came from, no new table required.
-const CLICK_REF_RE = /^resdrop_([a-f0-9]{8})$/i;
+// searchPrices() (server/index.js) stamps every Booking.com/Expedia result
+// with clickRef: `resdrop_${bookingIdPrefix(booking.id)}` — booking-scoped,
+// not click-scoped, and never persisted separately. That's enough to
+// reconcile without a new table, as long as the prefix is long enough that
+// two bookings never collide on it (a collision silently misattributes
+// commission to the wrong user — Map.set() has no way to detect or report
+// it). 12 hex chars (48 bits) keeps the clickref short while making that
+// astronomically unlikely; 8 (32 bits) was previously judged "effectively
+// unique at ResDrop's scale" but a real review found that reasoning too thin
+// for financial attribution. Exported so index.js's stamping side and this
+// matching side can never define the prefix length differently.
+const CLICK_REF_PREFIX_LEN = 12;
+export function bookingIdPrefix(id) {
+  return String(id || '').replace(/-/g, '').slice(0, CLICK_REF_PREFIX_LEN).toLowerCase();
+}
+const CLICK_REF_RE = new RegExp(`^resdrop_([a-f0-9]{${CLICK_REF_PREFIX_LEN}})$`, 'i');
 
 /**
  * Pull the clickref Awin recorded off a transaction. Awin's v3 Transactions
@@ -284,9 +293,9 @@ function transactionClickRef(t) {
 }
 
 /**
- * Join Awin transactions back to the ResDrop booking that generated the click,
- * by matching the `resdrop_<8charsOfBookingId>` clickref against each
- * booking's id prefix.
+ * Join Awin transactions back to the ResDrop booking that generated the
+ * click, by matching the `resdrop_<prefixOfBookingId>` clickref against each
+ * booking's id prefix (see bookingIdPrefix/CLICK_REF_PREFIX_LEN above).
  *
  * Pure and DB/HTTP-free so it's unit-testable: pass in whatever
  * getTransactions() and the bookings list returned.
@@ -294,10 +303,17 @@ function transactionClickRef(t) {
 export function matchTransactionsToBookings(transactions, bookings) {
   const byPrefix = new Map();
   for (const b of bookings || []) {
-    if (b?.id) byPrefix.set(String(b.id).slice(0, 8).toLowerCase(), b);
+    if (b?.id) byPrefix.set(bookingIdPrefix(b.id), b);
   }
 
-  return (transactions || []).map(t => {
+  // getTransactions() returns `result || []` from awinRequest — a truthy
+  // non-array response (Awin API returning an error object instead of a
+  // list, say) passes that `|| []` unchanged and would throw on `.map` here,
+  // turning a degradable API hiccup into a 500 for the whole admin
+  // transactions view. Degrade to empty instead.
+  if (!Array.isArray(transactions)) return [];
+
+  return transactions.map(t => {
     const ref = transactionClickRef(t);
     const m = CLICK_REF_RE.exec(ref);
     const booking = m ? byPrefix.get(m[1].toLowerCase()) : null;

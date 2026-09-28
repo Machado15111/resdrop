@@ -63,6 +63,18 @@ test('runLifecycleCycle: sends the no-booking nudge for an old account with zero
   assert.equal(sent.noBooking[0].days, NO_BOOKING_DAYS + 2);
 });
 
+test('runLifecycleCycle: skips (does not send "0 days ago") a user with no joinedAt or createdAt at all', async () => {
+  // Regression: the days-since-signup math used to be Math.round(NaN) for a
+  // user row missing both date fields, which downstream became "0" in the
+  // email via Number(NaN) || 0 — a real user told they signed up "0 days
+  // ago." Bailing is better than sending a wrong date.
+  const user = { email: 'nodate@x.com' };
+  const { deps, sent } = makeDeps({ loadUsers: async () => [user] });
+  const result = await runLifecycleCycle(deps);
+  assert.equal(result.sent, 0);
+  assert.equal(sent.noBooking.length, 0);
+});
+
 test('runLifecycleCycle: skips a user emailed anything within the last 7 days', async () => {
   const user = { email: 'c@x.com', joinedAt: daysAgo(NO_BOOKING_DAYS + 5) };
   const { deps, sent } = makeDeps({

@@ -24,7 +24,7 @@ export const RENUDGE_COOLDOWN_DAYS = 30; // don't repeat the SAME nudge more oft
 
 const ACTIVE_STATUSES = ['monitoring', 'savings_found', 'lower_fare_found'];
 
-function daysSince(dateStr, now) {
+export function daysSince(dateStr, now) {
   if (!dateStr) return Infinity;
   const t = new Date(dateStr).getTime();
   if (!Number.isFinite(t)) return Infinity;
