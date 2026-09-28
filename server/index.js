@@ -33,6 +33,7 @@ import {
 } from './expediaApi.js';
 import { startScheduler, startAvailabilityScheduler } from './scheduler.js';
 import { hotels } from './hotels.js';
+import { searchHotels } from './hotelSearch.js';
 import {
   isSerpApiConfigured,
   searchRealPrices,
@@ -936,12 +937,12 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
 
 // ─── HOTEL SEARCH ───────────────────────────────────────────
 app.get('/api/hotels/search', publicRateLimit, (req, res) => {
-  const q = (req.query.q || '').toLowerCase().trim();
-  if (!q || q.length < 2) return res.json([]);
-  const results = hotels
-    .filter(h => h.name.toLowerCase().includes(q))
-    .slice(0, 10);
-  res.json(results);
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+  // Matching lives in hotelSearch.js: per word, across name AND city, accent
+  // folded. The old name-only substring match could not find Le Meurice from
+  // "paris" and could not find anything at all from "fasano sao paulo".
+  res.json(searchHotels(hotels, q, 10));
 });
 
 // Auth + user-account routes now live in routes/auth.js (mounted below).

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../i18n';
 import { useAsyncData } from '../hooks/useAsyncData';
@@ -24,6 +24,12 @@ function Watches() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [checkingId, setCheckingId] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  // Distinguishes "we have not looked yet" from "we looked and this hotel is
+  // not in our list" — only the second deserves a note under the field.
+  const [searchedTerm, setSearchedTerm] = useState('');
+  const searchTimer = useRef(null);
   const [form, setForm] = useState({
     hotelName: '', destination: '', checkinDate: '', checkoutDate: '', guests: 2, note: '',
   });
@@ -44,6 +50,54 @@ function Watches() {
 
   const today = new Date().toISOString().split('T')[0];
   const setField = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  // Hotel autocomplete. Debounced so a fast typist does not fire a request per
+  // keystroke, and the timer is cleared on unmount.
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+
+  const onHotelChange = (e) => {
+    const value = e.target.value;
+    setForm(prev => ({ ...prev, hotelName: value }));
+    clearTimeout(searchTimer.current);
+
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSearchedTerm('');
+      return;
+    }
+
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/hotels/search?q=${encodeURIComponent(value.trim())}`);
+        const found = res.ok ? await res.json() : [];
+        setSuggestions(Array.isArray(found) ? found : []);
+        setShowSuggestions(Array.isArray(found) && found.length > 0);
+        setSearchedTerm(value.trim());
+      } catch {
+        // A failed lookup must not block the form: the hotel name is free text
+        // and the monitor searches by whatever string is saved.
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 250);
+  };
+
+  const pickHotel = (hotel) => {
+    setForm(prev => ({
+      ...prev,
+      hotelName: hotel.name,
+      destination: hotel.destination || prev.destination,
+    }));
+    setShowSuggestions(false);
+    setSearchedTerm('');
+  };
+
+  // The catalogue is a convenience, not a gate. citizenM is simply not in it,
+  // and the watch works anyway, so say that instead of leaving a dead field.
+  const noMatch = searchedTerm.length >= 3
+    && suggestions.length === 0
+    && form.hotelName.trim() === searchedTerm;
 
   const fmtDate = (d) => {
     if (!d) return '';
@@ -191,12 +245,34 @@ function Watches() {
         {showForm && (
           <form className="watch-form" onSubmit={handleCreate}>
             <div className="watch-form-grid">
-              <label className="watch-field watch-field-wide">
+              <label className="watch-field watch-field-wide watch-field-autocomplete">
                 <span>{pt ? 'Hotel' : 'Hotel'}</span>
                 <input
-                  type="text" required value={form.hotelName} onChange={setField('hotelName')}
+                  type="text" required value={form.hotelName} onChange={onHotelChange}
+                  onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  autoComplete="off"
                   placeholder={pt ? 'Ex.: Copacabana Palace' : 'e.g. Copacabana Palace'}
                 />
+                {showSuggestions && (
+                  <ul className="watch-suggestions">
+                    {suggestions.map((hotel, i) => (
+                      // onMouseDown, not onClick: blur fires first and would
+                      // close the list before the click ever lands.
+                      <li key={`${hotel.name}-${i}`} onMouseDown={() => pickHotel(hotel)}>
+                        <span className="ws-name">{hotel.name}</span>
+                        <span className="ws-dest">{hotel.destination}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {noMatch && (
+                  <small className="watch-field-hint">
+                    {pt
+                      ? 'Não está na nossa lista — tudo bem, pode continuar. Vamos procurar exatamente por este nome.'
+                      : 'Not in our list — that is fine, go ahead. We will search for exactly this name.'}
+                  </small>
+                )}
               </label>
               <label className="watch-field watch-field-wide">
                 <span>{pt ? 'Cidade (opcional)' : 'City (optional)'}</span>

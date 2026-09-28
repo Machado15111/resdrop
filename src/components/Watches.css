@@ -387,3 +387,57 @@
   gap: 8px;
   margin-top: 22px;
 }
+
+/* ─── Hotel autocomplete ───────────────────────────────────── */
+
+.watch-field-autocomplete {
+  position: relative;
+}
+
+.watch-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--tl-bg-surface);
+  border: 1px solid var(--tl-border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 46, 31, 0.12);
+}
+
+.watch-suggestions li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.watch-suggestions li:hover {
+  background: var(--tl-bg-soft-green);
+}
+
+.ws-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tl-text-dark);
+}
+
+.ws-dest {
+  font-size: 12px;
+  color: var(--tl-text-muted);
+}
+
+.watch-field-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tl-text-muted);
+}
