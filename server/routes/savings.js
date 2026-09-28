@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as db from '../db.js';
+import { sendSavingsConfirmed } from '../email.js';
 
 export default function savingsRoutes(authMiddleware) {
   const router = Router();
@@ -82,6 +83,11 @@ export default function savingsRoutes(authMiddleware) {
         actorEmail: req.userEmail,
         details: { confirmationType, confirmedSavings, potentialSavings },
       });
+
+      if (newStatus === 'confirmed_savings') {
+        sendSavingsConfirmed(req.userEmail, req.user?.name || 'Traveler', booking, confirmation, req.user || {})
+          .catch(() => {});
+      }
 
       res.json({
         status: 'ok',

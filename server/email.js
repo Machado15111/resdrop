@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import * as db from './db.js';
 
 // ─── Resend client (lazy-init) ─────────────────────────────────
 let resend = null;
@@ -222,6 +223,10 @@ async function send(to, subject, html) {
   try {
     const result = await client.emails.send({ from: FROM, to, subject, html });
     console.log(`[Email] ✓ "${subject}" → ${to}`);
+    // Single choke point for every template below — gives lifecycle jobs a
+    // "was this person emailed recently" signal without touching every call site.
+    db.logActivity({ entityType: 'user', entityId: to, action: 'email_sent', actorEmail: 'system', details: { subject } })
+      .catch(() => {});
     return result;
   } catch (err) {
     console.error(`[Email] ✗ "${subject}" → ${to}:`, err.message);
@@ -398,7 +403,7 @@ export async function sendSavingsConfirmed(to, name, booking, confirmation, user
   const currency = user?.currency || booking.currency || 'USD';
   const userName = esc(name) || (lang === 'pt' ? 'Viajante' : 'Traveler');
   const hotel    = esc(booking.hotelName || booking.hotel_name || '');
-  const savings  = confirmation?.savings || booking.totalSavings || booking.potentialSavings || 0;
+  const savings  = confirmation?.confirmedSavings ?? booking.totalSavings ?? booking.potentialSavings ?? 0;
 
   const copy = {
     en: {
@@ -552,6 +557,89 @@ export async function sendAvailabilityAlert(to, name, watch, user = {}) {
     ${btn(watchUrl, copy.cta, 'gold')}
     ${divider()}
     ${pSmall(copy.note)}
+  `, copy.preheader);
+
+  return send(to, copy.subject, html);
+}
+
+// ─── Lifecycle: dormant user, active bookings still being monitored ───────
+//
+// Signal: user hasn't been seen (touchLastActive) in DORMANT_DAYS, but has at
+// least one booking still in an actively-monitored status. Per
+// agents/06-retention-growth-agent.md: no "we miss you", no urgency that
+// isn't backed by real data, one CTA, under ~150 words.
+export async function sendDormantActiveBookingsNudge(to, name, booking, stats = {}, user = {}) {
+  const lang     = detectLang(user);
+  const userName = esc(name) || (lang === 'pt' ? 'Viajante' : 'Traveler');
+  const hotel    = esc(booking.hotelName || booking.hotel_name || '');
+  const cycles   = Number(stats.cycles) || 0;
+  const daysToCheckin = booking.checkinDate
+    ? Math.round((new Date(booking.checkinDate).getTime() - Date.now()) / 86400000)
+    : null;
+
+  const copy = {
+    en: {
+      subject: `${hotel} — ${cycles} monitoring cycle${cycles === 1 ? '' : 's'} completed`,
+      preheader: `No better equivalent rate found yet for ${hotel}.`,
+      heading: 'A quick note on your reservation.',
+      sub: `ResDrop has completed ${cycles} monitoring cycle${cycles === 1 ? '' : 's'} on <strong>${hotel}</strong>. No better equivalent rate has been found to date across hotel direct, Expedia, and Booking.com.`,
+      note: daysToCheckin != null && daysToCheckin >= 0
+        ? `Monitoring continues automatically. Check-in is ${daysToCheckin === 0 ? 'today' : `in ${daysToCheckin} day${daysToCheckin === 1 ? '' : 's'}`}.`
+        : 'Monitoring continues automatically.',
+      cta: 'View My Bookings',
+    },
+    pt: {
+      subject: `${hotel} — ${cycles} ciclo${cycles === 1 ? '' : 's'} de monitoramento concluído${cycles === 1 ? '' : 's'}`,
+      preheader: `Ainda não encontramos uma tarifa melhor para ${hotel}.`,
+      heading: 'Uma atualização sobre sua reserva.',
+      sub: `O ResDrop concluiu ${cycles} ciclo${cycles === 1 ? '' : 's'} de monitoramento em <strong>${hotel}</strong>. Até agora, nenhuma tarifa equivalente melhor foi encontrada no site do hotel, Expedia ou Booking.com.`,
+      note: daysToCheckin != null && daysToCheckin >= 0
+        ? `O monitoramento continua automaticamente. O check-in é ${daysToCheckin === 0 ? 'hoje' : `em ${daysToCheckin} dia${daysToCheckin === 1 ? '' : 's'}`}.`
+        : 'O monitoramento continua automaticamente.',
+      cta: 'Ver Minhas Reservas',
+    },
+  }[lang];
+
+  const html = layout(copy.subject, `
+    ${h1(copy.heading)}
+    ${sub(copy.sub)}
+    ${pSmall(copy.note)}
+    ${btn(`${BASE_URL}/dashboard`, copy.cta)}
+  `, copy.preheader);
+
+  return send(to, copy.subject, html);
+}
+
+// ─── Lifecycle: signed up, never added a booking ───────────────────────────
+export async function sendNoBookingAddedNudge(to, name, daysSinceSignup, user = {}) {
+  const lang     = detectLang(user);
+  const userName = esc(name) || (lang === 'pt' ? 'Viajante' : 'Traveler');
+  const days     = Number(daysSinceSignup) || 0;
+
+  const copy = {
+    en: {
+      subject: 'How to start monitoring a hotel reservation',
+      preheader: 'You created an account but haven\'t added a booking yet.',
+      heading: `Hi ${userName}.`,
+      sub: `You created a ResDrop account ${days} day${days === 1 ? '' : 's'} ago but haven't added a booking yet.`,
+      note: 'ResDrop works after you\'ve confirmed a refundable hotel reservation, not before. If you have an upcoming stay already booked, add it and monitoring starts immediately. You\'ll need the hotel name, your check-in and check-out dates, and the rate you paid.',
+      cta: 'Add a Booking',
+    },
+    pt: {
+      subject: 'Como começar a monitorar uma reserva de hotel',
+      preheader: 'Você criou uma conta mas ainda não adicionou uma reserva.',
+      heading: `Olá, ${userName}.`,
+      sub: `Você criou uma conta no ResDrop há ${days} dia${days === 1 ? '' : 's'}, mas ainda não adicionou nenhuma reserva.`,
+      note: 'O ResDrop funciona depois que você já tem uma reserva de hotel reembolsável confirmada, não antes. Se você já tem uma estadia futura reservada, adicione-a e o monitoramento começa imediatamente. Você vai precisar do nome do hotel, das datas de check-in e check-out, e da tarifa que pagou.',
+      cta: 'Adicionar Reserva',
+    },
+  }[lang];
+
+  const html = layout(copy.subject, `
+    ${h1(copy.heading)}
+    ${sub(copy.sub)}
+    ${pSmall(copy.note)}
+    ${btn(`${BASE_URL}/submit`, copy.cta)}
   `, copy.preheader);
 
   return send(to, copy.subject, html);

@@ -1,5 +1,6 @@
 import { pollInboundEmails } from './routes/inbound-email.js';
 import { selectWatchesToCheck, findExpiredWatches, watchConfig } from './availability.js';
+import { dormantActiveBooking, isNoBookingAdded, wasEmailedRecently, wasNudgeSentRecently } from './lifecycle.js';
 
 /**
  * Price Monitoring Scheduler (cost-aware)
@@ -55,6 +56,10 @@ function watchBudgetRemaining() {
   if (today !== watchBudgetDate) { watchBudgetDate = today; watchBudgetUsed = 0; }
   return Math.max(0, watchConfig().dailyBudget - watchBudgetUsed);
 }
+
+let lifecycleInterval = null;
+let lastLifecycleCycle = null;
+let totalLifecycleEmailsSent = 0;
 
 // ── Selection logic (pure, unit-testable) ────────────────────
 
@@ -126,6 +131,12 @@ export function getSchedulerStatus() {
       lastCycle: lastWatchCycle,
       totalChecksRun: totalWatchChecks,
       totalRoomsFound,
+    },
+    lifecycle: {
+      running: !!lifecycleInterval,
+      intervalHours: num('LIFECYCLE_INTERVAL_HOURS', 24),
+      lastCycle: lastLifecycleCycle,
+      totalEmailsSent: totalLifecycleEmailsSent,
     },
   };
 }
@@ -306,7 +317,100 @@ export function stopScheduler() {
   if (schedulerInterval) { clearInterval(schedulerInterval); schedulerInterval = null; }
   if (inboundEmailInterval) { clearInterval(inboundEmailInterval); inboundEmailInterval = null; }
   if (availabilityInterval) { clearInterval(availabilityInterval); availabilityInterval = null; }
+  if (lifecycleInterval) { clearInterval(lifecycleInterval); lifecycleInterval = null; }
   console.log('[Monitor] stopped');
+}
+
+// ── Lifecycle (retention) cycle ──────────────────────────────
+// Low frequency by design (default once/day) — these are re-engagement
+// nudges, not time-sensitive alerts. Caps how many go out per cycle so a
+// backlog (e.g. the first run after shipping this) can't blast everyone at
+// once; the rest catch up on the next cycle.
+const LIFECYCLE_BATCH = 50;
+
+/**
+ * `deps`: { loadUsers, loadBookings, getActivity, sendDormant, sendNoBooking, logSent }
+ * All DB/email I/O is injected so the selection flow itself stays testable
+ * without a real DB — mirrors runMonitorCycle/runAvailabilityCycle above.
+ */
+export async function runLifecycleCycle(deps) {
+  const startTime = Date.now();
+  const { loadUsers, loadBookings, getActivity, sendDormant, sendNoBooking, logSent } = deps;
+  let users = [];
+  let bookings = [];
+  try {
+    [users, bookings] = await Promise.all([loadUsers(), loadBookings()]);
+  } catch (e) {
+    console.error('[Lifecycle] load failed:', e.message);
+    lastLifecycleCycle = { timestamp: new Date().toISOString(), status: 'load_failed', sent: 0, errors: 1 };
+    return lastLifecycleCycle;
+  }
+
+  const bookingsByEmail = new Map();
+  for (const b of bookings) {
+    const key = (b.email || '').toLowerCase();
+    if (!key) continue;
+    if (!bookingsByEmail.has(key)) bookingsByEmail.set(key, []);
+    bookingsByEmail.get(key).push(b);
+  }
+
+  let sent = 0;
+  let errors = 0;
+  for (const user of users) {
+    if (sent >= LIFECYCLE_BATCH) break;
+    const email = (user.email || '').toLowerCase();
+    if (!email) continue;
+    const userBookings = bookingsByEmail.get(email) || [];
+
+    const dormantBooking = dormantActiveBooking(user, userBookings);
+    const noBooking = !dormantBooking && isNoBookingAdded(user, userBookings.length > 0);
+    if (!dormantBooking && !noBooking) continue;
+
+    try {
+      const activity = await getActivity(email);
+      if (wasEmailedRecently(activity)) continue;
+
+      if (dormantBooking) {
+        if (wasNudgeSentRecently(activity, 'dormant_active_bookings')) continue;
+        await sendDormant(user, dormantBooking);
+        await logSent(email, 'dormant_active_bookings');
+      } else {
+        const days = Math.round((Date.now() - new Date(user.joinedAt || user.createdAt).getTime()) / 86400000);
+        if (wasNudgeSentRecently(activity, 'no_booking_added')) continue;
+        await sendNoBooking(user, days);
+        await logSent(email, 'no_booking_added');
+      }
+      sent++;
+      totalLifecycleEmailsSent++;
+    } catch (err) {
+      errors++;
+      console.error(`[Lifecycle] error nudging ${email}: ${err.message}`);
+    }
+  }
+
+  lastLifecycleCycle = {
+    timestamp: new Date().toISOString(), status: 'completed',
+    sent, errors, duration: Date.now() - startTime,
+  };
+  console.log(`[Lifecycle] ✅ cycle done: ${sent} nudge(s) sent, ${errors} error(s) (${lastLifecycleCycle.duration}ms)`);
+  return lastLifecycleCycle;
+}
+
+export function startLifecycleScheduler(deps) {
+  if (lifecycleInterval) {
+    console.log('[Lifecycle] already running');
+    return;
+  }
+  const intervalHr = num('LIFECYCLE_INTERVAL_HOURS', 24);
+  console.log(`[Lifecycle] 🕐 Retention nudges ON — cycle every ${intervalHr}h · ≤${LIFECYCLE_BATCH} emails/cycle`);
+
+  lifecycleInterval = setInterval(() => {
+    runLifecycleCycle(deps).catch(e => console.error('[Lifecycle] cycle error:', e.message));
+  }, intervalHr * 60 * 60 * 1000);
+
+  setTimeout(() => {
+    runLifecycleCycle(deps).catch(() => {});
+  }, num('LIFECYCLE_STARTUP_DELAY_MS', 35000));
 }
 
 /**

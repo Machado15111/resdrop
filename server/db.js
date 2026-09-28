@@ -251,6 +251,20 @@ export async function getOrCreateUser(email, name) {
   return await createUser(email, name);
 }
 
+/**
+ * Bump last_active without going through updateUser — updateUser calls
+ * invalidateEmail(), which would evict the 60s auth cache entry we just set
+ * and force every request in that window back onto the DB path. This is a
+ * fire-and-forget side effect off the hot auth path, not a real profile edit.
+ */
+export function touchLastActive(email) {
+  if (!email) return;
+  const now = new Date().toISOString();
+  const key = email.toLowerCase();
+  supa.update('users', { email: key }, { last_active: now }).catch(() => {});
+  sql`UPDATE users SET last_active = NOW() WHERE email = ${key}`.catch(() => {});
+}
+
 export async function updateUser(email, updates) {
   const key = email.toLowerCase();
   if (inMemoryUsers.has(key)) {

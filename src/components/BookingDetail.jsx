@@ -81,6 +81,11 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   const [saving, setSaving] = useState(false);
   // Index of the photo the full-screen lightbox opens at (null = closed).
   const [lightboxIdx, setLightboxIdx] = useState(null);
+  // Some cached hotel photos (notably Google's gps-cs-s URLs) can go dead after
+  // the fact — track ones that fail to load so we can drop them instead of
+  // showing a broken-image icon.
+  const [brokenImgs, setBrokenImgs] = useState(() => new Set());
+  const markImgBroken = (url) => setBrokenImgs(prev => (prev.has(url) ? prev : new Set(prev).add(url)));
   // The stored originalPrice is the value as entered; rateType says whether that
   // value is per-night or the stay total. Derive both representations correctly.
   const isPerNight = booking.rateType === 'per_night';
@@ -177,7 +182,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
   // page (right under the header) instead of at the bottom.
   const hotelSection = (() => {
     const hd = booking.hotelData || {};
-    const images = Array.isArray(hd.images) ? hd.images.map(imgUrl).filter(Boolean) : [];
+    const images = Array.isArray(hd.images)
+      ? hd.images.map(imgUrl).filter(Boolean).filter(u => !brokenImgs.has(u))
+      : [];
     const gallery = images.slice(0, 3);
     const extra = images.length - gallery.length;
     const amenities = Array.isArray(hd.amenities) ? hd.amenities.filter(Boolean).slice(0, 6) : [];
@@ -198,7 +205,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
           <div className="hotel-gallery">
             {gallery.map((img, idx) => (
               <button className="hg-cell" key={idx} onClick={() => setLightboxIdx(idx)} aria-label={`${lang === 'pt' ? 'Foto' : 'Photo'} ${idx + 1}`}>
-                <img src={img} alt={`${booking.hotelName} ${idx + 1}`} loading="lazy" />
+                <img src={img} alt={`${booking.hotelName} ${idx + 1}`} loading="lazy" onError={() => markImgBroken(img)} />
                 {idx === gallery.length - 1 && extra > 0 && (
                   <span className="hg-more">+{extra} {lang === 'pt' ? 'fotos' : 'photos'}</span>
                 )}
@@ -738,7 +745,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
 
       {lightboxIdx !== null && (
         <PhotoLightbox
-          images={(booking.hotelData?.images || []).map(imgUrl).filter(Boolean)}
+          images={(booking.hotelData?.images || []).map(imgUrl).filter(Boolean).filter(u => !brokenImgs.has(u))}
           startIndex={lightboxIdx}
           alt={booking.hotelName}
           onClose={() => setLightboxIdx(null)}

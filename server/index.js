@@ -31,7 +31,7 @@ import {
   isExpediaConfigured,
   buildExpediaSearchLink,
 } from './expediaApi.js';
-import { startScheduler, startAvailabilityScheduler } from './scheduler.js';
+import { startScheduler, startAvailabilityScheduler, startLifecycleScheduler } from './scheduler.js';
 import { hotels } from './hotels.js';
 import { searchHotels } from './hotelSearch.js';
 import {
@@ -68,8 +68,9 @@ import { registerNuiteeRoutes } from './nuiteeRoutes.js';
 import {
   isEmailConfigured,
   sendPriceDropAlert,
-  sendSavingsConfirmed,
   sendBookingCreated,
+  sendDormantActiveBookingsNudge,
+  sendNoBookingAddedNudge,
 } from './email.js';
 
 // Blocked/unreliable sources — filtered from all results (including cached)
@@ -536,6 +537,9 @@ async function authMiddleware(req, res, next) {
   if (!user) {
     return res.status(401).json({ error: 'User not found' });
   }
+  // Once per ~60s auth-cache window per user, not per request — enough
+  // resolution for dormancy signals without hammering Supabase.
+  db.touchLastActive(email);
   setCachedAuth(token, email, user);
   req.user = user;
   req.userEmail = email;
@@ -1743,6 +1747,26 @@ if (!IS_TEST_IMPORT && process.env.MONITOR_ENABLED !== 'false') {
   );
 } else if (!IS_TEST_IMPORT) {
   console.log('[Watch] Disabled (MONITOR_ENABLED=false) — availability checks run manually only');
+}
+
+// ─── Lifecycle (retention) nudges ─────────────────────────────
+// Independent of MONITOR_ENABLED: pausing paid-API price checks shouldn't
+// also silence free, DB-driven re-engagement email. Its own flag instead.
+if (!IS_TEST_IMPORT && process.env.LIFECYCLE_ENABLED !== 'false' && isEmailConfigured()) {
+  startLifecycleScheduler({
+    loadUsers: () => db.getAllUsers(5000),
+    loadBookings: () => db.getAllBookings({ columns: 'id,email,status,hotel_name,checkin_date,check_count' }),
+    getActivity: (email) => db.getActivityLog('user', email),
+    sendDormant: (user, booking) => sendDormantActiveBookingsNudge(
+      user.email, user.name || 'Traveler', booking, { cycles: booking.checkCount || 0 }, user
+    ),
+    sendNoBooking: (user, days) => sendNoBookingAddedNudge(user.email, user.name || 'Traveler', days, user),
+    logSent: (email, nudgeKind) => db.logActivity({
+      entityType: 'user', entityId: email, action: 'email_sent', actorEmail: 'system', details: { nudgeKind },
+    }),
+  });
+} else if (!IS_TEST_IMPORT) {
+  console.log('[Lifecycle] Disabled (LIFECYCLE_ENABLED=false or no RESEND_API_KEY)');
 }
 
 // ─── Serve frontend build in production ─────────────────────

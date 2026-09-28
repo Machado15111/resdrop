@@ -263,3 +263,49 @@ export async function getJoinedProgrammes() {
     return [];
   }
 }
+
+// ─── ATTRIBUTION ─────────────────────────────────────────────
+
+// searchPrices() (server/index.js) stamps every Booking.com/Expedia result with
+// clickRef: `resdrop_${booking.id.slice(0, 8)}` — booking-scoped, not
+// click-scoped, and never persisted separately. That's enough to reconcile: an
+// 8-hex-char prefix of a UUID is effectively unique at ResDrop's scale, so a
+// transaction's clickref alone tells us which booking (and therefore which
+// user) it came from, no new table required.
+const CLICK_REF_RE = /^resdrop_([a-f0-9]{8})$/i;
+
+/**
+ * Pull the clickref Awin recorded off a transaction. Awin's v3 Transactions
+ * List API nests it under `clickRefs.clickRef`; older/sandbox responses have
+ * been seen with a flat `clickRef`. Tolerate both.
+ */
+function transactionClickRef(t) {
+  return t?.clickRefs?.clickRef || t?.clickRef || t?.clickThroughRef || '';
+}
+
+/**
+ * Join Awin transactions back to the ResDrop booking that generated the click,
+ * by matching the `resdrop_<8charsOfBookingId>` clickref against each
+ * booking's id prefix.
+ *
+ * Pure and DB/HTTP-free so it's unit-testable: pass in whatever
+ * getTransactions() and the bookings list returned.
+ */
+export function matchTransactionsToBookings(transactions, bookings) {
+  const byPrefix = new Map();
+  for (const b of bookings || []) {
+    if (b?.id) byPrefix.set(String(b.id).slice(0, 8).toLowerCase(), b);
+  }
+
+  return (transactions || []).map(t => {
+    const ref = transactionClickRef(t);
+    const m = CLICK_REF_RE.exec(ref);
+    const booking = m ? byPrefix.get(m[1].toLowerCase()) : null;
+    return {
+      ...t,
+      matchedBookingId: booking?.id || null,
+      matchedUserEmail: booking?.email || null,
+      matchedHotelName: booking?.hotelName || null,
+    };
+  });
+}

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as db from '../db.js';
 import {
   isAwinConfigured,
   getBookingPromotions,
@@ -6,6 +7,7 @@ import {
   buildBookingSearchLink,
   getJoinedProgrammes,
   getTransactions,
+  matchTransactionsToBookings,
 } from '../awinApi.js';
 import {
   isExpediaConfigured,
@@ -89,11 +91,18 @@ export default function affiliateRoutes(authMiddleware, adminMiddleware, publicR
       return res.status(400).json({ error: 'Awin not configured' });
     }
     try {
-      const txns = await getTransactions({
-        startDate: req.query.start,
-        endDate: req.query.end,
+      const [txns, bookings] = await Promise.all([
+        getTransactions({ startDate: req.query.start, endDate: req.query.end }),
+        db.getAllBookings({ columns: 'id,email,hotel_name' }),
+      ]);
+      const transactions = matchTransactionsToBookings(txns, bookings);
+      const matched = transactions.filter(t => t.matchedBookingId).length;
+      res.json({
+        transactions,
+        count: transactions.length,
+        matched,
+        unmatched: transactions.length - matched,
       });
-      res.json({ transactions: txns, count: Array.isArray(txns) ? txns.length : 0 });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

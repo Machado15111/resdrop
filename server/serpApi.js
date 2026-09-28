@@ -15,6 +15,16 @@ export function isSerpApiConfigured() {
   return !!env('SERPAPI_KEY');
 }
 
+// Google's own Places "consumer-submitted photo" host (gps-cs-s) issues
+// signed URLs that expire — unlike hotel-domain or OTA CDN images (trvl-media,
+// bstatic, hotels.com, ...), which are stable long-term. We cache extracted
+// images in hotel_mappings for months, so an image that dies after a few weeks
+// poisons the cache forever. Drop it at extraction time instead.
+const EPHEMERAL_IMAGE_HOST = /lh3\.googleusercontent\.com\/gps-cs-s\//i;
+function isStableImageUrl(u) {
+  return typeof u === 'string' && u.length > 0 && !EPHEMERAL_IMAGE_HOST.test(u);
+}
+
 /**
  * Normalize text for fuzzy matching — remove accents, lowercase, trim
  */
@@ -170,7 +180,7 @@ export function extractHotelInfoFromDetail(data) {
   if (!data) return null;
   const images = (data.images || [])
     .map(i => i && (i.original_image || i.thumbnail))
-    .filter(Boolean)
+    .filter(isStableImageUrl)
     .slice(0, 12);
   const coords = data.gps_coordinates
     ? { lat: data.gps_coordinates.latitude, lng: data.gps_coordinates.longitude }
@@ -247,7 +257,7 @@ export async function fetchCategorizedHotelPhotos(photosLink, { limit = 12 } = {
         if (!p) continue;
         added = true;
         const u = p.photo_url || p.image || p.thumbnail_url;
-        if (!u || seen.has(u)) continue;
+        if (!isStableImageUrl(u) || seen.has(u)) continue;
         seen.add(u);
         out.push(u);
         if (out.length >= limit) break;
