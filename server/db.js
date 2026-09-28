@@ -149,6 +149,36 @@ function buildSet(obj) {
 
 const inMemoryUsers = new Map();
 
+/**
+ * `users.loyalty_programs` is a TEXT column holding JSON, so a read gives back
+ * a STRING while every caller — and the account screen's `.map` — expects an
+ * array. That mismatch blanked the whole app: one uncaught `.map is not a
+ * function` in a render takes React's entire tree down with it.
+ *
+ * Normalising here, at the single place user rows are built, means no screen
+ * has to know the column's storage shape.
+ */
+function normalizeUser(row) {
+  const user = toCamel(row);
+  if (!user) return user;
+  const lp = user.loyaltyPrograms;
+  if (Array.isArray(lp)) return user;
+  if (typeof lp === 'string' && lp.trim()) {
+    try {
+      const parsed = JSON.parse(lp);
+      user.loyaltyPrograms = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // Not JSON (legacy free text). An empty list is the honest reading.
+      user.loyaltyPrograms = [];
+    }
+  } else if (lp === null || lp === undefined || lp === '') {
+    user.loyaltyPrograms = [];
+  } else {
+    user.loyaltyPrograms = [];
+  }
+  return user;
+}
+
 export async function getUserWithPassword(email) {
   if (!email) return null;
   const key = email.toLowerCase();
@@ -157,12 +187,12 @@ export async function getUserWithPassword(email) {
   // stale user record — or miss one created via REST.
   try {
     const rows = await supa.select('users', { email: key }, { limit: 1 });
-    if (Array.isArray(rows) && rows[0]) return toCamel(rows[0]);
+    if (Array.isArray(rows) && rows[0]) return normalizeUser(rows[0]);
   } catch (e) {
     console.error('[DB] getUserWithPassword supa:', e.message);
   }
   if (inMemoryUsers.has(key)) {
-    return { ...inMemoryUsers.get(key) };
+    return normalizeUser({ ...inMemoryUsers.get(key) });
   }
   return null;
 }
@@ -236,11 +266,17 @@ export async function updateUser(email, updates) {
   const entries = Object.entries(snake).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return await getUser(email);
   const clean = Object.fromEntries(entries);
+  // The column is TEXT: handing PostgREST a JS array stores whatever its
+  // serialiser makes of it, which is what produced rows that read back as a
+  // string the UI could not map over.
+  if (Array.isArray(clean.loyalty_programs)) {
+    clean.loyalty_programs = JSON.stringify(clean.loyalty_programs);
+  }
   try {
     const row = await supa.update('users', { email: key }, clean);
     if (row) {
       sql`UPDATE users SET ${sql(clean)} WHERE email = ${key}`.catch(() => {});
-      return toCamel(row);
+      return normalizeUser(row);
     }
   } catch (e) {
     console.error('[DB] updateUser supa:', e.message);

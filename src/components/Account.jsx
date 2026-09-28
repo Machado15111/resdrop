@@ -53,9 +53,17 @@ function Account() {
     dateOfBirth: user?.dateOfBirth || '',
     preferredRoomType: user?.preferredRoomType || 'Standard Room',
   });
-  const [loyaltyPrograms, setLoyaltyPrograms] = useState(
-    user?.loyaltyPrograms || []
-  );
+  // Defensive: `users.loyalty_programs` is a TEXT column, so older rows read
+  // back as a JSON string. db.js normalises this now, but data already in
+  // flight (and any other caller) must not be able to blank the screen again.
+  const asList = (value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string' && value.trim()) {
+      try { const p = JSON.parse(value); return Array.isArray(p) ? p : []; } catch { return []; }
+    }
+    return [];
+  };
+  const [loyaltyPrograms, setLoyaltyPrograms] = useState(() => asList(user?.loyaltyPrograms));
   const [stripeEnabled, setStripeEnabled] = useState(false);
   const [billingCurrency, setBillingCurrency] = useState(() => defaultCurrency(lang));
   const [billingInterval, setBillingInterval] = useState('month');
@@ -92,7 +100,7 @@ function Account() {
       dateOfBirth: user.dateOfBirth || '',
       preferredRoomType: user.preferredRoomType || 'Standard Room',
     });
-    setLoyaltyPrograms(user.loyaltyPrograms || []);
+    setLoyaltyPrograms(asList(user.loyaltyPrograms));
   }
 
   const handleChangePlan = async (planId) => {
@@ -160,7 +168,7 @@ function Account() {
         method: 'PUT',
         body: JSON.stringify({
           ...profileForm,
-          loyaltyPrograms: loyaltyPrograms.filter(lp => lp.program.trim()),
+          loyaltyPrograms: loyaltyPrograms.filter(lp => (lp?.program || '').trim()),
         }),
       });
       if (res.ok) {
@@ -213,7 +221,9 @@ function Account() {
           <div className="account-info">
             <h1>{t('account.welcome')}, {user.name}</h1>
             <p className="account-email">{user.email}</p>
-            <p className="account-since">{t('account.memberSince')} {new Date(user.joinedAt).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US')}</p>
+            {Number.isFinite(new Date(user.joinedAt).getTime()) && (
+              <p className="account-since">{t('account.memberSince')} {new Date(user.joinedAt).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'en-US')}</p>
+            )}
           </div>
         </div>
 
@@ -344,11 +354,11 @@ function Account() {
                   <span className="profile-value">{user.preferredRoomType}</span>
                 </div>
               )}
-              {user.loyaltyPrograms && user.loyaltyPrograms.length > 0 && (
+              {asList(user.loyaltyPrograms).length > 0 && (
                 <div className="profile-row">
                   <span className="profile-label">{t('account.loyaltyPrograms')}</span>
                   <div className="profile-loyalty-list">
-                    {user.loyaltyPrograms.map((lp, i) => (
+                    {asList(user.loyaltyPrograms).map((lp, i) => (
                       <span key={i} className="loyalty-badge">{lp.program}: {lp.number}</span>
                     ))}
                   </div>

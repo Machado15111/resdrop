@@ -18,6 +18,7 @@ import ResDroppLanding from './components/ResDroppLanding';
 import ResDroppLogin from './components/ResDroppLogin';
 import { OnboardedRoute, PublicOnlyRoute, OnboardingRoute, AdminRoute } from './components/ProtectedRoute';
 import MobileTabBar from './components/MobileTabBar';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Heavy / rarely-first-loaded routes are code-split so they don't bloat the
 // initial bundle (admin dashboards, analytics, content pages, landing previews).
@@ -107,6 +108,9 @@ function App() {
         key={transitionClass === 'page-transition' ? location.pathname : 'app'}
         className={transitionClass}
       >
+        {/* One broken screen must not blank the product. The key resets the
+            boundary on navigation, so leaving the broken page is enough. */}
+        <ErrorBoundary resetKey={location.pathname}>
         <Suspense fallback={null}>
         <Routes location={location}>
           {/* Admin — no header, admin-only */}
@@ -172,6 +176,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
+        </ErrorBoundary>
       </div>
       {showTabBar && <MobileTabBar />}
     </div>

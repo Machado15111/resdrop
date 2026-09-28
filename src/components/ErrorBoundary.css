@@ -1,0 +1,79 @@
+.eb-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 40px 20px;
+}
+
+.eb-card {
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  background: var(--tl-bg-surface, #fff);
+  border: 1px solid var(--tl-border, rgba(15, 46, 31, 0.1));
+  border-radius: var(--tl-radius, 12px);
+  padding: 36px 28px;
+}
+
+.eb-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: #FFF4E5;
+  color: #8A6100;
+}
+
+.eb-card h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+  color: var(--tl-text-dark, #1A1A1A);
+}
+
+.eb-card p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--tl-text-muted, #5B6460);
+  margin: 0 auto 24px;
+  max-width: 44ch;
+}
+
+.eb-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eb-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.eb-details {
+  margin-top: 22px;
+  text-align: left;
+}
+
+.eb-details summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--tl-text-muted, #5B6460);
+}
+
+.eb-details code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--tl-bg-page, #FAF9F6);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #B3261E;
+  word-break: break-word;
+}
