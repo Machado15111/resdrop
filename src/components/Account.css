@@ -188,6 +188,19 @@
   color: var(--tl-accent-gold);
 }
 
+/* Terms/Privacy links inside the signup checkbox — plain .account-link is the
+   same color as body text there, so it never read as clickable. */
+.account-link--terms {
+  color: #2563EB;
+  text-decoration: underline;
+  text-decoration-color: rgba(37, 99, 235, 0.35);
+}
+
+.account-link--terms:hover {
+  color: #1D4ED8;
+  text-decoration-color: currentColor;
+}
+
 .forgot-link-wrap {
   text-align: right;
   margin-bottom: 4px;

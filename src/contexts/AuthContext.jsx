@@ -52,13 +52,30 @@ export function AuthProvider({ children }) {
     return () => { cancelled = true; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A non-2xx response isn't always JSON — a 502 during a deploy, a proxy
+  // timeout, or a plain network failure all land here too. Without this, the
+  // user saw the raw parse error ("Unexpected token < in JSON") instead of
+  // anything they could act on.
+  const parseAuthResponse = async (res, fallbackMessage) => {
+    try {
+      return await res.json();
+    } catch {
+      return { error: fallbackMessage };
+    }
+  };
+
   const login = async (email, password) => {
-    const res = await fetch(`${API}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
+    let res;
+    try {
+      res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new Error('Nao foi possivel conectar. Verifique sua internet e tente novamente.');
+    }
+    const data = await parseAuthResponse(res, 'O servidor nao respondeu como esperado. Tente novamente em instantes.');
     if (!res.ok) throw new Error(data.error || 'Login failed');
     setUser(data.user);
     setToken(data.token);
@@ -67,13 +84,24 @@ export function AuthProvider({ children }) {
   };
 
   const signup = async ({ email, name, password, phone, currency, country, lang }) => {
-    const res = await fetch(`${API}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // lang lets the server return validation errors in the user's language.
-      body: JSON.stringify({ email, name, password, phone, currency, country, lang }),
-    });
-    const data = await res.json();
+    const connErr = lang === 'en'
+      ? 'Could not connect. Check your internet and try again.'
+      : 'Nao foi possivel conectar. Verifique sua internet e tente novamente.';
+    const serverErr = lang === 'en'
+      ? 'The server did not respond as expected. Please try again shortly.'
+      : 'O servidor nao respondeu como esperado. Tente novamente em instantes.';
+    let res;
+    try {
+      res = await fetch(`${API}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // lang lets the server return validation errors in the user's language.
+        body: JSON.stringify({ email, name, password, phone, currency, country, lang }),
+      });
+    } catch {
+      throw new Error(connErr);
+    }
+    const data = await parseAuthResponse(res, serverErr);
     if (!res.ok) throw new Error(data.error || 'Signup failed');
     setUser(data.user);
     setToken(data.token);

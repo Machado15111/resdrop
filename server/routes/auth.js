@@ -75,40 +75,57 @@ export default function authRoutes({
     }
     // Security: Basic email format validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Email invalido' });
+      return res.status(400).json({
+        error: lang === 'en' ? 'Please enter a valid email address' : 'Digite um e-mail valido',
+        code: 'EMAIL_INVALID',
+      });
     }
     const existing = await db.getUser(email);
-    // Security: Generic error to prevent account enumeration
-    if (existing) return res.status(409).json({ error: 'Nao foi possivel criar a conta. Tente fazer login ou redefinir senha.' });
+    // Security: generic enough not to confirm the account exists, but still
+    // says exactly what to do next rather than leaving the user guessing.
+    if (existing) {
+      return res.status(409).json({
+        error: lang === 'en'
+          ? 'An account may already exist for this email. Try logging in, or reset your password.'
+          : 'Uma conta pode ja existir com este e-mail. Tente fazer login ou redefinir sua senha.',
+        code: 'ACCOUNT_EXISTS',
+      });
+    }
 
     const passwordHash = await hashPassword(password);
 
-    // Insert new user — db.supabase is the postgres sql client
+    // Insert new user via Supabase REST — the authoritative account store
+    // everywhere else in this app (login, sessions, onboarding all read
+    // through it). This used to insert via a raw SQL connection to
+    // DATABASE_URL when that env var was set — a DIFFERENT database (Neon,
+    // not Supabase) in this deployment. Every fresh signup landed a row
+    // nothing else could see: the user immediately failed "User not found" on
+    // /auth/onboarding, "Credenciais invalidas" on the very next login with
+    // the correct password, and a silent no-op on forgot-password. See
+    // getUserWithPassword's comment for why REST must be the only path.
     let newUser;
     try {
-      if (process.env.DATABASE_URL && typeof db.supabase === 'function') {
-        const rows = await db.supabase`
-          INSERT INTO users (email, name, password_hash, phone, currency, country)
-          VALUES (
-            ${email.toLowerCase()}, ${name || 'Guest'}, ${passwordHash},
-            ${phone || null}, ${currency || 'BRL'}, ${country || null}
-          )
-          RETURNING *
-        `;
-        newUser = rows[0];
-      } else {
-        newUser = await db.createUser(email.toLowerCase(), name || 'Guest');
-        if (newUser) {
-          await db.updateUser(email.toLowerCase(), { passwordHash, phone, currency, country });
-        }
+      newUser = await db.createUser(email.toLowerCase(), name || 'Guest');
+      if (newUser) {
+        await db.updateUser(email.toLowerCase(), { passwordHash, phone, currency, country });
       }
     } catch (e) {
       console.error('[Signup] Insert failed:', e.message);
-      return res.status(500).json({ error: 'Failed to create user' });
+      return res.status(500).json({
+        error: lang === 'en'
+          ? 'Something went wrong creating your account. Please try again in a moment.'
+          : 'Algo deu errado ao criar sua conta. Tente novamente em instantes.',
+        code: 'SIGNUP_FAILED',
+      });
     }
 
     if (!newUser) {
-      return res.status(500).json({ error: 'Failed to create user' });
+      return res.status(500).json({
+        error: lang === 'en'
+          ? 'Something went wrong creating your account. Please try again in a moment.'
+          : 'Algo deu errado ao criar sua conta. Tente novamente em instantes.',
+        code: 'SIGNUP_FAILED',
+      });
     }
 
     const token = generateToken();

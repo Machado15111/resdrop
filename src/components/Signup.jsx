@@ -208,8 +208,8 @@ function Signup() {
                 />
                 <span>
                   {lang === 'pt'
-                    ? <>Concordo com os <a href="/terms" target="_blank" rel="noopener" className="account-link">Termos de Servico</a> e a <a href="/privacy" target="_blank" rel="noopener" className="account-link">Politica de Privacidade</a></>
-                    : <>I agree to the <a href="/terms" target="_blank" rel="noopener" className="account-link">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" className="account-link">Privacy Policy</a></>
+                    ? <>Concordo com os <a href="/terms" target="_blank" rel="noopener" className="account-link account-link--terms">Termos de Servico</a> e a <a href="/privacy" target="_blank" rel="noopener" className="account-link account-link--terms">Politica de Privacidade</a></>
+                    : <>I agree to the <a href="/terms" target="_blank" rel="noopener" className="account-link account-link--terms">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener" className="account-link account-link--terms">Privacy Policy</a></>
                   }
                 </span>
               </label>

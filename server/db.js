@@ -1412,6 +1412,10 @@ export async function upsertHotelMapping(data) {
   return record;
 }
 
+export async function countHotelMappingsBySource(source) {
+  return supa.count('hotel_mappings', { source });
+}
+
 /**
  * Atomically reserve one paid provider call against the daily cap.
  *

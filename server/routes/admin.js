@@ -87,16 +87,16 @@ export default function adminRoutes({
       const duplicate = imports.filter(i => i.status === 'DUPLICATE').length;
       const unknownSenders = imports.filter(i => !i.userEmail).length;
 
+      // Was querying DATABASE_URL (Neon) directly — a different database from
+      // the Supabase REST store hotel_mappings actually lives in here, so this
+      // always read zero rows. Same class of bug as the one in auth.js signup.
       let nuiteeMatches = 0;
       let googleFallbackMatches = 0;
       try {
-        if (process.env.DATABASE_URL && typeof db.supabase === 'function') {
-          const mappings = await db.supabase`SELECT source, count(*)::int FROM hotel_mappings GROUP BY source`;
-          for (const m of mappings) {
-            if (m.source === 'nuitee') nuiteeMatches = m.count;
-            if (m.source === 'google_places') googleFallbackMatches = m.count;
-          }
-        }
+        [nuiteeMatches, googleFallbackMatches] = await Promise.all([
+          db.countHotelMappingsBySource('nuitee'),
+          db.countHotelMappingsBySource('google_places'),
+        ]);
       } catch {}
 
       res.json({
