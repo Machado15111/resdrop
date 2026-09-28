@@ -8,10 +8,13 @@ import PushToggle from './PushToggle';
 import { planAmount, yearlySavings, CURRENCY_SYMBOL, SUPPORTED_CURRENCIES, defaultCurrency } from '../pricing';
 import './Account.css';
 
+// Display prices come from planAmount() (../pricing, mirrors server/billing.js)
+// below — not from a field here. bookings/icon are the only fields this array
+// actually feeds into the render.
 const PLANS = [
-  { id: 'free', icon: IconZap, bookings: 1, price: { brl: 0, usd: 0 } },
-  { id: 'viajante', icon: IconStar, bookings: 10, price: { brl: 37, usd: 9 } },
-  { id: 'premium', icon: IconCrown, bookings: 50, price: { brl: 125, usd: 36 } },
+  { id: 'free', icon: IconZap, bookings: 1 },
+  { id: 'viajante', icon: IconStar, bookings: 10 },
+  { id: 'premium', icon: IconCrown, bookings: 50 },
 ];
 
 const PLAN_NAMES = { free: 'Free', viajante: 'Viajante', premium: 'Premium' };

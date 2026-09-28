@@ -13,10 +13,14 @@
  * The decision is a pure function so the rule can be unit-tested without HTTP.
  */
 
+// price/priceBrl (USD/BRL monthly) exist only for planRank()'s ordering below —
+// nothing here is shown to users. The real, displayed prices live in
+// server/billing.js (mirrored in src/pricing.js), which is what Stripe
+// actually charges; keep these two in sync with that, not the other way round.
 export const PLANS = {
   free:     { bookingsPerMonth: 2,  searchesPerDay: 1,   activeWatches: 1,  price: 0,  priceBrl: 0 },
-  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  activeWatches: 5,  price: 9,  priceBrl: 37 },
-  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, activeWatches: 20, price: 36, priceBrl: 125 },
+  viajante: { bookingsPerMonth: 10, searchesPerDay: 50,  activeWatches: 5,  price: 8,  priceBrl: 23 },
+  premium:  { bookingsPerMonth: 50, searchesPerDay: 200, activeWatches: 20, price: 25, priceBrl: 109 },
 };
 
 /**

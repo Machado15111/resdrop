@@ -147,6 +147,9 @@ test('plan limits are unchanged', () => {
   assert.equal(PLANS.free.bookingsPerMonth, 2);
   assert.equal(PLANS.viajante.bookingsPerMonth, 10);
   assert.equal(PLANS.premium.bookingsPerMonth, 50);
-  assert.equal(PLANS.premium.price, 36);
-  assert.equal(PLANS.premium.priceBrl, 125);
+  // These two intentionally match server/billing.js (the real, Stripe-charged
+  // prices) as of the pricing-mismatch fix — update both together if pricing
+  // changes again, not just one.
+  assert.equal(PLANS.premium.price, 25);
+  assert.equal(PLANS.premium.priceBrl, 109);
 });
