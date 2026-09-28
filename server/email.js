@@ -225,8 +225,14 @@ async function send(to, subject, html) {
     console.log(`[Email] ✓ "${subject}" → ${to}`);
     // Single choke point for every template below — gives lifecycle jobs a
     // "was this person emailed recently" signal without touching every call site.
-    db.logActivity({ entityType: 'user', entityId: to, action: 'email_sent', actorEmail: 'system', details: { subject } })
-      .catch(() => {});
+    // entity_id on activity_log is UUID — it must be the user's row id, NEVER
+    // the raw email string, or the insert silently fails (Postgres rejects it,
+    // the error is swallowed) and every cooldown check reads an empty log
+    // forever. Look the user up rather than trust a caller to have the id handy.
+    db.getUser(to).then(user => {
+      if (!user?.id) return; // e.g. an admin-notification address with no user row
+      return db.logActivity({ entityType: 'user', entityId: user.id, action: 'email_sent', actorEmail: to, details: { subject } });
+    }).catch(() => {});
     return result;
   } catch (err) {
     console.error(`[Email] ✗ "${subject}" → ${to}:`, err.message);

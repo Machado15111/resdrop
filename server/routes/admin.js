@@ -353,7 +353,9 @@ export default function adminRoutes({
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
       const updated = await db.updateUser(req.params.email, updates);
       if (!updated) return res.status(404).json({ error: 'User not found or update failed' });
-      await db.logActivity('user', req.params.email, 'admin_update', req.user.email, { fields: Object.keys(updates) });
+      // entity_id is UUID — the target's row id, not their email (see the
+      // same fix in email.js send() / scheduler.js runLifecycleCycle).
+      await db.logActivity('user', updated.id, 'admin_update', req.user.email, { fields: Object.keys(updates), targetEmail: req.params.email });
       res.json(updated);
     } catch (err) {
       res.status(500).json({ error: err.message });

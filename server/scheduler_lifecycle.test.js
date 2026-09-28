@@ -8,18 +8,20 @@ const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
 function makeDeps(overrides = {}) {
   const sent = { dormant: [], noBooking: [] };
   const logged = [];
+  const activityCalls = [];
   return {
     deps: {
       loadUsers: async () => [],
       loadBookings: async () => [],
-      getActivity: async () => [],
+      getActivity: async (user) => { activityCalls.push(user); return []; },
       sendDormant: async (user, booking) => { sent.dormant.push({ user, booking }); },
       sendNoBooking: async (user, days) => { sent.noBooking.push({ user, days }); },
-      logSent: async (email, nudgeKind) => { logged.push({ email, nudgeKind }); },
+      logSent: async (user, nudgeKind) => { logged.push({ user, nudgeKind }); },
       ...overrides,
     },
     sent,
     logged,
+    activityCalls,
   };
 }
 
@@ -35,6 +37,21 @@ test('runLifecycleCycle: sends the dormant nudge for a dormant user with an acti
   assert.equal(sent.dormant.length, 1);
   assert.equal(sent.noBooking.length, 0);
   assert.equal(logged[0].nudgeKind, 'dormant_active_bookings');
+});
+
+test('runLifecycleCycle: passes the full user object (with .id) to getActivity/logSent, never a bare email string', async () => {
+  // Regression test for a real incident: activity_log.entity_id is a UUID
+  // column. Passing an email string there makes the insert fail silently
+  // (Postgres rejects it, the caller swallowed the error), so the cooldown
+  // always read an empty log and re-sent on every cycle — a live user got 3
+  // duplicate emails in ~20 minutes before this was caught.
+  const user = { id: 'e500f4a1-941d-4e05-ae83-cfd591880d9a', email: 'a@x.com', joinedAt: daysAgo(NO_BOOKING_DAYS + 2) };
+  const { deps, logged, activityCalls } = makeDeps({ loadUsers: async () => [user] });
+  await runLifecycleCycle(deps);
+  assert.equal(activityCalls[0]?.id, user.id);
+  assert.equal(typeof activityCalls[0], 'object');
+  assert.equal(logged[0]?.user?.id, user.id);
+  assert.equal(typeof logged[0]?.user, 'object');
 });
 
 test('runLifecycleCycle: sends the no-booking nudge for an old account with zero bookings', async () => {

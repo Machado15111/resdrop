@@ -1752,21 +1752,29 @@ if (!IS_TEST_IMPORT && process.env.MONITOR_ENABLED !== 'false') {
 // ─── Lifecycle (retention) nudges ─────────────────────────────
 // Independent of MONITOR_ENABLED: pausing paid-API price checks shouldn't
 // also silence free, DB-driven re-engagement email. Its own flag instead.
-if (!IS_TEST_IMPORT && process.env.LIFECYCLE_ENABLED !== 'false' && isEmailConfigured()) {
+// Opt-in (LIFECYCLE_ENABLED must be 'true'), not opt-out: the cooldown this
+// relies on was silently broken end-to-end on first ship (see comment below
+// and in scheduler.js/email.js) and sent duplicate nudges to a live user
+// within minutes. Re-enable deliberately once that's verified fixed.
+if (!IS_TEST_IMPORT && process.env.LIFECYCLE_ENABLED === 'true' && isEmailConfigured()) {
   startLifecycleScheduler({
     loadUsers: () => db.getAllUsers(5000),
     loadBookings: () => db.getAllBookings({ columns: 'id,email,status,hotel_name,checkin_date,check_count' }),
-    getActivity: (email) => db.getActivityLog('user', email),
+    // activity_log.entity_id is UUID — must be the user's row id, never their
+    // email. Using the email string here made every insert fail silently
+    // (Postgres rejects it, the error was swallowed), so the cooldown below
+    // always saw an empty log and never once blocked a resend.
+    getActivity: (user) => db.getActivityLog('user', user.id),
     sendDormant: (user, booking) => sendDormantActiveBookingsNudge(
       user.email, user.name || 'Traveler', booking, { cycles: booking.checkCount || 0 }, user
     ),
     sendNoBooking: (user, days) => sendNoBookingAddedNudge(user.email, user.name || 'Traveler', days, user),
-    logSent: (email, nudgeKind) => db.logActivity({
-      entityType: 'user', entityId: email, action: 'email_sent', actorEmail: 'system', details: { nudgeKind },
+    logSent: (user, nudgeKind) => db.logActivity({
+      entityType: 'user', entityId: user.id, action: 'email_sent', actorEmail: user.email, details: { nudgeKind },
     }),
   });
 } else if (!IS_TEST_IMPORT) {
-  console.log('[Lifecycle] Disabled (LIFECYCLE_ENABLED=false or no RESEND_API_KEY)');
+  console.log('[Lifecycle] Disabled (set LIFECYCLE_ENABLED=true to opt in, once RESEND_API_KEY is set)');
 }
 
 // ─── Serve frontend build in production ─────────────────────

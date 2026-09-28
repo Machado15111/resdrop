@@ -367,18 +367,21 @@ export async function runLifecycleCycle(deps) {
     if (!dormantBooking && !noBooking) continue;
 
     try {
-      const activity = await getActivity(email);
+      // Keyed by the user's row id, not email — activity_log.entity_id is
+      // UUID, and a raw email string there fails the insert silently (see
+      // the comment on this same pattern in email.js's send()).
+      const activity = await getActivity(user);
       if (wasEmailedRecently(activity)) continue;
 
       if (dormantBooking) {
         if (wasNudgeSentRecently(activity, 'dormant_active_bookings')) continue;
         await sendDormant(user, dormantBooking);
-        await logSent(email, 'dormant_active_bookings');
+        await logSent(user, 'dormant_active_bookings');
       } else {
         const days = Math.round((Date.now() - new Date(user.joinedAt || user.createdAt).getTime()) / 86400000);
         if (wasNudgeSentRecently(activity, 'no_booking_added')) continue;
         await sendNoBooking(user, days);
-        await logSent(email, 'no_booking_added');
+        await logSent(user, 'no_booking_added');
       }
       sent++;
       totalLifecycleEmailsSent++;
