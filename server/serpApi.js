@@ -484,6 +484,16 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
       const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
       const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
       const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
+      // Why a cheaper-looking rate still isn't a "saving" — the detail screen
+      // showed a bare "No savings" next to a lower price with no explanation,
+      // which reads as a bug even when the refusal to compare is correct (a
+      // non-refundable rate, or a different room, is a different product).
+      const notComparableReason = validComparison ? null
+        : !isMatch ? 'different_hotel'
+        : !roomTypeMatch ? 'different_room'
+        : !trusted ? 'untrusted_source'
+        : !refundabilityMatch ? 'different_cancellation'
+        : null;
 
       results.push({
         source: source.name,
@@ -494,6 +504,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
         roomType: resultRoomType || undefined,
         roomTypeCategory: normalizeRoomType(resultRoomType),
         roomTypeMatch,
+        notComparableReason,
         isTrustedSource: trusted,
         confidenceScore,
         currency,
@@ -583,11 +594,22 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     // Savings only apply for exact matches with compatible room types AND
     // like-for-like cancellation terms (see the detail-page branch above).
     const comparisonRate = comparisonRateFor(booking, tax);
-    const validComparison = isMatch && roomTypeMatch
-      && isRefundabilityCompatible(bookingRefundable, freeCancellation);
+    const refundabilityMatch = isRefundabilityCompatible(bookingRefundable, freeCancellation);
+    const validComparison = isMatch && roomTypeMatch && refundabilityMatch;
     const savings = validComparison ? Math.round((originalPrice - comparisonRate) * 100) / 100 : 0;
     const savingsPercent = validComparison && savings > 0 ? Math.round((savings / originalPrice) * 100) : 0;
     const confidenceScore = computeConfidenceScore(isMatch, roomTypeMatch, trusted, freeCancellation);
+    // See the identical comment in parseGoogleHotelsResults above — same
+    // reasoning, this is the sibling parser for the other SerpApi response
+    // shape. Deliberately not adding an `untrusted_source` branch here: this
+    // block's validComparison never checked `trusted` (a pre-existing
+    // difference from the other parser), so reusing that same condition
+    // keeps this fix from silently changing what counts as comparable.
+    const notComparableReason = validComparison ? null
+      : !isMatch ? 'different_hotel'
+      : !roomTypeMatch ? 'different_room'
+      : !refundabilityMatch ? 'different_cancellation'
+      : null;
 
     results.push({
       source: source.name,
@@ -598,6 +620,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
       roomType: resultRoomType || undefined,
       roomTypeCategory: normalizeRoomType(resultRoomType),
       roomTypeMatch,
+      notComparableReason,
       isTrustedSource: trusted,
       confidenceScore,
       currency,

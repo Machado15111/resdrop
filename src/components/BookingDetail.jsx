@@ -505,6 +505,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                 {booking.checkCount > 0 && <span className="check-count"> ({booking.checkCount}x)</span>}
               </p>
             )}
+            <p className="results-disclaimer">{t('detail.verifyDisclaimer')}</p>
 
             {(() => {
               const results = booking.latestResults || [];
@@ -542,6 +543,9 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                         </span>
                         <div>
                           <div className="result-source-name">{result.source}</div>
+                          {result.roomType && (
+                            <div className="result-room-type">{result.roomType}</div>
+                          )}
                           <div className="result-perks">
                             {result.freeCancellation && (
                               <span className="result-perk green">{t('detail.freeCancellation')}</span>
@@ -583,7 +587,14 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                             )}
                           </>
                         ) : (
-                          <span className="result-no-savings">{t('detail.noSavings')}</span>
+                          <span className="result-no-savings">
+                            {{
+                              different_room: t('detail.differentRoom'),
+                              different_cancellation: t('detail.differentCancellation'),
+                              different_hotel: t('detail.differentHotel'),
+                              untrusted_source: t('detail.untrustedSource'),
+                            }[result.notComparableReason] || t('detail.noSavings')}
+                          </span>
                         )}
                       </div>
                     </div>

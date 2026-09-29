@@ -360,6 +360,13 @@
 .results-updated {
   font-size: 13px;
   color: var(--tl-text-muted);
+  margin-bottom: 4px;
+}
+
+.results-disclaimer {
+  font-size: 12px;
+  color: var(--tl-text-muted);
+  font-style: italic;
   margin-bottom: 20px;
 }
 
@@ -406,6 +413,12 @@
   font-weight: 500;
   font-size: 16px;
   color: var(--tl-text-dark);
+}
+
+.result-room-type {
+  font-size: 13px;
+  color: var(--tl-text-muted);
+  margin-top: 2px;
 }
 
 .result-perks {

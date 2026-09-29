@@ -84,6 +84,20 @@ export default function bookingRoutes({
       if (originalPriceFloat < 10) priceWarnings.push('price_too_low');
       if (originalPriceFloat > 50000) priceWarnings.push('price_unusually_high');
 
+      // priceHistory's first point must be a stay TOTAL like every later point
+      // (applyBestResult in index.js always pushes bestMatch.totalPrice) — a
+      // per-night entry sitting next to total-priced entries makes the chart
+      // and the "Price Comparison" cards read as if the rate roughly doubled
+      // overnight, when the two numbers were never the same unit. Same
+      // conversion applyBestResult/searchRealPrices already apply everywhere
+      // else this booking's original price feeds a comparison.
+      const stayNights = Math.max(1, Math.round(
+        (new Date(checkoutDate) - new Date(checkinDate)) / (1000 * 60 * 60 * 24)
+      ));
+      const originalPriceTotal = rateType === 'per_night'
+        ? originalPriceFloat * stayNights
+        : originalPriceFloat;
+
       const booking = {
         id,
         hotelName,
@@ -140,7 +154,7 @@ export default function bookingRoutes({
         priceHistory: [
           {
             date: new Date().toISOString(),
-            price: originalPriceFloat,
+            price: originalPriceTotal,
             source: 'Reserva Original',
           },
         ],
