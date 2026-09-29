@@ -19,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   isRoomTypeCompatible,
+  roomTypeNotComparableReason,
   isRefundabilityCompatible,
   bookingIsRefundable,
   parseGoogleHotelsResults,
@@ -43,6 +44,22 @@ test('room: known vs UNKNOWN is NOT comparable (the regression)', () => {
 
 test('room: both unknown is comparable (nothing distinguishes them)', () => {
   assert.equal(isRoomTypeCompatible('', ''), true);
+});
+
+// roomTypeNotComparableReason must not claim a CONFIRMED mismatch ("different
+// room type") when the real reason is that one side's room type was never
+// reported — that's the common case (most OTA search results carry no
+// per-room breakdown), and telling the guest "different room type" implies a
+// verified fact we don't actually have.
+test('reason: both categories known and differing is a genuine "different room"', () => {
+  assert.equal(roomTypeNotComparableReason('Deluxe Room', 'Junior Suite'), 'different_room');
+  assert.equal(roomTypeNotComparableReason('Suite', 'Standard Room'), 'different_room');
+});
+
+test('reason: either side unknown is "room type unknown", not a confirmed mismatch', () => {
+  assert.equal(roomTypeNotComparableReason('Deluxe Room, Balcony (or Terrace)', ''), 'room_type_unknown');
+  assert.equal(roomTypeNotComparableReason('', 'Deluxe Room'), 'room_type_unknown');
+  assert.equal(roomTypeNotComparableReason('', ''), 'room_type_unknown');
 });
 
 // ── Refundability ───────────────────────────────────────────────────
@@ -105,6 +122,7 @@ test('a cheaper rate with NO room info is shown but claims no saving', () => {
   assert.equal(r.roomTypeMatch, false);
   assert.equal(r.hasDrop, false, 'must not claim a drop on an unverified room');
   assert.equal(r.savings, 0);
+  assert.equal(r.notComparableReason, 'room_type_unknown', 'no room data at all, not a confirmed mismatch');
 });
 
 test('a cheaper rate on the SAME room with free cancellation does claim a saving', () => {

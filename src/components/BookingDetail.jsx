@@ -590,6 +590,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                           <span className="result-no-savings">
                             {{
                               different_room: t('detail.differentRoom'),
+                              room_type_unknown: t('detail.roomTypeUnknown'),
                               different_cancellation: t('detail.differentCancellation'),
                               different_hotel: t('detail.differentHotel'),
                               untrusted_source: t('detail.untrustedSource'),

@@ -490,7 +490,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
       // non-refundable rate, or a different room, is a different product).
       const notComparableReason = validComparison ? null
         : !isMatch ? 'different_hotel'
-        : !roomTypeMatch ? 'different_room'
+        : !roomTypeMatch ? roomTypeNotComparableReason(bookingRoomType, resultRoomType)
         : !trusted ? 'untrusted_source'
         : !refundabilityMatch ? 'different_cancellation'
         : null;
@@ -607,7 +607,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     // keeps this fix from silently changing what counts as comparable.
     const notComparableReason = validComparison ? null
       : !isMatch ? 'different_hotel'
-      : !roomTypeMatch ? 'different_room'
+      : !roomTypeMatch ? roomTypeNotComparableReason(bookingRoomType, resultRoomType)
       : !refundabilityMatch ? 'different_cancellation'
       : null;
 
@@ -755,6 +755,24 @@ export function isRoomTypeCompatible(roomTypeA, roomTypeB) {
 
   // Both unknown — nothing distinguishes them; treat as comparable.
   return true;
+}
+
+/**
+ * When isRoomTypeCompatible(a, b) is false, say WHY: either we positively
+ * know the two rooms differ (both categories known, and they disagree), or
+ * we simply never got a room type for one side (Google/most OTA search
+ * results omit it unless a room-level breakdown was returned) and can't
+ * verify either way. Collapsing these into one "different room type" label
+ * told the user we'd confirmed a mismatch that in the common case — no
+ * per-room data at all — we never actually checked.
+ */
+export function roomTypeNotComparableReason(roomTypeA, roomTypeB) {
+  const catA = normalizeRoomType(roomTypeA);
+  const catB = normalizeRoomType(roomTypeB);
+  if (catA === ROOM_TYPE_CATEGORIES.OTHER || catB === ROOM_TYPE_CATEGORIES.OTHER) {
+    return 'room_type_unknown';
+  }
+  return 'different_room';
 }
 
 // ── Source Trust Filtering ──────────────────────────────────────────
