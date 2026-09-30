@@ -840,14 +840,22 @@ async function applyBestResult(booking, results) {
         console.error('[applyBestResult] Failed to log activity:', err.message);
       }
     } else {
-      // Results exist but none are fully comparable (refundability mismatch)
+      // Results exist but none are fully comparable (refundability mismatch).
+      // "Different cancellation policy" implies we confirmed a downgrade —
+      // true only when a source actually reported non-refundable terms. Most
+      // of the time the source just never said either way (freeCancellation
+      // is null, not false), which isn't a mismatch we verified, so say that
+      // instead of a fact we don't have.
       console.log(`[applyBestResult] ${comparableMatches.length} room-matched results but none pass refundability check — no savings claimed`);
       if (!booking.alerts) booking.alerts = [];
+      const cancellationKnownWorse = comparableMatches.some(r => r.freeCancellation === false);
       booking.alerts.push({
         id: generateId(),
         date: new Date().toISOString(),
         type: 'price_check',
-        message: '🔍 Prices found but not comparable (different cancellation policy)',
+        message: cancellationKnownWorse
+          ? '🔍 Prices found but not comparable (different cancellation policy)'
+          : '🔍 Prices found but cancellation terms not shown by these sources',
         savings: 0,
       });
     }

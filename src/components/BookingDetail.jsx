@@ -128,6 +128,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
       guestName: booking.guestName || '',
       notes: booking.notes || '',
       rateType: booking.rateType || 'total',
+      cancellationPolicy: booking.cancellationPolicy || 'free_cancellation',
     });
     setEditing(true);
   };
@@ -441,6 +442,13 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                       <option value="per_night">{t('submit.perNight')}</option>
                     </select>
                   </div>
+                  <div className="info-row">
+                    <span className="info-label">{t('detail.cancellationPolicy')}</span>
+                    <select className="edit-input" value={editForm.cancellationPolicy} onChange={e => handleEditChange('cancellationPolicy', e.target.value)}>
+                      <option value="free_cancellation">{t('detail.refundable')}</option>
+                      <option value="non_refundable">{t('detail.nonRefundable')}</option>
+                    </select>
+                  </div>
                   <div className="info-row info-row-notes">
                     <span className="info-label">{t('detail.notes')}</span>
                     <textarea className="edit-textarea" value={editForm.notes} onChange={e => handleEditChange('notes', e.target.value)} rows={2} placeholder={t('detail.notesPlaceholder')} />
@@ -457,6 +465,11 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                   {booking.rateType && booking.rateType !== 'total' && (
                     <InfoRow label={t('detail.rateType')} value={
                       booking.rateType === 'per_night' ? t('submit.perNight') : booking.rateType
+                    } />
+                  )}
+                  {booking.cancellationPolicy && (
+                    <InfoRow label={t('detail.cancellationPolicy')} value={
+                      booking.cancellationPolicy === 'non_refundable' ? t('detail.nonRefundable') : t('detail.refundable')
                     } />
                   )}
                   <div className="info-row">
@@ -592,6 +605,7 @@ function BookingDetail({ booking, onBack, onRefresh, onUpdate, bookingState, onC
                               different_room: t('detail.differentRoom'),
                               room_type_unknown: t('detail.roomTypeUnknown'),
                               different_cancellation: t('detail.differentCancellation'),
+                              cancellation_unknown: t('detail.cancellationUnknown'),
                               different_hotel: t('detail.differentHotel'),
                               untrusted_source: t('detail.untrustedSource'),
                             }[result.notComparableReason] || t('detail.noSavings')}

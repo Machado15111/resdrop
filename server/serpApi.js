@@ -382,6 +382,18 @@ export function isRefundabilityCompatible(bookingRefundable, resultRefundable) {
   return bookingRefundable === false;
 }
 
+/**
+ * When isRefundabilityCompatible is false, say WHY — same split as
+ * roomTypeNotComparableReason above. "resultRefundable is null" (the vendor
+ * never told Google/SerpApi its cancellation terms) and "resultRefundable is
+ * confirmed false, worse than the guest's own policy" were both being called
+ * 'different_cancellation', which told the guest we'd verified a downgrade we
+ * may never have actually checked.
+ */
+export function cancellationNotComparableReason(resultRefundable) {
+  return resultRefundable == null ? 'cancellation_unknown' : 'different_cancellation';
+}
+
 // Every quote MUST carry the currency its amounts are actually denominated in.
 // Google Hotels returns amounts in whatever currency the request asked for, so
 // the request currency IS the quote currency. Without this stamp the UI fell
@@ -492,7 +504,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
         : !isMatch ? 'different_hotel'
         : !roomTypeMatch ? roomTypeNotComparableReason(bookingRoomType, resultRoomType)
         : !trusted ? 'untrusted_source'
-        : !refundabilityMatch ? 'different_cancellation'
+        : !refundabilityMatch ? cancellationNotComparableReason(freeCancellation)
         : null;
 
       results.push({
@@ -608,7 +620,7 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     const notComparableReason = validComparison ? null
       : !isMatch ? 'different_hotel'
       : !roomTypeMatch ? roomTypeNotComparableReason(bookingRoomType, resultRoomType)
-      : !refundabilityMatch ? 'different_cancellation'
+      : !refundabilityMatch ? cancellationNotComparableReason(freeCancellation)
       : null;
 
     results.push({

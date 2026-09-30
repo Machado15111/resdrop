@@ -21,6 +21,7 @@ import {
   isRoomTypeCompatible,
   roomTypeNotComparableReason,
   isRefundabilityCompatible,
+  cancellationNotComparableReason,
   bookingIsRefundable,
   parseGoogleHotelsResults,
 } from './serpApi.js';
@@ -90,6 +91,18 @@ test('refundability: a non-refundable rate needs a non-refundable booking', () =
   assert.equal(isRefundabilityCompatible(null, false), false);
 });
 
+// cancellationNotComparableReason must not claim a CONFIRMED downgrade
+// ("different cancellation policy") when the real reason is that the vendor
+// never reported its cancellation terms at all — same honesty rule as
+// roomTypeNotComparableReason above.
+test('reason: vendor policy unknown is "cancellation unknown", not a confirmed mismatch', () => {
+  assert.equal(cancellationNotComparableReason(null), 'cancellation_unknown');
+});
+
+test('reason: vendor confirmed non-refundable is a genuine "different cancellation"', () => {
+  assert.equal(cancellationNotComparableReason(false), 'different_cancellation');
+});
+
 // ── End to end through the parser ───────────────────────────────────
 const deluxeBooking = {
   hotelName: 'Hôtel Juliana Cannes',
@@ -142,6 +155,7 @@ test('same room but UNSTATED cancellation policy claims no saving', () => {
   assert.ok(r, 'still shown');
   assert.equal(r.freeCancellation, null, 'unknown, not a confirmed "no"');
   assert.equal(r.hasDrop, false);
+  assert.equal(r.notComparableReason, 'cancellation_unknown', 'never reported, not a confirmed downgrade');
 });
 
 test('same room but explicitly NON-refundable claims no saving', () => {
@@ -151,4 +165,5 @@ test('same room but explicitly NON-refundable claims no saving', () => {
   assert.ok(r);
   assert.equal(r.freeCancellation, false);
   assert.equal(r.hasDrop, false);
+  assert.equal(r.notComparableReason, 'different_cancellation', 'confirmed non-refundable vs. the refundable booking');
 });
