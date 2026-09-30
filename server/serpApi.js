@@ -446,8 +446,12 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
     }
     const allPrices = [...bySource.values()];
     // Diagnostic: log every raw vendor Google returned, before any filtering,
-    // so we can see from the logs why a vendor may be missing.
-    console.log(`[SerpApi] Detail "${hotelName}" raw vendors: [${allPrices.map(p => `${p.source}${p.official ? '*' : ''}=${p.total_rate?.extracted_lowest || p.rate_per_night?.extracted_lowest || '?'}`).join(', ')}]`);
+    // so we can see from the logs why a vendor may be missing. Room count is
+    // included because "room type not shown" in the UI is ambiguous from the
+    // outside — this says whether Google gave that vendor NO room breakdown
+    // at all (rooms:0, a data-availability limit we can't fix) versus a
+    // breakdown pickRoomRate then failed to match (rooms:N>0, a real bug).
+    console.log(`[SerpApi] Detail "${hotelName}" raw vendors: [${allPrices.map(p => `${p.source}${p.official ? '*' : ''}=${p.total_rate?.extracted_lowest || p.rate_per_night?.extracted_lowest || '?'} rooms:${roomCount(p)}`).join(', ')}]`);
     for (const p of allPrices) {
       const sourceName = p.source || 'Unknown';
 
@@ -456,6 +460,12 @@ export function parseGoogleHotelsResults(data, originalPrice, booking, quoteCurr
       // which stays flagged as non-comparable further down.
       const matchedRoom = pickRoomRate(p, bookingRoomType);
       const priced = matchedRoom || p;
+      // A vendor that HAD a rooms[] breakdown but still didn't match is a
+      // naming/matching problem worth fixing; one with no rooms[] at all
+      // never had a chance, and no code change here would help.
+      if (!matchedRoom && Array.isArray(p.rooms) && p.rooms.length > 0) {
+        console.log(`[SerpApi] "${sourceName}" had ${p.rooms.length} room(s) but none matched "${bookingRoomType}": [${p.rooms.map(r => r?.name).join(' | ')}]`);
+      }
 
       const tax = extractTaxRates(priced, stayNights);
       const perNight = tax.perNight;
